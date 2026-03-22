@@ -1,0 +1,30 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: ja_JP.UTF-8
+  keyboard:
+    layout: jp
+  network:
+    network:
+      version: 2
+      ethernets:
+        ens18:
+          dhcp4: true
+  storage:
+    layout:
+      name: direct
+  identity:
+    hostname: ubuntu-template
+    username: ubuntu
+    password: "$6$rounds=4096$CHANGE_ME"  # openssl passwd -6 でハッシュ生成
+  ssh:
+    install-server: true
+    authorized-keys:
+      - "${ssh_public_key}"
+    allow-pw: false
+  packages:
+    - qemu-guest-agent
+    - curl
+    - git
+  late-commands:
+    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu

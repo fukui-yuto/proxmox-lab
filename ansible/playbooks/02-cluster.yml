@@ -1,0 +1,33 @@
+---
+# Proxmox クラスター構築 + QDevice 設定
+- name: クラスター作成 (node01 のみ)
+  hosts: pve-node01
+  tasks:
+    - name: クラスターが存在しない場合のみ作成
+      command: pvecm create {{ pve_cluster_name }}
+      args:
+        creates: /etc/corosync/corosync.conf
+
+- name: node02 をクラスターに参加
+  hosts: pve-node02
+  tasks:
+    - name: クラスター参加済みか確認
+      command: pvecm status
+      register: cluster_status
+      failed_when: false
+      changed_when: false
+
+    - name: クラスターに参加 (未参加の場合)
+      command: >
+        pvecm add 192.168.210.11
+        --use_ssh
+        --fingerprint {{ hostvars['pve-node01']['cluster_fingerprint'] | default('') }}
+      when: "'homelab' not in cluster_status.stdout"
+
+- name: QDevice セットアップ (node01 から実行)
+  hosts: pve-node01
+  tasks:
+    - name: QDevice を追加
+      command: pvecm qdevice setup {{ pve_qdevice_ip }}
+      args:
+        creates: /etc/corosync/qdevice

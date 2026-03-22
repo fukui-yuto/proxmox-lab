@@ -1,0 +1,43 @@
+---
+# Linux Bridge + VLAN サブインターフェース設定
+- name: ネットワーク設定
+  hosts: proxmox
+  tasks:
+    - name: /etc/network/interfaces を設定
+      copy:
+        dest: /etc/network/interfaces
+        content: |
+          auto lo
+          iface lo inet loopback
+
+          # 物理 NIC
+          auto eth0
+          iface eth0 inet manual
+
+          # 管理用ブリッジ (VLAN1 / 192.168.210.0/24)
+          auto vmbr0
+          iface vmbr0 inet static
+              address {{ ansible_host }}/24
+              gateway 192.168.210.254
+              bridge-ports eth0
+              bridge-stp off
+              bridge-fd 0
+              bridge-vlan-aware yes
+
+          # VM 通信用 (VLAN10 / 192.168.211.0/24)
+          auto vmbr0.10
+          iface vmbr0.10 inet manual
+              vlan-raw-device vmbr0
+
+          # ストレージ / レプリケーション用 (VLAN20 / 192.168.212.0/24)
+          auto vmbr0.20
+          iface vmbr0.20 inet static
+              address {{ storage_ip }}/24
+              vlan-raw-device vmbr0
+      vars:
+        storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' }}"
+      notify: restart networking
+
+  handlers:
+    - name: restart networking
+      command: ifreload -a

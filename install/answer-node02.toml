@@ -1,0 +1,27 @@
+[global]
+keyboard = "ja"
+country = "jp"
+fqdn = "pve-node02.local"
+mailto = "admin@example.com"
+timezone = "Asia/Tokyo"
+root_password = "CHANGE_ME"
+root_ssh_keys = [
+  "ssh-ed25519 AAAA... your-public-key-here"
+]
+
+[network]
+source = "from-answer"
+cidr = "192.168.210.12/24"
+dns = "192.168.210.254"
+gateway = "192.168.210.254"
+filter = { "net0/mac" = "f4:4d:30:6c:67:ef" }
+
+[disk-setup]
+filesystem = "ext4"
+# mSATA SSD のデバイス名 (要確認: /dev/sda or /dev/nvme0n1)
+disk_list = ["/dev/sda"]
+hdsize = 32
+
+[post-installation-webhook]
+url = "http://192.168.210.55/webhook/done"
+verify-certificates = false

@@ -1,0 +1,40 @@
+---
+# 全ノード共通の基本設定
+- name: Proxmox ベース設定
+  hosts: proxmox
+  tasks:
+    - name: Enterprise リポジトリを無効化 (サブスクリプションなし)
+      file:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        state: absent
+
+    - name: No-subscription リポジトリを追加
+      copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.list
+        content: "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription\n"
+
+    - name: パッケージ更新
+      apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: SSH パスワード認証を無効化
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify: restart sshd
+
+    - name: /etc/hosts にノードを追加
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.210.11 pve-node01.local pve-node01
+          192.168.210.12 pve-node02.local pve-node02
+          192.168.210.55 rasberrypi5
+
+  handlers:
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted

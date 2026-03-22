@@ -1,0 +1,26 @@
+# Claude Code メモリ
+.claude/
+
+# シークレット・パスワード
+*.tfvars
+*.tfvars.json
+.env
+secrets/
+
+# Terraform ステート
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+
+# Ansible 一時ファイル
+ansible/inventory/group_vars/all/vault.yml
+*.retry
+
+# Proxmox ISO (大容量)
+/srv/
+*.iso
+
+# その他
+.DS_Store
+__pycache__/
