@@ -66,7 +66,7 @@ cd ~/proxmox-lab
 
 ---
 
-## 4. answer.toml の編集
+## 4. answer.toml の編集 (手動必須)
 
 NUC に Proxmox を無人インストールするための設定ファイルを編集する。
 **node01 と node02 それぞれ**編集すること。
@@ -79,11 +79,11 @@ nano ~/proxmox-lab/install/answer-node01.toml
 
 編集箇所:
 
-| 項目 | 設定値 |
-|------|--------|
-| `root_password` | 任意の root パスワードに変更 |
-| `root_ssh_keys` | 手順2で確認した公開鍵を貼り付け |
-| `disk_list` | NUC の mSATA デバイス名 (後述) |
+| 項目 | 設定値 | 自動化 |
+|------|--------|--------|
+| `root_password` | 任意の root パスワードに変更 | 手動 |
+| `root_ssh_keys` | — | `setup.sh` が自動注入 |
+| `disk_list` | NUC の mSATA デバイス名 (後述) | 手動 |
 
 ```toml
 root_password = "ここを変更"
@@ -328,6 +328,60 @@ terraform apply \
 | k3s-worker01 | pve-node01 | 192.168.211.22 |
 | k3s-worker02 | pve-node02 | 192.168.211.23 |
 | dns-ct (Pi-hole) | pve-node01 | 192.168.210.53 |
+
+---
+
+## 10. Proxmox Replication の設定 (手動・VM 作成後)
+
+VM をデプロイした後、Proxmox Web UI から Replication を設定する。
+これにより node01 ↔ node02 間で ZFS スナップショットが定期同期される。
+
+1. `https://192.168.210.11:8006` にアクセス
+2. 対象 VM を選択 → **Replication** タブ
+3. **Add** をクリックして以下を設定する
+
+| 項目 | 設定値 |
+|------|--------|
+| Target | もう一方のノード (pve-node02 等) |
+| Schedule | `*/15` (15分ごと) |
+| Rate limit | 空欄 (無制限) |
+
+---
+
+## 11. Terraform 用シークレットファイルの作成 (手動)
+
+`terraform.tfvars` はパスワードを含むため Git 管理外。初回のみ手動で作成する。
+
+```bash
+cd ~/proxmox-lab/terraform
+cp terraform.tfvars.example terraform.tfvars
+nano terraform.tfvars
+```
+
+編集内容:
+
+```hcl
+proxmox_password = "Proxmox の root パスワード"
+ssh_public_key   = "ssh-ed25519 AAAA..."  # cat ~/.ssh/id_ed25519.pub
+ct_root_password = "LXC コンテナの root パスワード"
+```
+
+---
+
+## 12. Packer 用パスワードハッシュの生成 (手動)
+
+`packer/http/user-data.yml` の Ubuntu ユーザーパスワードはハッシュ形式で記述する。
+
+```bash
+# ハッシュを生成して出力
+openssl passwd -6 "任意のパスワード"
+```
+
+出力されたハッシュを `user-data.yml` の該当箇所に貼り付ける:
+
+```yaml
+password: "$6$rounds=4096$xxxxxx..."  # ← ここに貼り付け
+```
 
 ---
 

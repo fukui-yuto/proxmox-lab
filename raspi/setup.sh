@@ -51,9 +51,19 @@ cp -r "$HTTP_ROOT/iso/boot/grub" "$TFTP_ROOT/"
 echo "=== grub PXE 設定コピー ==="
 cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
 
-echo "=== answer.toml を配信ディレクトリにコピー ==="
-cp "$(dirname "$0")/../install/answer-node01.toml" "$HTTP_ROOT/answer/node01.toml"
-cp "$(dirname "$0")/../install/answer-node02.toml" "$HTTP_ROOT/answer/node02.toml"
+echo "=== answer.toml に SSH 公開鍵を自動注入して配信ディレクトリにコピー ==="
+SSH_PUBKEY=$(cat /home/"${SUDO_USER:-$USER}"/.ssh/id_ed25519.pub 2>/dev/null || cat ~/.ssh/id_ed25519.pub)
+if [ -z "$SSH_PUBKEY" ]; then
+  echo "ERROR: ~/.ssh/id_ed25519.pub が見つかりません。先に ssh-keygen を実行してください。"
+  exit 1
+fi
+for NODE in node01 node02; do
+  ANSWER_SRC="$(dirname "$0")/../install/answer-${NODE}.toml"
+  ANSWER_DST="$HTTP_ROOT/answer/${NODE}.toml"
+  # ssh_keys の行を実際の公開鍵で置き換え
+  sed "s|ssh-ed25519 AAAA... your-public-key-here|${SSH_PUBKEY}|g" "$ANSWER_SRC" > "$ANSWER_DST"
+  echo "  → $ANSWER_DST に公開鍵を注入しました"
+done
 
 echo "=== corosync-qnetd 有効化 ==="
 systemctl enable --now corosync-qnetd
@@ -61,6 +71,7 @@ systemctl enable --now corosync-qnetd
 echo ""
 echo "=== セットアップ完了 ==="
 echo "次のステップ:"
-echo "  1. raspi/install/answer-node01.toml の MAC アドレスを NUC の MAC に書き換える"
-echo "  2. NUC を PXE ブートで起動する"
-echo "  3. インストール完了後: cd ansible && ansible-playbook playbooks/site.yml"
+echo "  1. install/answer-*.toml の root_password を確認・変更する"
+echo "  2. NUC の BIOS で Network Boot (PXE) を最優先に設定する"
+echo "  3. NUC を起動する → Proxmox が自動インストールされる"
+echo "  4. インストール完了後: cd ~/proxmox-lab/ansible && ansible-playbook -i inventory/hosts.yml playbooks/site.yml"

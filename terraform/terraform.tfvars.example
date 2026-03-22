@@ -1,0 +1,9 @@
+# このファイルをコピーして terraform.tfvars を作成し、実際の値を入力する
+# cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars は .gitignore に含まれているためコミットされない
+
+proxmox_password   = "Proxmox の root パスワード"
+ssh_public_key     = "ssh-ed25519 AAAA..."  # cat ~/.ssh/id_ed25519.pub の出力
+ct_root_password   = "LXC コンテナの root パスワード"
+ubuntu_template_id = 9000
