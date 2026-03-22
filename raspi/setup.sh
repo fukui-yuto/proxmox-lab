@@ -69,8 +69,9 @@ echo "=== grubx64.efi をビルド (PXE 用・プレフィックス固定) ==="
 # → ルーターの siaddr に引きずられず Raspberry Pi を TFTP サーバーとして使用できる
 GRUB_DEB="/tmp/grub-efi-amd64-bin.deb"
 if [ ! -s "$GRUB_DEB" ]; then
-  wget -O "$GRUB_DEB" \
-    "http://archive.ubuntu.com/ubuntu/pool/main/g/grub2/grub-efi-amd64-bin_2.12-1ubuntu7_amd64.deb"
+  GRUB_PKG=$(curl -s "http://archive.ubuntu.com/ubuntu/pool/main/g/grub2/" \
+    | grep -o 'grub-efi-amd64-bin_[^"]*_amd64\.deb' | sort -V | tail -1)
+  wget -O "$GRUB_DEB" "http://archive.ubuntu.com/ubuntu/pool/main/g/grub2/${GRUB_PKG}"
 fi
 dpkg-deb -x "$GRUB_DEB" /tmp/grub-efi-amd64
 
