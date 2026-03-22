@@ -90,9 +90,8 @@ echo "=== initrd にネットワーク取得パッチを適用 ==="
 bash "$(dirname "$0")/patch-initrd.sh"
 
 echo "=== iPXE EFI バイナリ取得 ==="
-if [ ! -s "$TFTP_ROOT/ipxe.efi" ]; then
-  wget -O "$TFTP_ROOT/ipxe.efi" "https://boot.ipxe.org/ipxe.efi"
-fi
+apt-get install -y ipxe
+cp /usr/lib/ipxe/ipxe.efi "$TFTP_ROOT/ipxe.efi"
 
 echo "=== iPXE ブートスクリプト配置 ==="
 cp "$(dirname "$0")/ipxe/boot.ipxe" "$HTTP_ROOT/boot.ipxe"
