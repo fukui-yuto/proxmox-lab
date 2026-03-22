@@ -60,7 +60,7 @@ ssh-ed25519 AAAA... homelab
 ## 3. リポジトリのクローン
 
 ```bash
-git clone https://github.com/<your-username>/proxmox-lab.git ~/proxmox-lab
+git clone https://github.com/fukui-yuto/proxmox-lab.git ~/proxmox-lab
 cd ~/proxmox-lab
 ```
 
