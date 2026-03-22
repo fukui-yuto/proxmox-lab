@@ -4,7 +4,7 @@ country = "jp"
 fqdn = "pve-node01.local"
 mailto = "admin@example.com"
 timezone = "Asia/Tokyo"
-root_password = "CHANGE_ME"
+root_password = "proxmox"
 root_ssh_keys = [
   "ssh-ed25519 AAAA... your-public-key-here"
 ]
