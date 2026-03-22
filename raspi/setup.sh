@@ -86,6 +86,9 @@ grub-mkimage \
   regexp search search_fs_uuid serial sleep terminal \
   test tftp video
 
+echo "=== initrd にネットワーク取得パッチを適用 ==="
+bash "$(dirname "$0")/patch-initrd.sh"
+
 echo "=== grub PXE 設定コピー ==="
 cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
 
