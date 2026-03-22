@@ -22,7 +22,7 @@ apt-get install -y \
   curl \
   gnupg \
   software-properties-common \
-  p7zip-full \
+  rsync \
   git
 
 echo "=== HashiCorp リポジトリ追加 (terraform / packer) ==="
@@ -54,8 +54,11 @@ if [ ! -s "/tmp/$PVE_ISO_NAME" ]; then
   rm -f "/tmp/$PVE_ISO_NAME"
   wget -O "/tmp/$PVE_ISO_NAME" "$PVE_ISO_URL"
 fi
-7z x "/tmp/$PVE_ISO_NAME" -o"$HTTP_ROOT/iso" -y
-cp -r "$HTTP_ROOT/iso/boot/grub" "$TFTP_ROOT/"
+mkdir -p /mnt/pve-iso
+mount -o loop "/tmp/$PVE_ISO_NAME" /mnt/pve-iso
+rsync -a /mnt/pve-iso/ "$HTTP_ROOT/iso/"
+cp -r /mnt/pve-iso/boot/grub "$TFTP_ROOT/"
+umount /mnt/pve-iso
 
 echo "=== grub PXE 設定コピー ==="
 cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
