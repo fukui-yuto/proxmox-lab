@@ -35,25 +35,29 @@ sudo apt-get update && sudo apt-get upgrade -y
 
 ---
 
-## 2. SSH 鍵の生成・配置
+## 2. SSH 鍵の確認
 
-Raspberry Pi 上で SSH 鍵ペアを生成する。
-この鍵を NUC (Proxmox) と Ansible の接続に使用する。
+Raspberry Pi 上の SSH 鍵を NUC (Proxmox) と Ansible の接続に使用する。
+
+既に `id_ed25519` が存在するか確認する。
 
 ```bash
-ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/id_ed25519
+ls ~/.ssh/id_ed25519.pub
 ```
 
-公開鍵を確認しておく（後で `answer.toml` に貼り付ける）。
+**存在する場合はそのまま使用する。** 公開鍵の内容だけ確認しておく。
 
 ```bash
 cat ~/.ssh/id_ed25519.pub
 ```
 
-出力例:
+**存在しない場合のみ**新規生成する。
+
+```bash
+ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/id_ed25519
 ```
-ssh-ed25519 AAAA... homelab
-```
+
+> `setup.sh` 実行時に `~/.ssh/id_ed25519.pub` を自動で `answer.toml` に注入するため、内容をコピペする必要はない。
 
 ---
 
