@@ -11,18 +11,26 @@ PVE_ISO_NAME="proxmox-ve.iso"
 TFTP_ROOT="/srv/tftp"
 HTTP_ROOT="/srv/pxe"
 
-echo "=== パッケージインストール ==="
+echo "=== 基本パッケージインストール ==="
 apt-get update
 apt-get install -y \
   dnsmasq \
   nginx \
   ansible \
-  terraform \
-  packer \
   corosync-qnetd \
   wget \
+  curl \
+  gnupg \
+  software-properties-common \
   p7zip-full \
   git
+
+echo "=== HashiCorp リポジトリ追加 (terraform / packer) ==="
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+  > /etc/apt/sources.list.d/hashicorp.list
+apt-get update
+apt-get install -y terraform packer
 
 echo "=== ディレクトリ作成 ==="
 mkdir -p "$TFTP_ROOT"/{grub,pxelinux.cfg}
