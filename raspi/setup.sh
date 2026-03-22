@@ -23,7 +23,8 @@ apt-get install -y \
   gnupg \
   software-properties-common \
   rsync \
-  git
+  git \
+  grub-common
 
 echo "=== HashiCorp リポジトリ追加 (terraform / packer) ==="
 wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor --yes -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
@@ -61,12 +62,28 @@ rsync -a /mnt/pve-iso/ "$HTTP_ROOT/iso/"
 # grub モジュール・設定をコピー
 cp -r /mnt/pve-iso/boot/grub/* "$TFTP_ROOT/grub/"
 
-# grubx64.efi は efi.img の中にある
-mount -o loop /mnt/pve-iso/efi.img /mnt/pve-efi
-cp /mnt/pve-efi/efi/boot/grubx64.efi "$TFTP_ROOT/grub/"
-umount /mnt/pve-efi
-
 umount /mnt/pve-iso
+
+echo "=== grubx64.efi をビルド (PXE 用・プレフィックス固定) ==="
+# amd64 grub モジュールを取得して grub-mkimage でビルド
+# → ルーターの siaddr に引きずられず Raspberry Pi を TFTP サーバーとして使用できる
+GRUB_DEB="/tmp/grub-efi-amd64-bin.deb"
+if [ ! -s "$GRUB_DEB" ]; then
+  wget -O "$GRUB_DEB" \
+    "http://archive.ubuntu.com/ubuntu/pool/main/g/grub2/grub-efi-amd64-bin_2.12-1ubuntu7_amd64.deb"
+fi
+dpkg-deb -x "$GRUB_DEB" /tmp/grub-efi-amd64
+
+grub-mkimage \
+  --format=x86_64-efi \
+  --output="$TFTP_ROOT/grub/grubx64.efi" \
+  --prefix="(tftp,$RASPI_IP)/grub" \
+  --directory=/tmp/grub-efi-amd64/usr/lib/grub/x86_64-efi \
+  all_video boot chain configfile echo efinet \
+  fat font gzio halt http iso9660 linux loadenv \
+  loopback net normal part_gpt part_msdos reboot \
+  regexp search search_fs_uuid serial sleep terminal \
+  test tftp video
 
 echo "=== grub PXE 設定コピー ==="
 cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
