@@ -5,7 +5,8 @@
 set -euo pipefail
 
 RASPI_IP="192.168.210.55"
-PVE_ISO_URL="https://enterprise.proxmox.com/iso/proxmox-ve_8.3-1.iso"  # 最新版に変更すること
+# Proxmox VE ISO: 最新版は https://www.proxmox.com/en/downloads で確認
+PVE_ISO_URL="https://enterprise.proxmox.com/iso/proxmox-ve_8.3-1.iso"
 PVE_ISO_NAME="proxmox-ve.iso"
 TFTP_ROOT="/srv/tftp"
 HTTP_ROOT="/srv/pxe"
