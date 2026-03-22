@@ -50,7 +50,8 @@ systemctl restart nginx
 systemctl enable nginx
 
 echo "=== Proxmox ISO ダウンロード・展開 ==="
-if [ ! -f "/tmp/$PVE_ISO_NAME" ]; then
+if [ ! -s "/tmp/$PVE_ISO_NAME" ]; then
+  rm -f "/tmp/$PVE_ISO_NAME"
   wget -O "/tmp/$PVE_ISO_NAME" "$PVE_ISO_URL"
 fi
 7z x "/tmp/$PVE_ISO_NAME" -o"$HTTP_ROOT/iso" -y
