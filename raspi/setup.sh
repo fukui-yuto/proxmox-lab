@@ -89,8 +89,13 @@ grub-mkimage \
 echo "=== initrd にネットワーク取得パッチを適用 ==="
 bash "$(dirname "$0")/patch-initrd.sh"
 
-echo "=== grub PXE 設定コピー ==="
-cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
+echo "=== iPXE EFI バイナリ取得 ==="
+if [ ! -s "$TFTP_ROOT/ipxe.efi" ]; then
+  wget -O "$TFTP_ROOT/ipxe.efi" "https://boot.ipxe.org/ipxe.efi"
+fi
+
+echo "=== iPXE ブートスクリプト配置 ==="
+cp "$(dirname "$0")/ipxe/boot.ipxe" "$HTTP_ROOT/boot.ipxe"
 
 echo "=== answer.toml に SSH 公開鍵を自動注入して配信ディレクトリにコピー ==="
 SSH_PUBKEY=$(cat /home/"${SUDO_USER:-$USER}"/.ssh/id_ed25519.pub 2>/dev/null || cat ~/.ssh/id_ed25519.pub)
