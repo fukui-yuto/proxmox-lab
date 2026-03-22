@@ -10,6 +10,6 @@ echo Booting Proxmox VE 8 Auto Install...
 echo MAC: ${net0/mac}
 echo Answer: ${answer_url}
 
-kernel http://192.168.210.55/iso/boot/linux26 ro ramdisk_size=16777216 rw quiet splash=silent proxmox-start-auto-installer proxmox-answer-file=${answer_url}
+kernel http://192.168.210.55/iso/boot/linux26 ro ramdisk_size=16777216 rw proxmox-start-auto-installer proxmox-answer-file=${answer_url}
 initrd http://192.168.210.55/iso/boot/initrd-pxe.img
 boot
