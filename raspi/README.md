@@ -132,6 +132,14 @@ cd ~/proxmox-lab
 sudo bash raspi/setup.sh
 ```
 
+### 設定変更後の更新 (2回目以降)
+
+リポジトリを更新して PXE 設定だけ反映させたい場合はワンライナーで実行できる。
+
+```bash
+bash ~/proxmox-lab/raspi/update.sh
+```
+
 スクリプトが行う処理:
 
 - `dnsmasq` のインストール・PXE 設定の適用
