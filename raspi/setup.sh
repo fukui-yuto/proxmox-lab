@@ -50,6 +50,10 @@ cp -r "$HTTP_ROOT/iso/boot/grub" "$TFTP_ROOT/"
 echo "=== grub PXE 設定コピー ==="
 cp "$(dirname "$0")/grub/grub.cfg" "$TFTP_ROOT/grub/grub.cfg"
 
+echo "=== answer.toml を配信ディレクトリにコピー ==="
+cp "$(dirname "$0")/../install/answer-node01.toml" "$HTTP_ROOT/answer/node01.toml"
+cp "$(dirname "$0")/../install/answer-node02.toml" "$HTTP_ROOT/answer/node02.toml"
+
 echo "=== corosync-qnetd 有効化 ==="
 systemctl enable --now corosync-qnetd
 

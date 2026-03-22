@@ -133,9 +133,15 @@ sudo bash raspi/setup.sh
 - `dnsmasq` のインストール・PXE 設定の適用
 - `nginx` のインストール・ファイル配信設定の適用
 - Proxmox VE ISO のダウンロードと展開 (`/srv/pxe/iso/`)
-- answer.toml の配信ディレクトリへのコピー
+- `install/answer-*.toml` を `/srv/pxe/answer/` にコピー
 - `corosync-qnetd` の有効化
 - `ansible`, `terraform`, `packer` のインストール
+
+> **注意**: setup.sh 実行後に answer.toml を再編集した場合は、手動で再コピーすること。
+> ```bash
+> sudo cp ~/proxmox-lab/install/answer-node01.toml /srv/pxe/answer/node01.toml
+> sudo cp ~/proxmox-lab/install/answer-node02.toml /srv/pxe/answer/node02.toml
+> ```
 
 > 所要時間: ISO ダウンロード込みで 10〜20 分程度
 
