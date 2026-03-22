@@ -54,10 +54,18 @@ if [ ! -s "/tmp/$PVE_ISO_NAME" ]; then
   rm -f "/tmp/$PVE_ISO_NAME"
   wget -O "/tmp/$PVE_ISO_NAME" "$PVE_ISO_URL"
 fi
-mkdir -p /mnt/pve-iso
+mkdir -p /mnt/pve-iso /mnt/pve-efi
 mount -o loop "/tmp/$PVE_ISO_NAME" /mnt/pve-iso
 rsync -a /mnt/pve-iso/ "$HTTP_ROOT/iso/"
-cp -r /mnt/pve-iso/boot/grub "$TFTP_ROOT/"
+
+# grub モジュール・設定をコピー
+cp -r /mnt/pve-iso/boot/grub/* "$TFTP_ROOT/grub/"
+
+# grubx64.efi は efi.img の中にある
+mount -o loop /mnt/pve-iso/efi.img /mnt/pve-efi
+cp /mnt/pve-efi/efi/boot/grubx64.efi "$TFTP_ROOT/grub/"
+umount /mnt/pve-efi
+
 umount /mnt/pve-iso
 
 echo "=== grub PXE 設定コピー ==="
