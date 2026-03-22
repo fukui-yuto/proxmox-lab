@@ -28,15 +28,16 @@ for _param in $(cat /proc/cmdline); do
 done
 if [ -n "$FETCH_URL" ]; then
     echo "PXE ブート検出: ISO を取得します..."
-    # ネットワークインターフェースを起動
+    # ネットワークインターフェースを起動してリンク確立を待つ
     for _iface in $(ls /sys/class/net/ | grep -v lo); do
         ip link set "$_iface" up 2>/dev/null || true
     done
+    echo "ネットワークリンク待機中..."
+    sleep 5
     # IP アドレスがなければ DHCP で取得
     for _iface in $(ls /sys/class/net/ | grep -v lo | head -1); do
-        if ! ip addr show "$_iface" 2>/dev/null | grep -q "inet "; then
-            udhcpc -i "$_iface" -t 10 -n -q 2>/dev/null || true
-        fi
+        echo "DHCP 取得中: $_iface"
+        udhcpc -i "$_iface" -t 15 -n 2>&1 || true
     done
     echo "ISO ダウンロード中: $FETCH_URL"
     wget -O /proxmox.iso "$FETCH_URL"
