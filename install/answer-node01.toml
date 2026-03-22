@@ -23,5 +23,5 @@ disk_list = ["/dev/sda"]
 hdsize = 32
 
 [post-installation-webhook]
-url = "http://192.168.210.55/webhook/done"
+url = "http://192.168.210.55:9000/webhook/done/f44d30692b78"
 verify-certificates = false

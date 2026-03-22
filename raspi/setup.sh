@@ -103,6 +103,13 @@ for NODE in node01 node02; do
   echo "  → $ANSWER_DST に公開鍵を注入しました"
 done
 
+echo "=== webhook サーバーのセットアップ ==="
+mkdir -p /opt/webhook
+cp "$(dirname "$0")/webhook.py" /opt/webhook/webhook.py
+cp "$(dirname "$0")/webhook.service" /etc/systemd/system/webhook.service
+systemctl daemon-reload
+systemctl enable --now webhook
+
 echo "=== corosync-qnetd 有効化 ==="
 systemctl enable --now corosync-qnetd
 
