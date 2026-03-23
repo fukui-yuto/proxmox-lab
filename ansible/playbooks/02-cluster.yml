@@ -44,6 +44,15 @@
 - name: QDevice ホスト (RaspberryPi) の準備
   hosts: pve-node01
   tasks:
+    - name: corosync-qdevice を全ノードにインストール
+      apt:
+        name: corosync-qdevice
+        state: present
+      delegate_to: "{{ item }}"
+      loop:
+        - pve-node01
+        - pve-node02
+
     - name: node01 の SSH 公開鍵を取得
       slurp:
         src: /root/.ssh/id_rsa.pub
@@ -68,10 +77,28 @@
         state: restarted
       delegate_to: localhost
 
+    - name: QDevice の設定状態を確認
+      command: pvecm status
+      register: qdevice_status
+      changed_when: false
+      failed_when: false
+
+    - name: 前回失敗時の nssdb を RaspberryPi 上でクリア
+      file:
+        path: /etc/corosync/qnetd/nssdb
+        state: absent
+      delegate_to: localhost
+      when: "'QDevice' not in qdevice_status.stdout"
+
 - name: QDevice セットアップ (node01 から実行)
   hosts: pve-node01
   tasks:
+    - name: QDevice の設定状態を確認
+      command: pvecm status
+      register: qdevice_status
+      changed_when: false
+      failed_when: false
+
     - name: QDevice を追加
       command: pvecm qdevice setup {{ pve_qdevice_ip }}
-      args:
-        creates: /etc/corosync/qdevice
+      when: "'QDevice' not in qdevice_status.stdout"
