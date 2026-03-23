@@ -18,7 +18,7 @@ variable "ubuntu_template_id" {
 variable "debian_ct_template" {
   description = "Debian LXC テンプレートのストレージパス"
   type        = string
-  default     = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+  default     = "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
 }
 
 variable "ct_root_password" {

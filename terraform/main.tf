@@ -108,7 +108,7 @@ resource "proxmox_virtual_environment_download_file" "debian_ct_template" {
   node_name    = "pve-node01"
   content_type = "vztmpl"
   datastore_id = "local"
-  url          = "http://download.proxmox.com/images/system/debian-12-standard_12.7-1_amd64.tar.zst"
+  url          = "http://download.proxmox.com/images/system/debian-12-standard_12.12-1_amd64.tar.zst"
 }
 
 # Pi-hole DNS (LXC コンテナ)
