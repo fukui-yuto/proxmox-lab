@@ -11,15 +11,15 @@
           iface lo inet loopback
 
           # 物理 NIC
-          auto eth0
-          iface eth0 inet manual
+          auto nic0
+          iface nic0 inet manual
 
           # 管理用ブリッジ (VLAN1 / 192.168.210.0/24)
           auto vmbr0
           iface vmbr0 inet static
               address {{ ansible_host }}/24
               gateway 192.168.210.254
-              bridge-ports eth0
+              bridge-ports nic0
               bridge-stp off
               bridge-fd 0
               bridge-vlan-aware yes
