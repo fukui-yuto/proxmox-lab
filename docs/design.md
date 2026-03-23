@@ -161,9 +161,9 @@ HA グループ: homelab-ha
 |------|------|------|-----|------|
 | router-vm | VM (Alpine) | 1 | 512MB | ソフトウェアルーター (VyOS / pfSense 検討) |
 | dns-ct | LXC | 1 | 256MB | Pi-hole (広告ブロック / 内部 DNS) |
-| k3s-master | VM (Ubuntu) | 2 | 2GB | k3s マスターノード |
-| k3s-worker01 | VM (Ubuntu) | 2 | 2GB | k3s ワーカー |
-| k3s-worker02 | VM (Ubuntu) | 2 | 2GB | k3s ワーカー |
+| k3s-master | VM (Ubuntu) | 1 | 1GB | k3s マスターノード |
+| k3s-worker01 | VM (Ubuntu) | 1 | 1GB | k3s ワーカー |
+| k3s-worker02 | VM (Ubuntu) | 1 | 1GB | k3s ワーカー |
 | monitoring | LXC | 1 | 512MB | Prometheus + Grafana |
 | pbs | VM (Debian) | 1 | 1GB | Proxmox Backup Server |
 
