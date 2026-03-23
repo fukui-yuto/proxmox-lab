@@ -103,14 +103,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 }
 
-# Debian LXC テンプレートのダウンロード
-resource "proxmox_virtual_environment_download_file" "debian_ct_template" {
-  node_name    = "pve-node01"
-  content_type = "vztmpl"
-  datastore_id = "local"
-  url          = "http://download.proxmox.com/images/system/debian-12-standard_12.12-1_amd64.tar.zst"
-}
-
 # Pi-hole DNS (LXC コンテナ)
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
@@ -150,7 +142,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
   }
 
   operating_system {
-    template_file_id = proxmox_virtual_environment_download_file.debian_ct_template.id
+    template_file_id = var.debian_ct_template
     type             = "debian"
   }
 }
