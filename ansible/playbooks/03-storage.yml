@@ -2,16 +2,12 @@
 # ZFS プール作成 + Proxmox ストレージ登録
 - name: ZFS ストレージ設定
   hosts: proxmox
-  vars:
-    # 各ノードのデータ用 SSD デバイス (要確認)
-    zfs_data_disk: /dev/sdb
-
   tasks:
     - name: ZFS プールが存在しない場合のみ作成
       command: zpool create -f data {{ zfs_data_disk }}
       args:
         creates: /data
-      register: zpool_create
+      when: zfs_data_disk != ""
 
     - name: ZFS ストレージを Proxmox に登録
       command: >
@@ -19,6 +15,7 @@
         --pool data
         --content images,rootdir
       failed_when: false
+      when: zfs_data_disk != ""
 
 - name: Proxmox Replication 設定 (node01 から)
   hosts: pve-node01
