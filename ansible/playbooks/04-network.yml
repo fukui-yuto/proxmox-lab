@@ -22,7 +22,6 @@
               bridge-ports nic0
               bridge-stp off
               bridge-fd 0
-              bridge-vlan-aware yes
 
           # VM 通信用 (VLAN10 / 192.168.211.0/24)
           auto vmbr0.10
