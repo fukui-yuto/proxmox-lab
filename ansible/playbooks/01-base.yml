@@ -3,11 +3,12 @@
 - name: Proxmox ベース設定
   hosts: proxmox
   tasks:
-    - name: Enterprise リポジトリを含む全 .list ファイルをコメントアウト
+    - name: Enterprise リポジトリを無効化 (全フォーマット対応)
       shell: |
-        find /etc/apt/sources.list.d/ -name "*.list" \
-          -exec grep -l "enterprise.proxmox.com" {} \; \
-          | xargs -r sed -i 's|^deb |#deb |g'
+        grep -rl "enterprise.proxmox.com" /etc/apt/ 2>/dev/null | \
+        xargs -r sed -i \
+          -e 's|^deb |#deb |g' \
+          -e 's|^Types:|#Types:|g'
       changed_when: false
 
     - name: No-subscription リポジトリを追加
