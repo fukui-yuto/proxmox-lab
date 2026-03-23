@@ -54,10 +54,12 @@ source "proxmox-iso" "ubuntu-2404" {
     })
   }
 
+  boot_wait = "5s"
+
   boot_command = [
-    "<spacebar><wait>",
-    "linux /casper/vmlinuz --- autoinstall ds='nocloud-net;s=http://{{.HTTPIP}}:{{.HTTPPort}}/'<enter><wait>",
-    "initrd /casper/initrd<enter><wait>",
+    "c<wait3>",
+    "linux /casper/vmlinuz autoinstall ds='nocloud-net;s=http://{{.HTTPIP}}:{{.HTTPPort}}/' ---<enter><wait5>",
+    "initrd /casper/initrd<enter><wait5>",
     "boot<enter>"
   ]
 
