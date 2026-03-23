@@ -3,15 +3,12 @@
 - name: Proxmox ベース設定
   hosts: proxmox
   tasks:
-    - name: PVE Enterprise リポジトリを無効化 (サブスクリプションなし)
-      file:
-        path: /etc/apt/sources.list.d/pve-enterprise.list
-        state: absent
-
-    - name: Ceph Enterprise リポジトリを無効化
-      file:
-        path: /etc/apt/sources.list.d/ceph.list
-        state: absent
+    - name: Enterprise リポジトリを含む全 .list ファイルをコメントアウト
+      shell: |
+        find /etc/apt/sources.list.d/ -name "*.list" \
+          -exec grep -l "enterprise.proxmox.com" {} \; \
+          | xargs -r sed -i 's|^deb |#deb |g'
+      changed_when: false
 
     - name: No-subscription リポジトリを追加
       copy:
