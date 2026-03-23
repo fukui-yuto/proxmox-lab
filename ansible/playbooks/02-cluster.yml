@@ -77,28 +77,26 @@
         state: restarted
       delegate_to: localhost
 
-    - name: QDevice の設定状態を確認
-      command: pvecm status
-      register: qdevice_status
-      changed_when: false
-      failed_when: false
+    - name: QDevice 設定済みか確認
+      stat:
+        path: /etc/corosync/qdevice
+      register: qdevice_dir
 
     - name: 前回失敗時の nssdb を RaspberryPi 上でクリア
       file:
         path: /etc/corosync/qnetd/nssdb
         state: absent
       delegate_to: localhost
-      when: "'QDevice' not in qdevice_status.stdout"
+      when: not qdevice_dir.stat.exists
 
 - name: QDevice セットアップ (node01 から実行)
   hosts: pve-node01
   tasks:
-    - name: QDevice の設定状態を確認
-      command: pvecm status
-      register: qdevice_status
-      changed_when: false
-      failed_when: false
+    - name: QDevice 設定済みか確認
+      stat:
+        path: /etc/corosync/qdevice
+      register: qdevice_dir
 
     - name: QDevice を追加
       command: pvecm qdevice setup {{ pve_qdevice_ip }}
-      when: "'QDevice' not in qdevice_status.stdout"
+      when: not qdevice_dir.stat.exists
