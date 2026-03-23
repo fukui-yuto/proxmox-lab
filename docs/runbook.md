@@ -8,14 +8,13 @@
 ## 目次
 
 1. [事前準備](#1-事前準備)
-2. [SSH 鍵の生成・配置](#2-ssh-鍵の生成配置)
+2. [SSH 鍵の確認](#2-ssh-鍵の確認)
 3. [リポジトリのクローン](#3-リポジトリのクローン)
-4. [answer.toml の編集](#4-answertoml-の編集)
-5. [セットアップスクリプトの実行](#5-セットアップスクリプトの実行)
-6. [動作確認](#6-動作確認)
-7. [NUC の PXE インストール](#7-nuc-の-pxe-インストール)
-8. [Ansible によるクラスター構築](#8-ansible-によるクラスター構築)
-9. [Terraform による VM デプロイ](#9-terraform-による-vm-デプロイ)
+4. [セットアップスクリプトの実行](#4-セットアップスクリプトの実行)
+5. [動作確認](#5-動作確認)
+6. [NUC への Proxmox VE 手動インストール (USB ブート)](#6-nuc-への-proxmox-ve-手動インストール-usb-ブート)
+7. [Ansible によるクラスター構築](#7-ansible-によるクラスター構築)
+8. [Terraform による VM デプロイ](#8-terraform-による-vm-デプロイ)
 
 ---
 
@@ -57,7 +56,7 @@ cat ~/.ssh/id_ed25519.pub
 ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/id_ed25519
 ```
 
-> `setup.sh` 実行時に `~/.ssh/id_ed25519.pub` を自動で `answer.toml` に注入するため、内容をコピペする必要はない。
+> 公開鍵はセクション6-5で各 NUC に `ssh-copy-id` で登録する。
 
 ---
 
@@ -70,179 +69,118 @@ cd ~/proxmox-lab
 
 ---
 
-## 4. answer.toml の編集 (手動必須)
-
-NUC に Proxmox を無人インストールするための設定ファイルを編集する。
-**node01 と node02 それぞれ**編集すること。
-
-### node01
-
-```bash
-nano ~/proxmox-lab/install/answer-node01.toml
-```
-
-編集箇所:
-
-| 項目 | 設定値 | 自動化 |
-|------|--------|--------|
-| `root_password` | 任意の root パスワードに変更 | 手動 |
-| `root_ssh_keys` | — | `setup.sh` が自動注入 |
-| `disk_list` | NUC の mSATA デバイス名 (後述) | 手動 |
-
-```toml
-root_password = "ここを変更"
-root_ssh_keys = [
-  "ssh-ed25519 AAAA...  ← 手順2の公開鍵をここに貼り付け"
-]
-```
-
-### node02
-
-```bash
-nano ~/proxmox-lab/install/answer-node02.toml
-```
-
-`root_password` と `root_ssh_keys` を node01 と同じ値に変更する。
-
-### mSATA デバイス名の確認方法
-
-NUC に Ubuntu Live USB などを挿して起動し、以下を実行する。
-
-```bash
-lsblk -d -o NAME,SIZE,TYPE
-```
-
-出力例:
-```
-NAME   SIZE TYPE
-sda     32G disk   ← mSATA (OS インストール先)
-sdb    256G disk   ← 2.5" SSD (データ用)
-```
-
-`disk_list` には mSATA のデバイス (`/dev/sda` など) を指定する。
-
----
-
-## 5. セットアップスクリプトの実行
+## 4. セットアップスクリプトの実行
 
 以下のコマンドで必要なサービスを一括インストール・設定する。
 
 ```bash
 cd ~/proxmox-lab
-sudo bash raspi/setup.sh
-```
-
-### 設定変更後の更新 (2回目以降)
-
-リポジトリを更新して PXE 設定だけ反映させたい場合はワンライナーで実行できる。
-
-```bash
-bash ~/proxmox-lab/raspi/update.sh
+sudo bash scripts/raspi-setup.sh
 ```
 
 スクリプトが行う処理:
 
-- `dnsmasq` のインストール・PXE 設定の適用
-- `nginx` のインストール・ファイル配信設定の適用
-- Proxmox VE ISO のダウンロードと展開 (`/srv/pxe/iso/`)
-- `install/answer-*.toml` を `/srv/pxe/answer/` にコピー
-- `corosync-qnetd` の有効化
+- `corosync-qnetd` のインストール・有効化
 - `ansible`, `terraform`, `packer` のインストール
 
-> **注意**: setup.sh 実行後に answer.toml を再編集した場合は、手動で再コピーすること。
-> ```bash
-> sudo cp ~/proxmox-lab/install/answer-node01.toml /srv/pxe/answer/node01.toml
-> sudo cp ~/proxmox-lab/install/answer-node02.toml /srv/pxe/answer/node02.toml
-> ```
+> 所要時間: 約 5 分
 
-> 所要時間: ISO ダウンロード込みで 10〜20 分程度
-
-完了後、各サービスの状態を確認する。
+完了後、サービスの状態を確認する。
 
 ```bash
-sudo systemctl status dnsmasq
-sudo systemctl status nginx
 sudo systemctl status corosync-qnetd
 ```
 
-すべて `active (running)` になっていれば OK。
+`active (running)` になっていれば OK。
 
 ---
 
-## 6. 動作確認
+## 5. 動作確認
 
-### PXE ファイル配信確認
-
-このPC のブラウザで以下にアクセスし、ファイル一覧が表示されることを確認する。
-
-```
-http://192.168.210.55/iso/
-http://192.168.210.55/answer/
-```
-
-### answer.toml 確認
+### corosync-qnetd 確認
 
 ```bash
-curl http://192.168.210.55/answer/node01.toml
-curl http://192.168.210.55/answer/node02.toml
+sudo systemctl status corosync-qnetd
 ```
 
-内容が表示されれば OK。
-
-### dnsmasq ログ確認
-
-NUC を起動したときに PXE リクエストが来ているか確認する。
+### Ansible 疎通確認 (NUC インストール後に実施)
 
 ```bash
-sudo journalctl -u dnsmasq -f
+cd ~/proxmox-lab/ansible
+ansible -i inventory/hosts.yml proxmox -m ping
 ```
+
+両ノードから `pong` が返れば OK。
 
 ---
 
-## 7. NUC の PXE インストール
+## 6. NUC への Proxmox VE 手動インストール (USB ブート)
 
-### BIOS 設定 (NUC 2台とも)
+### 6-1. USB インストールメディアの作成 (このPC で実施)
 
-1. NUC の電源を入れ `F2` を連打して BIOS に入る
-2. **Boot Order** で `Network Boot (LAN)` を最優先に設定
+1. Proxmox VE の ISO を公式サイトからダウンロードする
+   `https://www.proxmox.com/en/downloads` → **Proxmox VE 8.x ISO Installer**
+
+2. [Rufus](https://rufus.ie/) または [Balena Etcher](https://etcher.balena.io/) で ISO を USB メモリに書き込む
+   - Rufus の場合: パーティションスキーム = **GPT**、ターゲットシステム = **UEFI (CSM なし)**
+
+### 6-2. BIOS 設定 (NUC 2台とも)
+
+1. NUC に USB メモリを挿した状態で電源を入れ、`F2` を連打して BIOS に入る
+2. **Boot Order** で `USB` を最優先に設定（Network Boot は無効にしてよい）
 3. **Advanced → Boot → UEFI Boot** が有効になっていることを確認
 4. 設定を保存して再起動 (`F10`)
 
-### インストール実行
+### 6-3. インストール手順 (各 NUC で実施)
 
-NUC の電源を入れると自動的に以下が進む。
+1. USB から起動すると Proxmox VE インストーラーが立ち上がる
+2. **Install Proxmox VE (Graphical)** を選択
+3. 使用許諾に同意して **Next**
+4. **Target Harddisk**: mSATA SSD を選択 (通常 `/dev/sda`)
+5. **Country / Timezone / Keyboard**: Japan / Asia/Tokyo / Japanese
+6. **Password & Email**: root パスワードを設定、メールは適当でよい
+7. **Network Configuration**:
 
-```
-NUC 起動
-  └─ PXE ブート (dnsmasq が IP を払い出し)
-       └─ GRUB が MAC アドレスを識別
-            └─ answer.toml を取得
-                 └─ Proxmox VE 自動インストール開始
-                      └─ インストール完了 → 自動再起動
-```
+   | 項目 | node01 | node02 |
+   |------|--------|--------|
+   | Management Interface | enp0s25 等 (有線 NIC) | 同左 |
+   | Hostname (FQDN) | `pve-node01.local` | `pve-node02.local` |
+   | IP Address | `192.168.210.11/24` | `192.168.210.12/24` |
+   | Gateway | `192.168.210.254` | `192.168.210.254` |
+   | DNS | `192.168.210.254` | `192.168.210.254` |
 
-> 所要時間: 約 5〜10 分
+8. 内容を確認して **Install** → インストール完了後、USB を抜いて再起動
 
-### インストール完了確認
+### 6-4. インストール完了確認
 
-Raspberry Pi 側でログを確認する。
-
-```bash
-sudo tail -f /var/log/nginx/pxe-done.log
-```
-
-`POST /webhook/done` が記録されれば完了。
-
-このPCのブラウザで Proxmox Web UI にアクセスできることを確認する。
+このPC のブラウザで Proxmox Web UI にアクセスできることを確認する。
 
 ```
 https://192.168.210.11:8006   ← node01
 https://192.168.210.12:8006   ← node02
 ```
 
+ログイン: `root` / 手順 7-3 で設定したパスワード
+
+### 6-5. SSH 公開鍵の登録 (Raspberry Pi から実施)
+
+Ansible が SSH で接続できるよう、各ノードに Raspberry Pi の公開鍵を登録する。
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.210.11
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.210.12
+```
+
+接続確認:
+
+```bash
+ssh root@192.168.210.11 hostname
+ssh root@192.168.210.12 hostname
+```
+
 ---
 
-## 8. Ansible によるクラスター構築
+## 7. Ansible によるクラスター構築
 
 インストール完了後、Raspberry Pi から Ansible を実行してクラスターを自動構築する。
 
@@ -302,7 +240,7 @@ Quorum:           2
 
 ---
 
-## 9. Terraform による VM デプロイ
+## 8. Terraform による VM デプロイ
 
 ### Packer で Ubuntu テンプレートをビルド
 
@@ -399,11 +337,11 @@ password: "$6$rounds=4096$xxxxxx..."  # ← ここに貼り付け
 
 ## トラブルシューティング
 
-### PXE ブートしない場合
+### Proxmox インストーラーが起動しない場合
 
-- NUC の BIOS で Network Boot が有効か確認
-- `sudo journalctl -u dnsmasq -f` でリクエストが届いているか確認
-- ルーターの DHCP と競合していないか確認
+- BIOS で USB Boot が有効か確認 (F2 → Boot Order)
+- Rufus で書き込む場合: パーティションスキームを **GPT**、ターゲットシステムを **UEFI** に設定
+- USB メモリを別のポートに挿し替えてみる
 
 ### Ansible が接続できない場合
 
