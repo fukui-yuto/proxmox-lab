@@ -164,18 +164,22 @@ https://192.168.210.12:8006   ← node02
 
 ### 6-5. SSH 公開鍵の登録 (Raspberry Pi から実施)
 
-Ansible が SSH で接続できるよう、各ノードに Raspberry Pi の公開鍵を登録する。
+Ansible が SSH で接続できるよう、bootstrap playbook で自動登録する。
 
 ```bash
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.210.11
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@192.168.210.12
+cd ~/proxmox-lab/ansible
+
+# sshpass が必要 (初回のみ)
+apt install sshpass
+
+# PVE の root パスワードを入力して SSH 鍵を配布
+ansible-playbook playbooks/00-bootstrap.yml -k
 ```
 
 接続確認:
 
 ```bash
-ssh root@192.168.210.11 hostname
-ssh root@192.168.210.12 hostname
+ansible -i inventory/hosts.yml proxmox -m ping
 ```
 
 ---
@@ -257,6 +261,21 @@ packer build \
 
 完了すると Proxmox 上に VM ID `9000` のテンプレートが作成される。
 
+### Debian LXC テンプレートの事前ダウンロード
+
+DNS が不安定な場合は Raspberry Pi 経由で手動ダウンロードする。
+
+```bash
+# Raspberry Pi でダウンロード
+wget -O /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
+  http://117.120.5.24/images/system/debian-12-standard_12.12-1_amd64.tar.zst \
+  --header "Host: download.proxmox.com"
+
+# node01 にコピー
+scp /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
+  root@192.168.210.11:/var/lib/vz/template/cache/
+```
+
 ### Terraform で VM/CT を作成
 
 ```bash
@@ -276,8 +295,10 @@ terraform apply \
 |---------|--------|-----|
 | k3s-master | pve-node01 | 192.168.211.21 |
 | k3s-worker01 | pve-node01 | 192.168.211.22 |
-| k3s-worker02 | pve-node02 | 192.168.211.23 |
+| k3s-worker02 | pve-node01 | 192.168.211.23 |
 | dns-ct (Pi-hole) | pve-node01 | 192.168.210.53 |
+
+> **注意**: node02 にはデータディスクがないため全 VM は pve-node01 に配置。
 
 ---
 
