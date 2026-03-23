@@ -58,11 +58,11 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 }
 
-# k3s ワーカー × 2
+# k3s ワーカー × 2 (テンプレートとZFSがnode01のみのため両方node01に配置)
 resource "proxmox_virtual_environment_vm" "k3s_worker" {
   count     = 2
   name      = "k3s-worker0${count.index + 1}"
-  node_name = count.index == 0 ? "pve-node01" : "pve-node02"
+  node_name = "pve-node01"
   vm_id     = 202 + count.index
 
   clone {
@@ -84,7 +84,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 
   disk {
-    datastore_id = count.index == 0 ? "data-pve-node01" : "data-pve-node02"
+    datastore_id = "data-pve-node01"
     size         = 20
     interface    = "virtio0"
   }
@@ -101,6 +101,14 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
       keys     = [var.ssh_public_key]
     }
   }
+}
+
+# Debian LXC テンプレートのダウンロード
+resource "proxmox_virtual_environment_download_file" "debian_ct_template" {
+  node_name    = "pve-node01"
+  content_type = "vztmpl"
+  datastore_id = "local"
+  url          = "http://download.proxmox.com/images/system/debian-12-standard_12.7-1_amd64.tar.zst"
 }
 
 # Pi-hole DNS (LXC コンテナ)
@@ -142,7 +150,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
   }
 
   operating_system {
-    template_file_id = var.debian_ct_template
+    template_file_id = proxmox_virtual_environment_download_file.debian_ct_template.id
     type             = "debian"
   }
 }
