@@ -22,9 +22,12 @@ source "proxmox-iso" "ubuntu-2404" {
   vm_id                    = var.template_vm_id
   vm_name                  = "ubuntu-2404-template"
 
-  iso_url          = "https://releases.ubuntu.com/24.04/ubuntu-24.04.2-live-server-amd64.iso"
-  iso_checksum     = "file:https://releases.ubuntu.com/24.04/SHA256SUMS"
-  iso_storage_pool = "local"
+  boot_iso {
+    iso_url          = "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-live-server-amd64.iso"
+    iso_checksum     = "file:https://releases.ubuntu.com/24.04/SHA256SUMS"
+    iso_storage_pool = "local"
+    unmount          = true
+  }
 
   cores  = 2
   memory = 2048
