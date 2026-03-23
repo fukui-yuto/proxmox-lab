@@ -41,6 +41,33 @@
       command: pvecm add 192.168.210.11 --use_ssh
       when: "'homelab' not in cluster_status.stdout"
 
+- name: QDevice ホスト (RaspberryPi) の準備
+  hosts: pve-node01
+  tasks:
+    - name: node01 の SSH 公開鍵を取得
+      slurp:
+        src: /root/.ssh/id_rsa.pub
+      register: node01_pubkey
+
+    - name: RaspberryPi の root authorized_keys に node01 の公開鍵を追加
+      authorized_key:
+        user: root
+        key: "{{ node01_pubkey.content | b64decode }}"
+      delegate_to: localhost
+
+    - name: RaspberryPi の root SSH ログインを有効化
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PermitRootLogin"
+        line: "PermitRootLogin prohibit-password"
+      delegate_to: localhost
+
+    - name: SSH サービスを再起動
+      service:
+        name: ssh
+        state: restarted
+      delegate_to: localhost
+
 - name: QDevice セットアップ (node01 から実行)
   hosts: pve-node01
   tasks:
