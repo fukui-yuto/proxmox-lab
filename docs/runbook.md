@@ -234,7 +234,7 @@ Votequorum information
 ----------------------
 Expected votes:   3
 Highest expected: 3
-Total votes:      3    ← QDevice 込みで 3 票
+Total votes:      2    ← ノード票のみ (QDevice は Membership に別枠で表示)
 Quorum:           2
 ```
 
