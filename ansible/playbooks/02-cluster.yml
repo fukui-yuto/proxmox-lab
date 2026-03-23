@@ -18,10 +18,7 @@
       changed_when: false
 
     - name: クラスターに参加 (未参加の場合)
-      command: >
-        pvecm add 192.168.210.11
-        --use_ssh
-        --fingerprint {{ hostvars['pve-node01']['cluster_fingerprint'] | default('') }}
+      command: pvecm add 192.168.210.11 --use_ssh
       when: "'homelab' not in cluster_status.stdout"
 
 - name: QDevice セットアップ (node01 から実行)
