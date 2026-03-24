@@ -7,6 +7,7 @@ minimumMasterNodes: 1
 # セキュリティ・TLS 無効 (ラボ環境)
 # Elasticsearch 8.x はデフォルトで TLS が有効なため明示的に無効化する
 protocol: http
+createCert: false
 
 esConfig:
   elasticsearch.yml: |
