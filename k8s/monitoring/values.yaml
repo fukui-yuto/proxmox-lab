@@ -48,16 +48,18 @@ grafana:
     paths:
       - /
 
-  # Elasticsearch をデータソースとして追加 (Phase 2 で有効化)
-  # additionalDataSources:
-  #   - name: Elasticsearch
-  #     type: elasticsearch
-  #     url: http://elasticsearch.elasticsearch.svc.cluster.local:9200
-  #     jsonData:
-  #       index: "fluent-bit-*"
-  #       timeField: "@timestamp"
-  #       logMessageField: log
-  #       logLevelField: level
+  # Elasticsearch データソース (Phase 2)
+  additionalDataSources:
+    - name: Elasticsearch
+      type: elasticsearch
+      url: http://elasticsearch-master.logging.svc.cluster.local:9200
+      jsonData:
+        index: "fluent-bit-*"
+        timeField: "@timestamp"
+        logMessageField: log
+        logLevelField: level
+        esVersion: "8.0.0"
+        maxConcurrentShardRequests: 5
 
 # -------------------------------------------------------------------
 # Alertmanager
