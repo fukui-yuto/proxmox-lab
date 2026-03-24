@@ -30,9 +30,13 @@
 
           # Proxmox が自動生成する VLAN10 ブリッジにホスト IP を付与
           # tap201/202/203 はこのブリッジに接続されているため、ここに IP が必要
+          # bridge-ports を明示することで再起動後も IP が保持される
           auto vmbr0v10
           iface vmbr0v10 inet static
               address {{ vlan10_ip }}/24
+              bridge-ports vmbr0.10
+              bridge-stp off
+              bridge-fd 0
 
           # ストレージ / レプリケーション用 (VLAN20 / 192.168.212.0/24)
           auto vmbr0.20
