@@ -8,6 +8,7 @@ set -euo pipefail
 NAMESPACE="logging"
 ES_VERSION="8.5.1"
 FB_CHART_VERSION="0.47.9"
+KIBANA_VERSION="8.5.1"
 
 echo "=== Helm リポジトリ追加 ==="
 helm repo add elastic https://helm.elastic.co
@@ -42,12 +43,23 @@ helm upgrade --install fluent-bit \
   --timeout 5m \
   --wait
 
+echo "=== Kibana デプロイ ==="
+helm upgrade --install kibana \
+  elastic/kibana \
+  --namespace "${NAMESPACE}" \
+  --version "${KIBANA_VERSION}" \
+  --values values-kibana.yaml \
+  --timeout 10m \
+  --wait
+
+echo "=== Ingress 適用 ==="
+kubectl apply -f elasticsearch-ingress.yaml
+kubectl apply -f kibana-ingress.yaml
+
 echo "=== デプロイ確認 ==="
 kubectl get pods -n "${NAMESPACE}"
 
 echo ""
-echo "=== 次のステップ ==="
-echo "Grafana の Elasticsearch データソースを有効化するには:"
-echo "  cd ../monitoring"
-echo "  helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \\"
-echo "    --namespace monitoring --values values.yaml"
+echo "=== アクセス情報 ==="
+echo "Elasticsearch: http://elasticsearch.homelab.local"
+echo "Kibana:        http://kibana.homelab.local"
