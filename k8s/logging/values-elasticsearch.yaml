@@ -4,11 +4,16 @@
 replicas: 1
 minimumMasterNodes: 1
 
-# セキュリティ無効 (ラボ環境)
+# セキュリティ・TLS 無効 (ラボ環境)
+# Elasticsearch 8.x はデフォルトで TLS が有効なため明示的に無効化する
+protocol: http
+
 esConfig:
   elasticsearch.yml: |
     xpack.security.enabled: false
     xpack.security.enrollment.enabled: false
+    xpack.security.http.ssl.enabled: false
+    xpack.security.transport.ssl.enabled: false
 
 resources:
   requests:

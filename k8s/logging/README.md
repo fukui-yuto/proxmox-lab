@@ -89,12 +89,14 @@ fluent-bit-xxxxx (各ノード)      1/1     Running   0
 
 # Elasticsearch クラスター状態確認
 kubectl exec -n logging elasticsearch-master-0 -- \
-  curl -s http://localhost:9200/_cluster/health | jq .
+  curl -s http://localhost:9200/_cluster/health
 
 # インデックス確認 (ログが届いていれば fluent-bit-* が表示される)
 kubectl exec -n logging elasticsearch-master-0 -- \
   curl -s http://localhost:9200/_cat/indices?v
 ```
+
+> **注意:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は `helm upgrade` で再デプロイが必要。
 
 ---
 
