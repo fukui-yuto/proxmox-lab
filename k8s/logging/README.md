@@ -96,7 +96,7 @@ kubectl exec -n logging elasticsearch-master-0 -- \
   curl -s http://localhost:9200/_cat/indices?v
 ```
 
-> **注意:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は `helm upgrade` で再デプロイが必要。
+> **注意:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `createCert: false` および `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は PVC を削除してクリーンインストールが必要。
 
 ---
 
@@ -114,5 +114,6 @@ kubectl exec -n logging elasticsearch-master-0 -- \
 ```bash
 helm uninstall fluent-bit -n logging
 helm uninstall elasticsearch -n logging
+kubectl delete pvc -n logging elasticsearch-master-elasticsearch-master-0
 kubectl delete namespace logging
 ```
