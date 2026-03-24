@@ -16,6 +16,33 @@ Grafana         ← ダッシュボード可視化 (http://grafana.homelab.local
 - `kubectl` が k3s クラスターに接続できること
 - `helm` v3 がインストールされていること
 
+### kubectl のインストール
+
+```bash
+sudo snap install kubectl --classic
+```
+
+### kubectl の kubeconfig 設定
+
+> **注意:** k3s クラスターをデプロイした後に実施する。
+
+k3s-master から kubeconfig をコピーして接続設定を行う。
+
+```bash
+# kubeconfig ディレクトリ作成
+mkdir -p ~/.kube
+
+# k3s-master から kubeconfig をコピー
+scp ubuntu@192.168.211.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+
+# アドレスを 127.0.0.1 → k3s-master の IP に書き換え
+sed -i 's/127.0.0.1/192.168.211.21/g' ~/.kube/config
+```
+
+### 接続確認
+
+> **注意:** k3s クラスターをデプロイした後に実施する。
+
 ```bash
 # kubectl 接続確認
 kubectl get nodes
