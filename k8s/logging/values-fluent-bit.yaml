@@ -45,3 +45,4 @@ config:
         tls                 Off
         tls.verify          Off
         Suppress_Type_Name  On
+        Number_of_Replicas  0
