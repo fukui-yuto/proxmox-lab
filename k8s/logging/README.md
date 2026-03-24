@@ -100,6 +100,34 @@ kubectl exec -n logging elasticsearch-master-0 -- \
 
 ---
 
+## Elasticsearch へのアクセス
+
+Ingress 経由で `elasticsearch.homelab.local` からブラウザアクセスできる。
+
+### Windows PC の hosts ファイルへの追記
+
+管理者権限の PowerShell で実行:
+
+```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.211.21  elasticsearch.homelab.local"
+```
+
+### アクセス確認
+
+| URL | 内容 |
+|---|---|
+| http://elasticsearch.homelab.local | クラスター情報 |
+| http://elasticsearch.homelab.local/_cat/indices?v | インデックス一覧 |
+| http://elasticsearch.homelab.local/_cluster/health | クラスター状態 |
+
+### Ingress の適用
+
+```bash
+kubectl apply -f elasticsearch-ingress.yaml
+```
+
+---
+
 ## Grafana でのログ確認
 
 1. `http://grafana.homelab.local` を開く
