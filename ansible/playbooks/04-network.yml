@@ -52,6 +52,17 @@
         sysctl_file: /etc/sysctl.d/99-ip-forward.conf
         reload: true
 
+    - name: ICMP リダイレクト送信を無効化
+      sysctl:
+        name: "{{ item }}"
+        value: "0"
+        state: present
+        sysctl_file: /etc/sysctl.d/99-ip-forward.conf
+        reload: true
+      loop:
+        - net.ipv4.conf.all.send_redirects
+        - net.ipv4.conf.default.send_redirects
+
     - name: iptables-persistent をインストール
       apt:
         name: iptables-persistent
