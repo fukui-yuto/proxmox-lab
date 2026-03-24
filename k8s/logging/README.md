@@ -105,7 +105,14 @@ kubectl exec -n logging elasticsearch-master-0 -- \
   curl -s http://localhost:9200/_cat/indices?v
 ```
 
-> **注意:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `createCert: false` および `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は PVC を削除してクリーンインストールが必要。
+> **注意1:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `createCert: false` および `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は PVC を削除してクリーンインストールが必要。
+
+> **注意2:** シングルノード構成では replica を配置できないため、クラスター状態が `yellow` になり readiness probe が失敗する。以下のコマンドで全インデックスの replica を 0 に設定する。
+
+```bash
+kubectl exec -n logging elasticsearch-master-0 -- \
+  curl -s -X PUT http://localhost:9200/_settings -H 'Content-Type: application/json' -d '{"index":{"number_of_replicas":0}}'
+```
 
 ---
 
