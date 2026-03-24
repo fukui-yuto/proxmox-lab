@@ -44,6 +44,14 @@
         vlan10_ip: "{{ '192.168.211.1' if inventory_hostname == 'pve-node01' else '192.168.211.2' }}"
       notify: restart networking
 
+    - name: IP フォワーディングを有効化
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        sysctl_file: /etc/sysctl.d/99-ip-forward.conf
+        reload: true
+
   handlers:
     - name: restart networking
       command: ifreload -a
