@@ -30,7 +30,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   memory {
-    dedicated = 1024
+    dedicated = 2048
   }
 
   network_device {
