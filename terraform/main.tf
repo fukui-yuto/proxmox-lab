@@ -78,7 +78,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 
   memory {
-    dedicated = 2048
+    dedicated = 4096
   }
 
   network_device {
