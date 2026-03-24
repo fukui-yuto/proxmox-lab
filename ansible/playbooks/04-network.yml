@@ -68,11 +68,21 @@
         name: iptables-persistent
         state: present
 
-    - name: VLAN10 → インターネット の NAT マスカレードを設定
+    - name: 古い MASQUERADE ルール (宛先制限なし) を削除
       iptables:
         table: nat
         chain: POSTROUTING
         source: 192.168.211.0/24
+        out_interface: vmbr0
+        jump: MASQUERADE
+        state: absent
+
+    - name: VLAN10 → インターネット の NAT マスカレードを設定 (管理NW宛を除外)
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 192.168.211.0/24
+        destination: "! 192.168.210.0/24"
         out_interface: vmbr0
         jump: MASQUERADE
       notify: save iptables
