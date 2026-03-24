@@ -79,6 +79,9 @@ helm upgrade --install kube-prometheus-stack \
   --values values.yaml \
   --timeout 10m \
   --wait
+
+# ダッシュボード ConfigMap 適用
+kubectl apply -f dashboards/
 ```
 
 ## アクセス
@@ -93,7 +96,18 @@ helm upgrade --install kube-prometheus-stack \
 
 > **注意:** 初回ログイン後に必ずパスワードを変更すること。
 
-PC の hosts ファイルに以下を追記するか、Pi-hole に DNS レコードを追加する。
+Ingress は Traefik 経由で `192.168.211.21` (k3s-master) の 80 番ポートで公開されている。
+`192.168.211.22` / `23` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
+
+#### Windows PC からのアクセス設定
+
+管理者権限の PowerShell で以下を実行する。
+
+```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.211.21  grafana.homelab.local"
+```
+
+または `C:\Windows\System32\drivers\etc\hosts` を管理者権限のエディタで開き、以下を追記する。
 
 ```
 192.168.211.21  grafana.homelab.local
@@ -111,6 +125,21 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 ```bash
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093
 # http://localhost:9093
+```
+
+## ダッシュボード
+
+`dashboards/` ディレクトリに ConfigMap として管理している。Grafana の sidecar が自動的に読み込む (`grafana_dashboard: "1"` ラベルを使用)。
+
+| ファイル | ダッシュボード名 | 内容 |
+|---|---|---|
+| `homelab-overview-cm.yaml` | Homelab Overview | 全ノードの CPU・メモリ・ディスク・ネットワーク概要 |
+| `k3s-cluster-cm.yaml` | k3s Cluster | Pod 状態・CPU/メモリ Top10・Pod 一覧テーブル |
+
+ダッシュボードを追加・更新した場合は再 apply する。
+
+```bash
+kubectl apply -f dashboards/
 ```
 
 ## 動作確認
