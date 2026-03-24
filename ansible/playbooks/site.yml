@@ -6,3 +6,4 @@
 - import_playbook: 02-cluster.yml
 - import_playbook: 03-storage.yml
 - import_playbook: 04-network.yml
+- import_playbook: 05-raspi-network.yml

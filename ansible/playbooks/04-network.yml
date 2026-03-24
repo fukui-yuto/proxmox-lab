@@ -24,8 +24,10 @@
               bridge-fd 0
 
           # VM 通信用 (VLAN10 / 192.168.211.0/24)
+          # ホストに IP を付与することで Raspberry Pi からの L3 ルーティングを可能にする
           auto vmbr0.10
-          iface vmbr0.10 inet manual
+          iface vmbr0.10 inet static
+              address {{ vlan10_ip }}/24
               vlan-raw-device vmbr0
 
           # ストレージ / レプリケーション用 (VLAN20 / 192.168.212.0/24)
@@ -35,6 +37,7 @@
               vlan-raw-device vmbr0
       vars:
         storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' }}"
+        vlan10_ip: "{{ '192.168.211.1' if inventory_hostname == 'pve-node01' else '192.168.211.2' }}"
       notify: restart networking
 
   handlers:
