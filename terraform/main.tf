@@ -45,6 +45,9 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   initialization {
+    dns {
+      servers = ["192.168.210.254", "8.8.8.8"]
+    }
     ip_config {
       ipv4 {
         address = "192.168.211.21/24"
@@ -90,6 +93,9 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 
   initialization {
+    dns {
+      servers = ["192.168.210.254", "8.8.8.8"]
+    }
     ip_config {
       ipv4 {
         address = "192.168.211.2${count.index + 2}/24"
