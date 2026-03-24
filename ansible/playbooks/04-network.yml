@@ -23,12 +23,16 @@
               bridge-stp off
               bridge-fd 0
 
-          # VM 通信用 (VLAN10 / 192.168.211.0/24)
-          # ホストに IP を付与することで Raspberry Pi からの L3 ルーティングを可能にする
+          # VM 通信用 VLAN subinterface (L2 のみ、IP なし)
           auto vmbr0.10
-          iface vmbr0.10 inet static
-              address {{ vlan10_ip }}/24
+          iface vmbr0.10 inet manual
               vlan-raw-device vmbr0
+
+          # Proxmox が自動生成する VLAN10 ブリッジにホスト IP を付与
+          # tap201/202/203 はこのブリッジに接続されているため、ここに IP が必要
+          auto vmbr0v10
+          iface vmbr0v10 inet static
+              address {{ vlan10_ip }}/24
 
           # ストレージ / レプリケーション用 (VLAN20 / 192.168.212.0/24)
           auto vmbr0.20
