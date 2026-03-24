@@ -25,6 +25,9 @@ helm upgrade --install "${RELEASE_NAME}" \
   --timeout 10m \
   --wait
 
+echo "=== ダッシュボード ConfigMap 適用 ==="
+kubectl apply -f dashboards/
+
 echo "=== デプロイ確認 ==="
 kubectl get pods -n "${NAMESPACE}"
 
