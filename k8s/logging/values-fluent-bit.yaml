@@ -34,13 +34,14 @@ config:
 
   outputs: |
     [OUTPUT]
-        Name            es
-        Match           kube.*
-        Host            elasticsearch-master.logging.svc.cluster.local
-        Port            9200
-        Logstash_Format On
-        Logstash_Prefix fluent-bit
-        Replace_Dots    On
-        Retry_Limit     False
-        tls             Off
-        tls.verify      Off
+        Name                es
+        Match               kube.*
+        Host                elasticsearch-master.logging.svc.cluster.local
+        Port                9200
+        Logstash_Format     On
+        Logstash_Prefix     fluent-bit
+        Replace_Dots        On
+        Retry_Limit         False
+        tls                 Off
+        tls.verify          Off
+        Suppress_Type_Name  On
