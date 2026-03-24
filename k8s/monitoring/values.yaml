@@ -48,7 +48,8 @@ grafana:
     paths:
       - /
 
-  # Elasticsearch データソース (Phase 2)
+  # Elasticsearch データソース (Phase 2-1)
+  # Tempo データソース (Phase 2-2)
   additionalDataSources:
     - name: Elasticsearch
       type: elasticsearch
@@ -60,6 +61,13 @@ grafana:
         logLevelField: level
         esVersion: "8.0.0"
         maxConcurrentShardRequests: 5
+    - name: Tempo
+      type: tempo
+      url: http://tempo.tracing.svc.cluster.local:3100
+      jsonData:
+        httpMethod: GET
+        serviceMap:
+          datasourceUid: prometheus
 
 # -------------------------------------------------------------------
 # Alertmanager

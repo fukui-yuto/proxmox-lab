@@ -1,0 +1,47 @@
+# OpenTelemetry Collector Helm values
+# トレースを受信して Tempo に転送する
+
+mode: deployment
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    jaeger:
+      protocols:
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+        grpc:
+          endpoint: 0.0.0.0:14250
+
+  processors:
+    batch: {}
+    memory_limiter:
+      limit_mib: 200
+      spike_limit_mib: 50
+      check_interval: 5s
+
+  exporters:
+    otlp:
+      endpoint: tempo.tracing.svc.cluster.local:4317
+      tls:
+        insecure: true
+
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp, jaeger]
+        processors: [memory_limiter, batch]
+        exporters: [otlp]
