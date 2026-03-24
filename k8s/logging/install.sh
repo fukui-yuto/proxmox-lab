@@ -8,7 +8,6 @@ set -euo pipefail
 NAMESPACE="logging"
 ES_VERSION="8.5.1"
 FB_CHART_VERSION="0.47.9"
-KIBANA_VERSION="8.5.1"
 
 echo "=== Helm リポジトリ追加 ==="
 helm repo add elastic https://helm.elastic.co
@@ -44,15 +43,7 @@ helm upgrade --install fluent-bit \
   --wait
 
 echo "=== Kibana デプロイ ==="
-helm upgrade --install kibana \
-  elastic/kibana \
-  --namespace "${NAMESPACE}" \
-  --version "${KIBANA_VERSION}" \
-  --values values-kibana.yaml \
-  --timeout 10m \
-  --wait
-
-echo "=== Ingress 適用 ==="
+kubectl apply -f kibana.yaml
 kubectl apply -f elasticsearch-ingress.yaml
 kubectl apply -f kibana-ingress.yaml
 

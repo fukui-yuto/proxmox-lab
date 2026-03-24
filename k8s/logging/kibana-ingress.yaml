@@ -13,6 +13,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: kibana-kibana
+                name: kibana
                 port:
                   number: 5601

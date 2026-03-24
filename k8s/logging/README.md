@@ -59,14 +59,8 @@ helm upgrade --install fluent-bit \
   --timeout 5m \
   --wait
 
-# Kibana デプロイ
-helm upgrade --install kibana \
-  elastic/kibana \
-  --namespace logging \
-  --version 8.5.1 \
-  --values values-kibana.yaml \
-  --timeout 10m \
-  --wait
+# Kibana デプロイ (Helm chart はセキュリティ前提のため plain Deployment を使用)
+kubectl apply -f kibana.yaml
 
 # Ingress 適用
 kubectl apply -f elasticsearch-ingress.yaml
