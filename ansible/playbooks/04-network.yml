@@ -52,6 +52,23 @@
         sysctl_file: /etc/sysctl.d/99-ip-forward.conf
         reload: true
 
+    - name: iptables-persistent をインストール
+      apt:
+        name: iptables-persistent
+        state: present
+
+    - name: VLAN10 → インターネット の NAT マスカレードを設定
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 192.168.211.0/24
+        out_interface: vmbr0
+        jump: MASQUERADE
+      notify: save iptables
+
   handlers:
     - name: restart networking
       command: ifreload -a
+
+    - name: save iptables
+      command: netfilter-persistent save
