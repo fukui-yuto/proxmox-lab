@@ -1,0 +1,64 @@
+---
+# ポリシー: 全コンテナに resource limits を必須化
+# モード: Audit (違反を記録するが拒否しない)
+# 適用対象: 全 Namespace の全 Pod
+#
+# enforcement モードに変更する場合:
+#   validationFailureAction: Enforce
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: "Resource Limits の必須化"
+    policies.kyverno.io/category: "Best Practices"
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      全コンテナに CPU・メモリの resource limits が設定されていることを確認する。
+      limits が設定されていない場合、ノードリソースを使い切る可能性がある。
+spec:
+  # Audit: 違反を記録するが拒否しない
+  # Enforce に変更すると違反した Pod の作成を拒否する
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-container-resources
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              # kube-system と kyverno は除外
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "全コンテナに resources.limits (cpu, memory) を設定してください。"
+        pattern:
+          spec:
+            containers:
+              - name: "*"
+                resources:
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+
+    - name: check-initcontainer-resources
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "全 initContainer に resources.limits (cpu, memory) を設定してください。"
+        pattern:
+          spec:
+            =(initContainers):
+              - name: "*"
+                resources:
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"

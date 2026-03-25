@@ -1,0 +1,88 @@
+# Vault Helm values
+# ラボ向けに軽量化した設定 (Standalone モード)
+# Helm chart: hashicorp/vault, version: 0.28.0
+
+# -------------------------------------------------------------------
+# グローバル設定
+# -------------------------------------------------------------------
+global:
+  enabled: true
+
+# -------------------------------------------------------------------
+# Vault サーバー設定
+# -------------------------------------------------------------------
+server:
+  # Dev モードは無効 (production モード)
+  dev:
+    enabled: false
+
+  # Standalone モードで動作 (ラボ環境向け)
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+
+      listener "tcp" {
+        tls_disable = 1
+        address     = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+
+      storage "file" {
+        path = "/vault/data"
+      }
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+  # データ永続化
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    accessMode: ReadWriteOnce
+
+  # 監査ログ保存 (任意)
+  auditStorage:
+    enabled: false
+
+  # Ingress 設定
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: vault.homelab.local
+        paths:
+          - /
+    tls: []
+
+# -------------------------------------------------------------------
+# UI 設定
+# -------------------------------------------------------------------
+ui:
+  enabled: true
+  serviceType: ClusterIP
+
+# -------------------------------------------------------------------
+# Injector (Vault Agent Sidecar Injector)
+# ラボ環境では軽量化のため最小構成に
+# -------------------------------------------------------------------
+injector:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# CSI Provider (オプション: 無効化でリソース節約)
+# -------------------------------------------------------------------
+csi:
+  enabled: false

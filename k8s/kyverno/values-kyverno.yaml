@@ -1,0 +1,59 @@
+# Kyverno Helm values
+# ラボ向けに軽量化した設定
+# Helm chart: kyverno/kyverno, version: 3.2.6
+
+# -------------------------------------------------------------------
+# Admission Controller (ポリシー評価の中核)
+# ラボ環境のためレプリカ数を 1 に設定
+# -------------------------------------------------------------------
+admissionController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# Background Controller (既存リソースへのポリシー適用)
+# -------------------------------------------------------------------
+backgroundController:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Cleanup Controller (TTL ベースのリソース削除)
+# -------------------------------------------------------------------
+cleanupController:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Reports Controller (ポリシーレポート生成)
+# -------------------------------------------------------------------
+reportsController:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Grafana ダッシュボード (monitoring と連携する場合)
+# -------------------------------------------------------------------
+grafana:
+  enabled: false  # monitoring namespace の Grafana と連携する場合は true に変更

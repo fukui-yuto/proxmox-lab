@@ -1,0 +1,70 @@
+---
+# ポリシー: latest タグのコンテナイメージを禁止
+# モード: Audit (違反を記録するが拒否しない)
+# 適用対象: 全 Namespace の全 Pod
+#
+# enforcement モードに変更する場合:
+#   validationFailureAction: Enforce
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: "latest タグの禁止"
+    policies.kyverno.io/category: "Best Practices"
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      latest タグを使用したイメージは再現性がなく、予期しない動作を引き起こす可能性がある。
+      明示的なバージョンタグ (例: nginx:1.27.0) を使用することを強制する。
+spec:
+  # Audit: 違反を記録するが拒否しない
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "latest タグの使用は禁止されています。明示的なバージョンタグを使用してください。例: nginx:1.27.0"
+        foreach:
+          - list: "request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  # タグが省略されている場合 (暗黙的に latest)
+                  - key: "{{ element.image }}"
+                    operator: NotIn
+                    value: ["*:*"]
+                  # 明示的に latest タグが指定されている場合
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"
+
+    - name: check-initcontainer-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "initContainer に latest タグの使用は禁止されています。"
+        foreach:
+          - list: "request.object.spec.=(initContainers)"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.image }}"
+                    operator: NotIn
+                    value: ["*:*"]
+                  - key: "{{ element.image }}"
+                    operator: Equals
+                    value: "*:latest"

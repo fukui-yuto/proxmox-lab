@@ -1,0 +1,58 @@
+---
+# ポリシー: app ラベルを必須化
+# モード: Audit (違反を記録するが拒否しない)
+# 適用対象: 全 Namespace の全 Pod
+#
+# enforcement モードに変更する場合:
+#   validationFailureAction: Enforce
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: "app ラベルの必須化"
+    policies.kyverno.io/category: "Best Practices"
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >-
+      全 Pod に app ラベルが設定されていることを確認する。
+      app ラベルはサービスディスカバリ・モニタリング・ネットワークポリシーで活用される。
+spec:
+  # Audit: 違反を記録するが拒否しない
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: check-app-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "Pod の metadata.labels に 'app' ラベルを設定してください。例: app: my-application"
+        pattern:
+          metadata:
+            labels:
+              app: "?*"
+
+    - name: check-deployment-app-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - "!kube-system"
+                - "!kyverno"
+      validate:
+        message: "spec.template.metadata.labels に 'app' ラベルを設定してください。"
+        pattern:
+          spec:
+            template:
+              metadata:
+                labels:
+                  app: "?*"

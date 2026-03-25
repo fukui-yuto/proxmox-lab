@@ -1,0 +1,64 @@
+# Keycloak Helm values
+# ラボ向けに軽量化した設定
+# Helm chart: bitnami/keycloak, version: 21.4.4
+
+# -------------------------------------------------------------------
+# 管理者設定
+# -------------------------------------------------------------------
+auth:
+  adminUser: admin
+  adminPassword: "Keycloak12345"
+
+# -------------------------------------------------------------------
+# Ingress 設定
+# -------------------------------------------------------------------
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hostname: keycloak.homelab.local
+  tls: false
+
+# -------------------------------------------------------------------
+# リソース設定 (ラボ向け軽量化)
+# -------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# -------------------------------------------------------------------
+# レプリカ数 (ラボ環境のため 1 に設定)
+# -------------------------------------------------------------------
+replicaCount: 1
+
+# -------------------------------------------------------------------
+# PostgreSQL 設定 (内蔵)
+# -------------------------------------------------------------------
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "keycloak-pg-secret"
+    username: keycloak
+    password: "keycloak-pg-secret"
+    database: keycloak
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+# -------------------------------------------------------------------
+# HTTP 設定 (TLS なし、Traefik が TLS 終端)
+# -------------------------------------------------------------------
+production: false
+proxy: edge
+httpRelativePath: "/"

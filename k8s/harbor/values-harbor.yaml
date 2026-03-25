@@ -1,0 +1,148 @@
+# Harbor Helm values
+# ラボ向けに軽量化した設定
+# Helm chart: harbor/harbor, version: 1.14.2
+
+# -------------------------------------------------------------------
+# 外部 URL 設定 (TLS なし)
+# -------------------------------------------------------------------
+externalURL: http://harbor.homelab.local
+
+# -------------------------------------------------------------------
+# Ingress 設定
+# -------------------------------------------------------------------
+expose:
+  type: ingress
+  tls:
+    # ラボ環境のため TLS は無効化
+    enabled: false
+  ingress:
+    hosts:
+      core: harbor.homelab.local
+    className: traefik
+    annotations:
+      # 大容量イメージのプッシュに対応するためボディサイズ制限を緩和
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+
+# -------------------------------------------------------------------
+# 管理者パスワード
+# -------------------------------------------------------------------
+harborAdminPassword: "Harbor12345"
+
+# -------------------------------------------------------------------
+# 永続化設定
+# -------------------------------------------------------------------
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      size: 10Gi
+      accessMode: ReadWriteOnce
+    jobservice:
+      jobLog:
+        size: 5Gi
+        accessMode: ReadWriteOnce
+    database:
+      size: 5Gi
+      accessMode: ReadWriteOnce
+    redis:
+      size: 5Gi
+      accessMode: ReadWriteOnce
+    trivy:
+      size: 5Gi
+      accessMode: ReadWriteOnce
+
+# -------------------------------------------------------------------
+# Core サービス
+# -------------------------------------------------------------------
+core:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+# -------------------------------------------------------------------
+# Registry
+# -------------------------------------------------------------------
+registry:
+  controller:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# Job Service
+# -------------------------------------------------------------------
+jobservice:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# Portal (Web UI)
+# -------------------------------------------------------------------
+portal:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# 内蔵 PostgreSQL
+# -------------------------------------------------------------------
+database:
+  internal:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+# -------------------------------------------------------------------
+# 内蔵 Redis
+# -------------------------------------------------------------------
+redis:
+  internal:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# -------------------------------------------------------------------
+# Trivy (脆弱性スキャン)
+# -------------------------------------------------------------------
+trivy:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi

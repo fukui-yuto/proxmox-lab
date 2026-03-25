@@ -1,0 +1,105 @@
+# Cilium Helm values
+# k3s の既存 CNI (Flannel) を置き換える設定
+# Helm chart: cilium/cilium, version: 1.15.6
+#
+# 注意: Cilium をインストールする前に k3s を --flannel-backend=none で
+# 再インストールする必要があります。README.md を参照してください。
+
+# -------------------------------------------------------------------
+# k3s 環境向け設定
+# -------------------------------------------------------------------
+# k3s は /var/lib/rancher/k3s/agent/etc/cni/net.d に CNI 設定を配置する
+cni:
+  chainingMode: "none"
+
+# k3s の kubeProxy 相当を Cilium が代替
+kubeProxyReplacement: true
+k8sServiceHost: "192.168.211.21"  # k3s-master の IP
+k8sServicePort: 6443
+
+# -------------------------------------------------------------------
+# Operator 設定 (ラボ環境のためレプリカ数を 1 に)
+# -------------------------------------------------------------------
+operator:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# Cilium エージェント リソース設定
+# -------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 300m
+    memory: 512Mi
+
+# -------------------------------------------------------------------
+# Hubble (可観測性)
+# -------------------------------------------------------------------
+hubble:
+  enabled: true
+
+  # Hubble Relay (Hubble UI / CLI からアクセスするためのプロキシ)
+  relay:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  # Hubble UI (ネットワークフロー可視化ダッシュボード)
+  ui:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+    ingress:
+      enabled: true
+      className: traefik
+      hosts:
+        - host: hubble.homelab.local
+          paths:
+            - path: /
+              pathType: Prefix
+
+  # フローのメトリクスを Prometheus に公開
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2
+
+# -------------------------------------------------------------------
+# IPAM 設定
+# -------------------------------------------------------------------
+ipam:
+  mode: "cluster-pool"
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - "10.42.0.0/16"  # k3s デフォルトの Pod CIDR に合わせる
+
+# -------------------------------------------------------------------
+# eBPF 設定
+# -------------------------------------------------------------------
+bpf:
+  masquerade: true

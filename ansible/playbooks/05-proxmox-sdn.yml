@@ -1,0 +1,140 @@
+---
+# Proxmox SDN (Software Defined Networking) 設定
+#
+# NOTE: Proxmox SDN は REST API 経由でも設定可能だが、設定が複雑なため
+#       このプレイブックは主に手順書として機能する。
+#       実際の SDN 設定は Proxmox WebUI で行うことを推奨する。
+#       詳細手順は docs/proxmox-sdn-guide.md を参照。
+#
+# 前提:
+#   - Proxmox VE 8.x
+#   - 全ノードが同一クラスターに参加していること
+#   - pvesh コマンドが使用可能であること
+
+- name: Proxmox SDN 設定
+  hosts: proxmox
+  vars:
+    # VXLAN ゾーン設定
+    sdn_zone_name: "vxlan-lab"
+    sdn_zone_type: "vxlan"
+    sdn_zone_peers: "192.168.210.11,192.168.210.12"  # Proxmox ノードの管理 IP
+
+    # VNet 設定
+    sdn_vnet_name: "vnet-lab"
+    sdn_vnet_zone: "vxlan-lab"
+    sdn_vnet_vnid: 1000  # VXLAN Network Identifier
+
+  tasks:
+    # -------------------------------------------------------------------
+    # STEP 1: Proxmox SDN パッケージの確認
+    # -------------------------------------------------------------------
+    - name: libpve-network-perl パッケージのインストール確認
+      apt:
+        name: libpve-network-perl
+        state: present
+      tags: [sdn, install]
+
+    # -------------------------------------------------------------------
+    # STEP 2: SDN が有効かどうか確認 (確認のみ)
+    # -------------------------------------------------------------------
+    - name: 現在の SDN ゾーン一覧を確認
+      command: pvesh get /cluster/sdn/zones --output-format json
+      register: sdn_zones_result
+      changed_when: false
+      failed_when: false
+      tags: [sdn, check]
+
+    - name: SDN ゾーン一覧を表示
+      debug:
+        msg: "現在の SDN ゾーン: {{ sdn_zones_result.stdout }}"
+      tags: [sdn, check]
+
+    # -------------------------------------------------------------------
+    # STEP 3: VXLAN ゾーンの作成
+    # NOTE: SDN ゾーンは全クラスターノードで共有されるため、
+    #       代表ノード (pve-node01) でのみ実行する
+    # -------------------------------------------------------------------
+    - name: VXLAN ゾーンの存在確認
+      command: pvesh get /cluster/sdn/zones/{{ sdn_zone_name }} --output-format json
+      register: vxlan_zone_check
+      changed_when: false
+      failed_when: false
+      when: inventory_hostname == "pve-node01"
+      tags: [sdn, zone]
+
+    - name: VXLAN ゾーンを作成
+      command: >
+        pvesh create /cluster/sdn/zones
+        --zone {{ sdn_zone_name }}
+        --type {{ sdn_zone_type }}
+        --peers {{ sdn_zone_peers }}
+      when:
+        - inventory_hostname == "pve-node01"
+        - vxlan_zone_check.rc != 0
+      tags: [sdn, zone]
+
+    # -------------------------------------------------------------------
+    # STEP 4: VNet の作成
+    # -------------------------------------------------------------------
+    - name: VNet の存在確認
+      command: pvesh get /cluster/sdn/vnets/{{ sdn_vnet_name }} --output-format json
+      register: vnet_check
+      changed_when: false
+      failed_when: false
+      when: inventory_hostname == "pve-node01"
+      tags: [sdn, vnet]
+
+    - name: VNet を作成
+      command: >
+        pvesh create /cluster/sdn/vnets
+        --vnet {{ sdn_vnet_name }}
+        --zone {{ sdn_vnet_zone }}
+        --tag {{ sdn_vnet_vnid }}
+      when:
+        - inventory_hostname == "pve-node01"
+        - vnet_check.rc != 0
+      tags: [sdn, vnet]
+
+    # -------------------------------------------------------------------
+    # STEP 5: SDN 設定の適用
+    # NOTE: SDN 設定変更後は apply が必要
+    # -------------------------------------------------------------------
+    - name: SDN 設定を全ノードに適用
+      command: pvesh set /cluster/sdn
+      when: inventory_hostname == "pve-node01"
+      tags: [sdn, apply]
+
+    # -------------------------------------------------------------------
+    # STEP 6: 設定確認
+    # -------------------------------------------------------------------
+    - name: SDN ゾーン一覧を確認 (適用後)
+      command: pvesh get /cluster/sdn/zones --output-format json
+      register: sdn_zones_after
+      changed_when: false
+      tags: [sdn, verify]
+
+    - name: SDN VNet 一覧を確認 (適用後)
+      command: pvesh get /cluster/sdn/vnets --output-format json
+      register: sdn_vnets_after
+      changed_when: false
+      tags: [sdn, verify]
+
+    - name: 設定結果を表示
+      debug:
+        msg:
+          - "SDN ゾーン: {{ sdn_zones_after.stdout }}"
+          - "SDN VNet: {{ sdn_vnets_after.stdout }}"
+      tags: [sdn, verify]
+
+    - name: 手動設定手順の案内
+      debug:
+        msg:
+          - "=========================================="
+          - "SDN の設定確認が完了しました。"
+          - "詳細な設定・確認手順は以下を参照してください:"
+          - "  docs/proxmox-sdn-guide.md"
+          - ""
+          - "WebUI での確認:"
+          - "  https://192.168.210.11:8006 → Datacenter → SDN"
+          - "=========================================="
+      tags: [sdn, info]

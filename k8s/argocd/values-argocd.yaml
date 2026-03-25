@@ -1,0 +1,93 @@
+# ArgoCD Helm values
+# ラボ向けに軽量化した設定
+# Helm chart: argo/argo-cd, version: 7.3.4
+
+# -------------------------------------------------------------------
+# グローバル設定
+# -------------------------------------------------------------------
+global:
+  # ラボ環境のため TLS は無効化
+  domain: argocd.homelab.local
+
+# -------------------------------------------------------------------
+# ArgoCD サーバー
+# -------------------------------------------------------------------
+server:
+  # TLS を無効化して HTTP で動作させる (Traefik が TLS 終端を担う)
+  extraArgs:
+    - --insecure
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: argocd.homelab.local
+    # insecure モードのため TLS 設定は不要
+    tls: false
+
+# -------------------------------------------------------------------
+# ApplicationSet コントローラー
+# -------------------------------------------------------------------
+applicationSet:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Notifications コントローラー
+# -------------------------------------------------------------------
+notifications:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Redis (ArgoCD 内蔵)
+# -------------------------------------------------------------------
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# -------------------------------------------------------------------
+# Repo サーバー
+# -------------------------------------------------------------------
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# Application コントローラー
+# -------------------------------------------------------------------
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
