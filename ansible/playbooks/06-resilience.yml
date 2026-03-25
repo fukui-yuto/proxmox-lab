@@ -5,7 +5,7 @@
 # 案2: Raspberry Pi に qnetd watchdog を設置 → 長期切断から自動復旧
 #
 # 使い方:
-#   ansible-playbook -i inventory/hosts.yml playbooks/07-resilience.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/06-resilience.yml
 
 # ── 案1: corosync タイムアウト延長 ──────────────────────────────────────
 - name: corosync トークンタイムアウト延長
