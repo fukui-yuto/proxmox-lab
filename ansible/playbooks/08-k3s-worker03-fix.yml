@@ -1,44 +1,76 @@
 ---
-# worker03 のデフォルトゲートウェイを修正
+# worker03 セットアップ (ゲートウェイ修正 + k3s クラスター参加)
 #
-# 問題: node01/node02 の VLAN10 ブリッジが L2 未接続のため
-#       worker03 のゲートウェイ 192.168.211.1 (node01) に到達できない
-# 解決: ゲートウェイを 192.168.211.2 (node02 の VLAN10 ブリッジ) に変更
+# 背景: node01/node02 の VLAN10 ブリッジが L2 未接続のため
+#       worker03 のデフォルト gateway (192.168.211.1 = node01) に到達できない。
+#       SSH が使えないため qm guest exec 経由で gateway を修正してから k3s に参加させる。
 #
-# 前提: 05-raspi-network.yml と 04-network.yml を先に適用してから実行
+# 前提: 04-network.yml と 05-raspi-network.yml を先に適用済みであること
 # 使い方:
 #   ansible-playbook -i inventory/hosts.yml playbooks/08-k3s-worker03-fix.yml
 
+# ── Step 1: gateway 修正 (qm guest exec 経由) ────────────────────────────
 - name: worker03 ゲートウェイ修正
-  hosts: localhost
+  hosts: pve-node02
   tasks:
-    - name: worker03 の netplan ファイルを確認
-      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ls /etc/netplan/"
-      register: netplan_files
+    - name: guest agent の応答確認
+      command: qm agent 204 ping
       changed_when: false
 
-    - name: ゲートウェイを 192.168.211.1 → 192.168.211.2 に変更
+    - name: gateway を 192.168.211.1 → 192.168.211.2 に変更
       command: >
-        ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24
-        "sudo sed -i 's/via: 192.168.211.1/via: 192.168.211.2/g'
-        /etc/netplan/50-cloud-init.yaml && sudo netplan apply"
-      register: gateway_fix
+        qm guest exec 204 -- bash -c
+        "sed -i 's/192.168.211.1/192.168.211.2/g' /etc/netplan/50-cloud-init.yaml
+        && netplan apply"
+      register: gw_fix
 
-    - name: 変更後のルートを確認
-      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ip route show"
+    - name: gateway 修正結果を確認
+      command: >
+        qm guest exec 204 -- ip route show default
       register: route_check
       changed_when: false
 
     - name: ルート確認結果を表示
       debug:
-        var: route_check.stdout_lines
+        msg: "{{ (route_check.stdout | from_json).get('out-data', '') }}"
 
-    - name: k3s-master への疎通確認
-      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ping -c 3 192.168.211.21"
-      register: ping_check
+# ── Step 2: SSH 待機 ─────────────────────────────────────────────────────
+- name: worker03 の SSH 待機
+  hosts: localhost
+  tasks:
+    - name: worker03 (192.168.211.24) が SSH で応答するまで待機
+      wait_for:
+        host: 192.168.211.24
+        port: 22
+        timeout: 120
+        state: started
+
+# ── Step 3: k3s クラスター参加 ───────────────────────────────────────────
+- name: k3s master からトークン取得
+  hosts: localhost
+  tasks:
+    - name: k3s ノードトークンを取得
+      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.21 "sudo cat /var/lib/rancher/k3s/server/node-token"
+      register: k3s_token
       changed_when: false
-      failed_when: false
 
-    - name: 疎通確認結果を表示
+    - name: worker03 を k3s クラスターに参加
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24
+        "curl -sfL https://get.k3s.io |
+        K3S_URL=https://192.168.211.21:6443
+        K3S_TOKEN={{ k3s_token.stdout }}
+        sh -"
+      register: k3s_join
+
+    - name: クラスターのノード一覧を確認
+      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.21 "sudo k3s kubectl get nodes"
+      register: nodes
+      changed_when: false
+      retries: 6
+      delay: 10
+      until: "'k3s-worker03' in nodes.stdout"
+
+    - name: ノード一覧を表示
       debug:
-        msg: "{{ 'master への疎通: OK' if ping_check.rc == 0 else 'master への疎通: NG (要確認)' }}"
+        var: nodes.stdout_lines
