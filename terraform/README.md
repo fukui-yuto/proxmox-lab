@@ -44,13 +44,16 @@ scp /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
 
 ## k3s トークンの取得 (worker03 参加に必要)
 
-k3s-master/worker01/02 を先にデプロイした後、以下でトークンを取得して `terraform.tfvars` に設定する。
+k3s-master/worker01/02 を先にデプロイ・k3s インストール後、以下でトークンを取得して `terraform.tfvars` に設定する。
 
 ```bash
 ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token'
 ```
 
-取得した値を `terraform.tfvars` の `k3s_token` に設定してから worker03 を含む `terraform apply` を実行する。
+取得した値を `terraform.tfvars` の `k3s_token` に設定してから worker03 を `terraform apply` でデプロイすると、VM 作成後に自動で k3s クラスターに参加する。
+
+> **VM が既存の場合:** `terraform apply` の provisioner は初回作成時のみ実行される。
+> VM がすでに起動済みなら `k8s/README.md` の「ワーカーノードの参加」手順を手動で実行すること。
 
 ---
 

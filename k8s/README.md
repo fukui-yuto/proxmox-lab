@@ -52,6 +52,10 @@ ssh ubuntu@192.168.211.23 "curl -sfL https://get.k3s.io | K3S_URL=https://192.16
 ssh ubuntu@192.168.211.24 "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${TOKEN} sh -"
 ```
 
+> **注意 (worker03):** Terraform の `remote-exec` provisioner は VM 初回作成時のみ実行される。
+> VM が既存の状態で `k3s_token` が未設定だった場合は、上記コマンドを手動で実行すること。
+> worker03 への SSH が通らない場合は先に疎通確認を行う → [疎通確認手順](#前提条件)
+
 全ノードが Ready になっていることを確認する。
 
 ```bash
