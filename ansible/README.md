@@ -15,6 +15,7 @@ ansible/
     ├── 05-raspi-network.yml  # Raspberry Pi 静的ルート設定
     ├── 06-proxmox-sdn.yml  # Proxmox SDN 設定 (参考・WebUI 推奨)
     ├── 07-resilience.yml   # 無線切断耐性向上
+    └── 08-k3s-worker03-fix.yml  # worker03 ゲートウェイ修正
     ├── site.yml            # 01〜05-raspi を一括実行
     └── shutdown.yml        # クラスター安全シャットダウン
 ```

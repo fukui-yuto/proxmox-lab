@@ -48,6 +48,44 @@
         vlan10_ip: "{{ '192.168.211.1' if inventory_hostname == 'pve-node01' else '192.168.211.2' }}"
       notify: restart networking
 
+    - name: クロスノードルートスクリプトを配置 (pve-node01 → worker03)
+      copy:
+        dest: /etc/network/if-up.d/cross-node-routes
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # VLAN10 ブリッジが L2 未接続のため管理 NW 経由でルーティング
+          [ "$IFACE" = "vmbr0v10" ] || exit 0
+          ip route replace 192.168.211.24/32 via 192.168.210.12 2>/dev/null || true
+      when: inventory_hostname == 'pve-node01'
+
+    - name: クロスノードルートスクリプトを配置 (pve-node02 → master/worker01/02)
+      copy:
+        dest: /etc/network/if-up.d/cross-node-routes
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # VLAN10 ブリッジが L2 未接続のため管理 NW 経由でルーティング
+          [ "$IFACE" = "vmbr0v10" ] || exit 0
+          ip route replace 192.168.211.21/32 via 192.168.210.11 2>/dev/null || true
+          ip route replace 192.168.211.22/32 via 192.168.210.11 2>/dev/null || true
+          ip route replace 192.168.211.23/32 via 192.168.210.11 2>/dev/null || true
+      when: inventory_hostname == 'pve-node02'
+
+    - name: クロスノードルートを即時適用 (pve-node01)
+      command: ip route replace 192.168.211.24/32 via 192.168.210.12
+      when: inventory_hostname == 'pve-node01'
+      changed_when: false
+
+    - name: クロスノードルートを即時適用 (pve-node02)
+      command: "ip route replace {{ item }} via 192.168.210.11"
+      loop:
+        - 192.168.211.21/32
+        - 192.168.211.22/32
+        - 192.168.211.23/32
+      when: inventory_hostname == 'pve-node02'
+      changed_when: false
+
     - name: IP フォワーディングを有効化
       sysctl:
         name: net.ipv4.ip_forward

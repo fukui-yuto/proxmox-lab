@@ -1,0 +1,44 @@
+---
+# worker03 のデフォルトゲートウェイを修正
+#
+# 問題: node01/node02 の VLAN10 ブリッジが L2 未接続のため
+#       worker03 のゲートウェイ 192.168.211.1 (node01) に到達できない
+# 解決: ゲートウェイを 192.168.211.2 (node02 の VLAN10 ブリッジ) に変更
+#
+# 前提: 05-raspi-network.yml と 04-network.yml を先に適用してから実行
+# 使い方:
+#   ansible-playbook -i inventory/hosts.yml playbooks/08-k3s-worker03-fix.yml
+
+- name: worker03 ゲートウェイ修正
+  hosts: localhost
+  tasks:
+    - name: worker03 の netplan ファイルを確認
+      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ls /etc/netplan/"
+      register: netplan_files
+      changed_when: false
+
+    - name: ゲートウェイを 192.168.211.1 → 192.168.211.2 に変更
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24
+        "sudo sed -i 's/via: 192.168.211.1/via: 192.168.211.2/g'
+        /etc/netplan/50-cloud-init.yaml && sudo netplan apply"
+      register: gateway_fix
+
+    - name: 変更後のルートを確認
+      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ip route show"
+      register: route_check
+      changed_when: false
+
+    - name: ルート確認結果を表示
+      debug:
+        var: route_check.stdout_lines
+
+    - name: k3s-master への疎通確認
+      command: ssh -o StrictHostKeyChecking=no ubuntu@192.168.211.24 "ping -c 3 192.168.211.21"
+      register: ping_check
+      changed_when: false
+      failed_when: false
+
+    - name: 疎通確認結果を表示
+      debug:
+        msg: "{{ 'master への疎通: OK' if ping_check.rc == 0 else 'master への疎通: NG (要確認)' }}"
