@@ -116,8 +116,9 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   vm_id     = 204
 
   clone {
-    vm_id     = var.ubuntu_template_id
-    node_name = "pve-node01"  # テンプレートが node01 にあるため明示
+    vm_id        = var.ubuntu_template_id
+    node_name    = "pve-node01"   # テンプレートが node01 にあるため明示
+    datastore_id = "local-lvm"    # node02 に ZFS がないため local-lvm に強制
   }
 
   cpu {
