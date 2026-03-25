@@ -56,14 +56,13 @@ terraform apply \
 
 作成されるリソース:
 
-| リソース | ノード | IP |
-|---------|--------|-----|
-| k3s-master | pve-node01 | 192.168.211.21 |
-| k3s-worker01 | pve-node01 | 192.168.211.22 |
-| k3s-worker02 | pve-node01 | 192.168.211.23 |
-| dns-ct (Pi-hole) | pve-node01 | 192.168.210.53 |
-
-> **注意**: node02 にはデータディスクがないため全 VM は pve-node01 に配置。
+| リソース | ノード | IP | ストレージ |
+|---------|--------|-----|-----------|
+| k3s-master | pve-node01 | 192.168.211.21 | data-pve-node01 (ZFS) |
+| k3s-worker01 | pve-node01 | 192.168.211.22 | data-pve-node01 (ZFS) |
+| k3s-worker02 | pve-node01 | 192.168.211.23 | data-pve-node01 (ZFS) |
+| k3s-worker03 | pve-node02 | 192.168.211.24 | local-lvm |
+| dns-ct (Pi-hole) | pve-node01 | 192.168.210.53 | data-pve-node01 (ZFS) |
 
 ---
 

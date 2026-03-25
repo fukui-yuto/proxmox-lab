@@ -109,6 +109,53 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 }
 
+# k3s ワーカー (node02) ※ ZFS なしのため local-lvm を使用
+resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
+  name      = "k3s-worker03"
+  node_name = "pve-node02"
+  vm_id     = 204
+
+  clone {
+    vm_id = var.ubuntu_template_id
+  }
+
+  cpu {
+    cores = 1
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 2048
+  }
+
+  network_device {
+    bridge  = "vmbr0"
+    vlan_id = 10
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = 20
+    interface    = "virtio0"
+  }
+
+  initialization {
+    dns {
+      servers = ["192.168.210.254", "8.8.8.8"]
+    }
+    ip_config {
+      ipv4 {
+        address = "192.168.211.24/24"
+        gateway = "192.168.211.1"
+      }
+    }
+    user_account {
+      username = "ubuntu"
+      keys     = [var.ssh_public_key]
+    }
+  }
+}
+
 # Pi-hole DNS (LXC コンテナ)
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
