@@ -5,7 +5,7 @@
 # 案2: Raspberry Pi に qnetd watchdog を設置 → 長期切断から自動復旧
 #
 # 使い方:
-#   ansible-playbook -i inventory/hosts.yml playbooks/06-resilience.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/07-resilience.yml
 
 # ── 案1: corosync タイムアウト延長 ──────────────────────────────────────
 - name: corosync トークンタイムアウト延長
@@ -34,12 +34,8 @@
         sed -i "s/config_version: ${current}/config_version: ${new}/" /etc/corosync/corosync.conf
       when: token_changed.changed or retransmits_changed.changed
 
-    - name: 更新した corosync.conf を node02 に同期
-      synchronize:
-        src: /etc/corosync/corosync.conf
-        dest: /etc/corosync/corosync.conf
-        mode: push
-      delegate_to: pve-node01
+    - name: 更新した corosync.conf を node02 に scp で同期
+      command: scp /etc/corosync/corosync.conf root@192.168.210.12:/etc/corosync/corosync.conf
       when: token_changed.changed or retransmits_changed.changed
 
     - name: corosync を両ノードで再起動
