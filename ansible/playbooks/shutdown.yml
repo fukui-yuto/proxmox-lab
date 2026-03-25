@@ -1,0 +1,101 @@
+---
+# Proxmox クラスタの安全なシャットダウン
+# 実行順: VM停止 → node02シャットダウン → node01シャットダウン
+#
+# 使い方:
+#   ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml
+#   # 確認プロンプトをスキップ:
+#   ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml -e confirm=yes
+
+- name: Proxmox クラスタ シャットダウン確認
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: シャットダウン確認
+      pause:
+        prompt: "Proxmox クラスタ全台をシャットダウンします。続行しますか？ [yes/no]"
+      register: confirm_input
+      when: confirm is not defined
+
+    - name: 中断チェック
+      fail:
+        msg: "シャットダウンをキャンセルしました。"
+      when:
+        - confirm is not defined
+        - confirm_input.user_input | lower != 'yes'
+
+- name: 全 VM を停止 (node02)
+  hosts: pve-node02
+  gather_facts: false
+  tasks:
+    - name: 実行中の VM ID 一覧を取得
+      command: qm list
+      register: vm_list
+      changed_when: false
+
+    - name: 実行中 VM を正常停止
+      shell: |
+        qm list | awk 'NR>1 && $3=="running" {print $1}' | while read vmid; do
+          echo "Stopping VM $vmid ..."
+          qm shutdown "$vmid" --timeout 60
+        done
+      when: vm_list.stdout_lines | length > 1
+
+- name: 全 VM を停止 (node01)
+  hosts: pve-node01
+  gather_facts: false
+  tasks:
+    - name: 実行中の VM ID 一覧を取得
+      command: qm list
+      register: vm_list
+      changed_when: false
+
+    - name: 実行中 VM を正常停止
+      shell: |
+        qm list | awk 'NR>1 && $3=="running" {print $1}' | while read vmid; do
+          echo "Stopping VM $vmid ..."
+          qm shutdown "$vmid" --timeout 60
+        done
+      when: vm_list.stdout_lines | length > 1
+
+- name: node02 シャットダウン
+  hosts: pve-node02
+  gather_facts: false
+  tasks:
+    - name: node02 をシャットダウン
+      command: shutdown -h now
+      async: 1
+      poll: 0
+
+    - name: node02 がオフラインになるまで待機
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        state: absent
+        timeout: 120
+      delegate_to: localhost
+
+- name: node01 シャットダウン
+  hosts: pve-node01
+  gather_facts: false
+  tasks:
+    - name: node01 をシャットダウン
+      command: shutdown -h now
+      async: 1
+      poll: 0
+
+    - name: node01 がオフラインになるまで待機
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        state: absent
+        timeout: 120
+      delegate_to: localhost
+
+- name: シャットダウン完了
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: 完了メッセージ
+      debug:
+        msg: "Proxmox クラスタのシャットダウンが完了しました。"
