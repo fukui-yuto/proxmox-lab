@@ -116,7 +116,8 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   vm_id     = 204
 
   clone {
-    vm_id = var.ubuntu_template_id
+    vm_id     = var.ubuntu_template_id
+    node_name = "pve-node01"  # テンプレートが node01 にあるため明示
   }
 
   cpu {
