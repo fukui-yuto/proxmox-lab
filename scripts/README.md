@@ -18,6 +18,40 @@ Raspberry Pi セットアップと Proxmox ノードの起動スクリプト。
 
 ## 1. 事前準備
 
+### Windows PC から Raspberry Pi への SSH 設定 (初回のみ)
+
+**1. Windows の公開鍵を確認する**
+
+```powershell
+cat ~/.ssh/id_ed25519.pub
+```
+
+鍵が存在しない場合は生成する:
+
+```powershell
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+```
+
+**2. Raspberry Pi に公開鍵を登録する**
+
+Raspberry Pi に物理アクセスまたは別端末でログインして実行する:
+
+```bash
+mkdir -p ~/.ssh
+echo "<上記で確認した公開鍵>" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+**3. SSH 接続確認**
+
+```powershell
+ssh -i ~/.ssh/id_ed25519 yuto@192.168.210.55
+```
+
+> **注意:** `root` ユーザーでのパスワードログインは Raspberry Pi OS のデフォルトで拒否される。`yuto` ユーザーで接続すること。
+
+---
+
 このPCから Raspberry Pi に SSH で接続する。
 
 ```bash
@@ -246,6 +280,15 @@ bash scripts/proxmox-wakeup.sh node02
 - BIOS で USB Boot が有効か確認 (F2 → Boot Order)
 - Rufus で書き込む場合: パーティションスキームを **GPT**、ターゲットシステムを **UEFI** に設定
 - USB メモリを別のポートに挿し替えてみる
+
+### Windows から Raspberry Pi に SSH できない場合
+
+```powershell
+# root ではなく yuto ユーザーで接続する
+ssh -i ~/.ssh/id_ed25519 yuto@192.168.210.55
+```
+
+公開鍵が登録されていない場合は「1. 事前準備」の手順を実施する。
 
 ### Ansible が接続できない場合
 
