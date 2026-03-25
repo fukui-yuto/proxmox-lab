@@ -52,29 +52,19 @@ ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token'
 
 取得した値を `terraform.tfvars` の `k3s_token` に設定してから worker03 を `terraform apply` でデプロイすると、VM 作成後に自動で k3s クラスターに参加する。
 
-> **VM が既存の場合:** `terraform apply` の provisioner は初回作成時のみ実行される。
-> VM がすでに起動済みなら以下を手動で実行すること。
+> **VM が既存の場合:** provisioner は初回作成時のみ実行される。
+> `-replace` オプションで VM を再作成すること。
 >
 > ```bash
-> # クロスノードルート設定
-> ssh ubuntu@192.168.211.24 "sudo tee /etc/netplan/99-cross-node-routes.yaml > /dev/null <<'EOF'
-> network:
->   version: 2
->   ethernets:
->     eth0:
->       routes:
->         - to: 192.168.211.21/32
->           via: 192.168.211.2
->         - to: 192.168.211.22/32
->           via: 192.168.211.2
->         - to: 192.168.211.23/32
->           via: 192.168.211.2
-> EOF
-> sudo chmod 600 /etc/netplan/99-cross-node-routes.yaml && sudo netplan apply"
+> cd ~/proxmox-lab/terraform
+> terraform apply -replace=proxmox_virtual_environment_vm.k3s_worker_node02
+> ```
 >
-> # k3s 参加
-> TOKEN=$(ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token')
-> ssh ubuntu@192.168.211.24 "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${TOKEN} sh -"
+> destroy が失敗する場合 (node02 が node01 の ZFS プールを参照できないエラー) は先に手動削除する:
+>
+> ```bash
+> ssh root@192.168.210.12 'qm stop 204 --skiplock; qm destroy 204 --skiplock --purge'
+> terraform apply -replace=proxmox_virtual_environment_vm.k3s_worker_node02
 > ```
 
 ---
