@@ -1,0 +1,107 @@
+---
+# クラスター安定性向上 (無線接続の切断耐性)
+#
+# 案1: corosync token タイムアウトを延長 → 10秒以内の切断を吸収
+# 案2: Raspberry Pi に qnetd watchdog を設置 → 長期切断から自動復旧
+#
+# 使い方:
+#   ansible-playbook -i inventory/hosts.yml playbooks/06-resilience.yml
+
+# ── 案1: corosync タイムアウト延長 ──────────────────────────────────────
+- name: corosync トークンタイムアウト延長
+  hosts: pve-node01
+  tasks:
+    - name: corosync.conf に token 設定を追加/更新
+      lineinfile:
+        path: /etc/corosync/corosync.conf
+        insertafter: 'totem \{'
+        regexp: '^\s*token:'
+        line: "\ttoken: 10000"
+      register: token_changed
+
+    - name: corosync.conf に token_retransmits 設定を追加/更新
+      lineinfile:
+        path: /etc/corosync/corosync.conf
+        insertafter: '^\s*token:'
+        regexp: '^\s*token_retransmits_before_loss_const:'
+        line: "\ttoken_retransmits_before_loss_const: 10"
+      register: retransmits_changed
+
+    - name: config_version をインクリメント
+      shell: |
+        current=$(grep -oP 'config_version:\s*\K\d+' /etc/corosync/corosync.conf)
+        new=$((current + 1))
+        sed -i "s/config_version: ${current}/config_version: ${new}/" /etc/corosync/corosync.conf
+      when: token_changed.changed or retransmits_changed.changed
+
+    - name: 更新した corosync.conf を node02 に同期
+      synchronize:
+        src: /etc/corosync/corosync.conf
+        dest: /etc/corosync/corosync.conf
+        mode: push
+      delegate_to: pve-node01
+      when: token_changed.changed or retransmits_changed.changed
+
+    - name: corosync を両ノードで再起動
+      service:
+        name: corosync
+        state: restarted
+      delegate_to: "{{ item }}"
+      loop:
+        - pve-node01
+        - pve-node02
+      when: token_changed.changed or retransmits_changed.changed
+
+    - name: 設定確認
+      command: grep -E 'token|config_version' /etc/corosync/corosync.conf
+      register: corosync_check
+      changed_when: false
+
+    - name: 設定内容を表示
+      debug:
+        var: corosync_check.stdout_lines
+
+# ── 案2: Raspberry Pi に qnetd watchdog を設置 ──────────────────────────
+- name: qnetd watchdog スクリプトを Raspberry Pi に配置
+  hosts: raspi
+  tasks:
+    - name: watchdog スクリプトを配置
+      copy:
+        dest: /usr/local/bin/qnetd-watchdog.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # qnetd watchdog: NUC への疎通が失われたら corosync-qnetd を再起動する
+          NODE01="192.168.210.11"
+          NODE02="192.168.210.12"
+          LOG="/var/log/qnetd-watchdog.log"
+
+          if ! ping -c 2 -W 3 "$NODE01" > /dev/null 2>&1 && \
+             ! ping -c 2 -W 3 "$NODE02" > /dev/null 2>&1; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') 両ノード疎通不可 → corosync-qnetd を再起動" >> "$LOG"
+            systemctl restart corosync-qnetd
+          fi
+
+    - name: watchdog を cron に登録 (5分ごと)
+      cron:
+        name: qnetd-watchdog
+        minute: "*/5"
+        job: /usr/local/bin/qnetd-watchdog.sh
+        user: root
+
+    - name: ログファイルを作成
+      file:
+        path: /var/log/qnetd-watchdog.log
+        state: touch
+        mode: "0644"
+        modification_time: preserve
+        access_time: preserve
+
+    - name: 設定確認
+      command: crontab -l
+      register: crontab_check
+      changed_when: false
+
+    - name: cron 登録内容を表示
+      debug:
+        var: crontab_check.stdout_lines

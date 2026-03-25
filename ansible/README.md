@@ -50,6 +50,23 @@ ssh root@192.168.210.11 pvecm status
 
 ---
 
+## クラスター安定性向上 (無線切断対策)
+
+子機ルーター経由の無線接続が一時的に切断されてもクォーラムを維持・自動復旧させる設定。
+
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/06-resilience.yml
+```
+
+| 対策 | 内容 |
+|------|------|
+| corosync token: 10000ms | 10秒以内の切断はクォーラム喪失なしに吸収 |
+| qnetd watchdog (5分ごと) | 長期切断後にネットワーク復帰したら自動で qnetd を再起動 |
+
+watchdog のログは Raspberry Pi の `/var/log/qnetd-watchdog.log` で確認できる。
+
+---
+
 ## クラスターのシャットダウン
 
 `shutdown.yml` は全 VM を停止してから node02 → node01 の順で安全にシャットダウンする。
