@@ -15,7 +15,6 @@ ansible/
     ├── 05-raspi-network.yml      # Raspberry Pi 静的ルート設定
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
-    ├── 09-k3s-worker03-routes.yml # worker03 クロスノードルート設定
     ├── site.yml                  # 01〜05-raspi を一括実行
     └── shutdown.yml              # クラスター安全シャットダウン
 ```
@@ -99,18 +98,6 @@ ansible-playbook -i inventory/hosts.yml playbooks/07-proxmox-sdn.yml
 ```
 
 詳細な手順は `docs/proxmox-sdn-guide.md` を参照。
-
----
-
-## worker03 クロスノードルート設定
-
-worker03 (pve-node02) は master/worker01/02 (pve-node01) と同一サブネットだが VLAN10 ブリッジが L2 未接続のため、直接 ARP 解決ができない。`/32` の特定ルートを追加してゲートウェイ経由でルーティングする。
-
-`04-network.yml` と `05-raspi-network.yml` を適用してから実行する。
-
-```bash
-ansible-playbook -i inventory/hosts.yml playbooks/09-k3s-worker03-routes.yml
-```
 
 ---
 
