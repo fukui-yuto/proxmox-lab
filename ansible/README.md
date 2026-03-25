@@ -5,15 +5,32 @@ Proxmox クラスターの構築・管理 Playbook。
 ```
 ansible/
 ├── inventory/
-│   └── hosts.yml       # ノード一覧・接続設定
+│   └── hosts.yml           # ノード一覧・接続設定
 └── playbooks/
-    ├── 00-bootstrap.yml  # SSH 鍵配布 (初回のみ)
-    ├── 01-base.yml       # リポジトリ・SSH 強化・hosts 設定
-    ├── 02-cluster.yml    # クラスター作成・QDevice 追加
-    ├── 03-storage.yml    # ZFS プール作成
-    ├── 04-network.yml    # VLAN Bridge 設定
-    ├── site.yml          # 01〜04 を一括実行
-    └── shutdown.yml      # クラスター安全シャットダウン
+    ├── 00-bootstrap.yml    # SSH 鍵配布 (初回のみ)
+    ├── 01-base.yml         # リポジトリ・SSH 強化・hosts 設定
+    ├── 02-cluster.yml      # クラスター作成・QDevice 追加
+    ├── 03-storage.yml      # ZFS プール作成
+    ├── 04-network.yml      # VLAN Bridge 設定 (Proxmox ノード)
+    ├── 05-raspi-network.yml  # Raspberry Pi 静的ルート設定
+    ├── 05-proxmox-sdn.yml  # Proxmox SDN 設定 (参考・WebUI 推奨)
+    ├── 06-resilience.yml   # 無線切断耐性向上
+    ├── site.yml            # 01〜05-raspi を一括実行
+    └── shutdown.yml        # クラスター安全シャットダウン
+```
+
+---
+
+## 初回セットアップ (SSH 鍵配布)
+
+Ansible が SSH で接続できるよう、初回のみ実行する。
+
+```bash
+# sshpass が必要
+apt install sshpass
+
+# PVE の root パスワードを入力して SSH 鍵を配布
+ansible-playbook -i inventory/hosts.yml playbooks/00-bootstrap.yml -k
 ```
 
 ---
@@ -41,12 +58,29 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `02-cluster.yml` | クラスター作成・node02 参加・QDevice 追加 |
 | `03-storage.yml` | ZFS プール作成・Proxmox ストレージ登録 |
 | `04-network.yml` | VLAN Bridge (vmbr0.10 / vmbr0.20) 設定 |
+| `05-raspi-network.yml` | Raspberry Pi の静的ルート設定 |
 
 ### クラスター確認
 
 ```bash
 ssh root@192.168.210.11 pvecm status
 ```
+
+---
+
+## Proxmox SDN 設定
+
+SDN の設定は **WebUI での実施を推奨**。`05-proxmox-sdn.yml` は確認・参考用。
+
+```bash
+# 現在の SDN 状態を確認するだけの場合
+ansible-playbook -i inventory/hosts.yml playbooks/05-proxmox-sdn.yml --tags check
+
+# SDN を自動設定する場合 (WebUI で設定済みなら不要)
+ansible-playbook -i inventory/hosts.yml playbooks/05-proxmox-sdn.yml
+```
+
+詳細な手順は `docs/proxmox-sdn-guide.md` を参照。
 
 ---
 
