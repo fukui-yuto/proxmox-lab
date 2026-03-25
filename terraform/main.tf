@@ -148,13 +148,27 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     ip_config {
       ipv4 {
         address = "192.168.211.24/24"
-        gateway = "192.168.211.1"
+        gateway = "192.168.211.2"  # node02 の VLAN10 ブリッジ (node01 は L2 未到達)
       }
     }
     user_account {
       username = "ubuntu"
       keys     = [var.ssh_public_key]
     }
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.24"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "3m"
+    }
+
+    inline = [
+      "if [ -n '${var.k3s_token}' ]; then curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${var.k3s_token} sh -; else echo 'k3s_token が未設定のため k3s 参加をスキップ'; fi"
+    ]
   }
 }
 

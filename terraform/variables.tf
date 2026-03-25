@@ -26,3 +26,10 @@ variable "ct_root_password" {
   type        = string
   sensitive   = true
 }
+
+variable "k3s_token" {
+  description = "k3s サーバートークン (取得: ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token')"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

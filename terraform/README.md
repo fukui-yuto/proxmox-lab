@@ -20,6 +20,7 @@ nano terraform.tfvars
 proxmox_password = "Proxmox の root パスワード"
 ssh_public_key   = "ssh-ed25519 AAAA..."  # cat ~/.ssh/id_ed25519.pub
 ct_root_password = "LXC コンテナの root パスワード"
+k3s_token        = ""  # k3s-master 起動後に取得 (後述)
 ```
 
 ---
@@ -38,6 +39,18 @@ wget -O /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
 scp /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
   root@192.168.210.11:/var/lib/vz/template/cache/
 ```
+
+---
+
+## k3s トークンの取得 (worker03 参加に必要)
+
+k3s-master/worker01/02 を先にデプロイした後、以下でトークンを取得して `terraform.tfvars` に設定する。
+
+```bash
+ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token'
+```
+
+取得した値を `terraform.tfvars` の `k3s_token` に設定してから worker03 を含む `terraform apply` を実行する。
 
 ---
 
