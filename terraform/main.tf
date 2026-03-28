@@ -59,6 +59,21 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
       keys     = [var.ssh_public_key]
     }
   }
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.21"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "3m"
+    }
+    inline = [
+      "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.24/32\n          via: 192.168.211.1\nEOF",
+      "sudo chmod 600 /etc/netplan/99-worker03-route.yaml",
+      "sudo netplan apply"
+    ]
+  }
 }
 
 # k3s ワーカー × 2 (テンプレートとZFSがnode01のみのため両方node01に配置)
@@ -106,6 +121,21 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
       username = "ubuntu"
       keys     = [var.ssh_public_key]
     }
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.2${count.index + 2}"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "3m"
+    }
+    inline = [
+      "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.24/32\n          via: 192.168.211.1\nEOF",
+      "sudo chmod 600 /etc/netplan/99-worker03-route.yaml",
+      "sudo netplan apply"
+    ]
   }
 }
 

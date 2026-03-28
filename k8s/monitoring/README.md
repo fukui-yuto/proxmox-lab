@@ -142,6 +142,50 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9
 kubectl apply -f dashboards/
 ```
 
+## worker03 が監視対象に表示されない場合
+
+worker03 (192.168.211.24) は pve-node02 上にあり、VLAN10 が L2 未接続のため
+master/worker01/worker02 から直接 ARP 解決できない。
+Prometheus が `no route to host` エラーでスクレイプに失敗する場合は、
+逆方向ルートを追加する。
+
+`terraform/main.tf` に master・worker01・worker02 の `remote-exec` でルートを設定している。
+既存 VM に適用するには `-replace` で再作成する。
+
+```bash
+cd ~/proxmox-lab/terraform
+terraform apply -replace=proxmox_virtual_environment_vm.k3s_master \
+                -replace='proxmox_virtual_environment_vm.k3s_worker[0]' \
+                -replace='proxmox_virtual_environment_vm.k3s_worker[1]'
+```
+
+> **注意:** VM が再作成されるため k3s のセットアップも再実行が必要。
+> 既存 VM を壊したくない場合は以下で直接適用する（一時対応）。
+>
+> ```bash
+> for ip in 192.168.211.21 192.168.211.22 192.168.211.23; do
+>   ssh ubuntu@${ip} "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'
+> network:
+>   version: 2
+>   ethernets:
+>     eth0:
+>       routes:
+>         - to: 192.168.211.24/32
+>           via: 192.168.211.1
+> EOF
+> sudo chmod 600 /etc/netplan/99-worker03-route.yaml && sudo netplan apply"
+> done
+> ```
+
+適用後、Prometheus ターゲットを確認する。
+
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
+sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if '192.168.211.24' in t.get('scrapeUrl','')]"
+```
+
+全ターゲットが `up` になれば Grafana ダッシュボードに worker03 が表示される。
+
 ## 動作確認
 
 ```bash
