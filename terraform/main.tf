@@ -203,6 +203,13 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     }
   }
 
+  # destroy 時: pve-node02 が data-pve-node01 (ZFS) を参照してエラーになるため
+  # Proxmox API より先に qm destroy --purge で手動削除する
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 204 --skiplock 2>/dev/null; qm destroy 204 --skiplock --purge 2>/dev/null'; exit 0"
+  }
+
   provisioner "remote-exec" {
     connection {
       type        = "ssh"
