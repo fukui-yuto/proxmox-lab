@@ -226,6 +226,9 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 
 # k3s master インストール
 resource "null_resource" "k3s_master_install" {
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.k3s_master.id
+  }
   depends_on = [proxmox_virtual_environment_vm.k3s_master]
 
   provisioner "remote-exec" {
@@ -246,6 +249,9 @@ resource "null_resource" "k3s_master_install" {
 # k3s worker01 / worker02 インストール
 resource "null_resource" "k3s_workers_install" {
   count = 2
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.k3s_worker[count.index].id
+  }
   depends_on = [
     null_resource.k3s_master_install,
     proxmox_virtual_environment_vm.k3s_worker,
@@ -267,6 +273,9 @@ resource "null_resource" "k3s_workers_install" {
 
 # k3s worker03 インストール
 resource "null_resource" "k3s_worker03_install" {
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.k3s_worker_node02.id
+  }
   depends_on = [
     null_resource.k3s_master_install,
     proxmox_virtual_environment_vm.k3s_worker_node02,
@@ -288,6 +297,9 @@ resource "null_resource" "k3s_worker03_install" {
 
 # kubeconfig を Raspberry Pi に配置
 resource "null_resource" "kubeconfig_setup" {
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.k3s_master.id
+  }
   depends_on = [null_resource.k3s_master_install]
 
   provisioner "local-exec" {
