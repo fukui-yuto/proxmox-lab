@@ -97,7 +97,7 @@ kubectl apply -f dashboards/
 > **注意:** 初回ログイン後に必ずパスワードを変更すること。
 
 Ingress は Traefik 経由で `192.168.211.21` (k3s-master) の 80 番ポートで公開されている。
-`192.168.211.22` / `23` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
+`192.168.211.22` / `23` / `24` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
 
 #### Windows PC からのアクセス設定
 
@@ -142,25 +142,6 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9
 kubectl apply -f dashboards/
 ```
 
-## worker03 が監視対象に表示されない場合
-
-worker03 (192.168.211.24) は pve-node02 上にあり、VLAN10 が L2 未接続のため
-master/worker01/worker02 から直接 ARP 解決できない。
-Prometheus が `no route to host` エラーでスクレイプに失敗する場合は、
-逆方向ルートを追加する。
-
-`terraform/main.tf` の `remote-exec` で master・worker01・worker02 にルートを設定している。
-適用手順は [terraform/README.md](../../terraform/README.md) を参照。
-
-適用後、Prometheus ターゲットを確認する。
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if '192.168.211.24' in t.get('scrapeUrl','')]"
-```
-
-全ターゲットが `up` になれば Grafana ダッシュボードに worker03 が表示される。
-
 ## 動作確認
 
 ```bash
@@ -168,14 +149,36 @@ sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys
 kubectl get pods -n monitoring
 
 # 全 Pod が Running になっていれば OK
-NAME                                                   READY   STATUS    RESTARTS
-kube-prometheus-stack-grafana-xxx                      3/3     Running   0
-kube-prometheus-stack-prometheus-0                     2/2     Running   0
-kube-prometheus-stack-alertmanager-0                   2/2     Running   0
-kube-prometheus-stack-operator-xxx                     1/1     Running   0
-kube-prometheus-stack-kube-state-metrics-xxx           1/1     Running   0
-kube-prometheus-stack-prometheus-node-exporter-xxx     1/1     Running   0  (各ノード)
+NAME                                                        READY   STATUS    RESTARTS
+kube-prometheus-stack-grafana-xxx                           3/3     Running   0
+kube-prometheus-stack-prometheus-0                          2/2     Running   0
+kube-prometheus-stack-alertmanager-0                        2/2     Running   0
+kube-prometheus-stack-operator-xxx                          1/1     Running   0
+kube-prometheus-stack-kube-state-metrics-xxx                1/1     Running   0
+kube-prometheus-stack-prometheus-node-exporter-xxx (master)    1/1     Running   0
+kube-prometheus-stack-prometheus-node-exporter-xxx (worker01)  1/1     Running   0
+kube-prometheus-stack-prometheus-node-exporter-xxx (worker02)  1/1     Running   0
+kube-prometheus-stack-prometheus-node-exporter-xxx (worker03)  1/1     Running   0
 ```
+
+## トラブルシューティング
+
+### worker03 が Grafana に表示されない
+
+worker03 (192.168.211.24) は pve-node02 上にあり VLAN10 が L2 未接続のため、
+Prometheus が `no route to host` で node-exporter をスクレイプできない場合がある。
+
+`terraform/main.tf` の `remote-exec` で master・worker01・worker02 に逆方向ルートを設定している。
+既存 VM への適用手順は [terraform/README.md](../../terraform/README.md) を参照。
+
+適用後の確認:
+
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
+sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if '192.168.211.24' in t.get('scrapeUrl','')]"
+```
+
+全ターゲットが `up` になれば Grafana ダッシュボードに worker03 が表示される。
 
 ## Alertmanager の通知設定
 
