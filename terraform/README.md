@@ -72,32 +72,24 @@ ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token'
 ## master/worker01/02 への worker03 逆方向ルート適用
 
 `main.tf` の `remote-exec` で master・worker01・worker02 に `192.168.211.24/32 via 192.168.211.1` のルートを設定している。
-既存 VM に適用するには `-replace` で再作成する。
+これは **VM 新規作成時に自動適用される設定**であり、既存 VM への適用には以下の SSH コマンドを使用する。
 
 ```bash
-cd ~/proxmox-lab/terraform
-terraform apply -replace=proxmox_virtual_environment_vm.k3s_master \
-                -replace='proxmox_virtual_environment_vm.k3s_worker[0]' \
-                -replace='proxmox_virtual_environment_vm.k3s_worker[1]'
+for ip in 192.168.211.21 192.168.211.22 192.168.211.23; do
+  ssh ubuntu@${ip} "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    eth0:
+      routes:
+        - to: 192.168.211.24/32
+          via: 192.168.211.1
+EOF
+sudo chmod 600 /etc/netplan/99-worker03-route.yaml && sudo netplan apply"
+done
 ```
 
-> **注意:** VM が再作成されるため k3s のセットアップも再実行が必要。
-> VM を壊したくない場合は以下で直接適用する（一時対応）。
->
-> ```bash
-> for ip in 192.168.211.21 192.168.211.22 192.168.211.23; do
->   ssh ubuntu@${ip} "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'
-> network:
->   version: 2
->   ethernets:
->     eth0:
->       routes:
->         - to: 192.168.211.24/32
->           via: 192.168.211.1
-> EOF
-> sudo chmod 600 /etc/netplan/99-worker03-route.yaml && sudo netplan apply"
-> done
-> ```
+> **注意:** `-replace` による VM 再作成は k3s クラスター全体の停止と再セットアップが必要になるため非推奨。
 
 ---
 
