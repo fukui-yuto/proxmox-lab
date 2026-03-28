@@ -4,6 +4,10 @@ terraform {
       source  = "bpg/proxmox"
       version = "~> 0.66"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -14,7 +18,15 @@ provider "proxmox" {
   insecure = true  # 自己署名証明書の場合
 }
 
+# k3s クラスタートークン (自動生成)
+resource "random_password" "k3s_token" {
+  length  = 48
+  special = false
+}
+
+# -------------------------------------------------------------------
 # k3s マスターノード
+# -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_master" {
   name      = "k3s-master"
   node_name = "pve-node01"
@@ -76,7 +88,9 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 }
 
+# -------------------------------------------------------------------
 # k3s ワーカー × 2 (テンプレートとZFSがnode01のみのため両方node01に配置)
+# -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker" {
   count     = 2
   name      = "k3s-worker0${count.index + 1}"
@@ -139,7 +153,9 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 }
 
+# -------------------------------------------------------------------
 # k3s ワーカー (node02) ※ ZFS なしのため local-lvm を使用
+# -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   name      = "k3s-worker03"
   node_name = "pve-node02"
@@ -195,19 +211,97 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "3m"
     }
-
     inline = [
       # VLAN10 ブリッジが L2 未接続のため /32 ルートをゲートウェイ (node02) 経由に設定
       "sudo tee /etc/netplan/99-cross-node-routes.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.21/32\n          via: 192.168.211.2\n        - to: 192.168.211.22/32\n          via: 192.168.211.2\n        - to: 192.168.211.23/32\n          via: 192.168.211.2\nEOF",
       "sudo chmod 600 /etc/netplan/99-cross-node-routes.yaml",
-      "sudo netplan apply",
-      # k3s クラスター参加
-      "if [ -n '${var.k3s_token}' ]; then curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${var.k3s_token} sh -; else echo 'k3s_token が未設定のため k3s 参加をスキップ'; fi"
+      "sudo netplan apply"
     ]
   }
 }
 
+# -------------------------------------------------------------------
+# k3s インストール
+# -------------------------------------------------------------------
+
+# k3s master インストール
+resource "null_resource" "k3s_master_install" {
+  depends_on = [proxmox_virtual_environment_vm.k3s_master]
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.21"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "5m"
+    }
+    inline = [
+      "curl -sfL https://get.k3s.io | K3S_TOKEN=${random_password.k3s_token.result} sh -",
+      "sudo kubectl wait --for=condition=Ready node/k3s-master --timeout=120s"
+    ]
+  }
+}
+
+# k3s worker01 / worker02 インストール
+resource "null_resource" "k3s_workers_install" {
+  count = 2
+  depends_on = [
+    null_resource.k3s_master_install,
+    proxmox_virtual_environment_vm.k3s_worker,
+  ]
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.2${count.index + 2}"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "5m"
+    }
+    inline = [
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+    ]
+  }
+}
+
+# k3s worker03 インストール
+resource "null_resource" "k3s_worker03_install" {
+  depends_on = [
+    null_resource.k3s_master_install,
+    proxmox_virtual_environment_vm.k3s_worker_node02,
+  ]
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.211.24"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "5m"
+    }
+    inline = [
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+    ]
+  }
+}
+
+# kubeconfig を Raspberry Pi に配置
+resource "null_resource" "kubeconfig_setup" {
+  depends_on = [null_resource.k3s_master_install]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p ~/.kube
+      scp -o StrictHostKeyChecking=no ubuntu@192.168.211.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+      sed -i 's/127.0.0.1/192.168.211.21/g' ~/.kube/config
+    EOT
+  }
+}
+
+# -------------------------------------------------------------------
 # Pi-hole DNS (LXC コンテナ)
+# -------------------------------------------------------------------
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
   node_name   = "pve-node01"

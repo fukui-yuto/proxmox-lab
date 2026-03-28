@@ -1,6 +1,6 @@
 # terraform/
 
-Proxmox 上に VM / LXC コンテナをデプロイする Terraform 設定。
+Proxmox 上に VM / LXC コンテナをデプロイし、k3s クラスターを構成する。
 
 作成されるリソース:
 
@@ -11,6 +11,13 @@ Proxmox 上に VM / LXC コンテナをデプロイする Terraform 設定。
 | k3s-worker02 | pve-node01 | 192.168.211.23 | data-pve-node01 (ZFS) |
 | k3s-worker03 | pve-node02 | 192.168.211.24 | local-lvm |
 | dns-ct (Pi-hole) | pve-node01 | 192.168.210.53 | data-pve-node01 (ZFS) |
+
+`terraform apply` 一発で以下が完結する:
+
+1. VM / LXC コンテナ作成
+2. ネットワークルート設定 (worker03 クロスノードルート含む)
+3. k3s master / worker01〜03 インストール・クラスター参加
+4. kubeconfig を Raspberry Pi (`~/.kube/config`) に配置
 
 ---
 
@@ -30,23 +37,20 @@ nano terraform.tfvars
 proxmox_password = "Proxmox の root パスワード"
 ssh_public_key   = "ssh-ed25519 AAAA..."  # cat ~/.ssh/id_ed25519.pub
 ct_root_password = "LXC コンテナの root パスワード"
-k3s_token        = ""  # この時点では空のままでよい
 ```
 
 > **Debian LXC テンプレートが未取得の場合:**
 >
 > ```bash
-> # Raspberry Pi でダウンロード
 > wget -O /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
 >   http://117.120.5.24/images/system/debian-12-standard_12.12-1_amd64.tar.zst \
 >   --header "Host: download.proxmox.com"
 >
-> # node01 にコピー
 > scp /tmp/debian-12-standard_12.12-1_amd64.tar.zst \
 >   root@192.168.210.11:/var/lib/vz/template/cache/
 > ```
 
-### Step 2: VM 作成 (k3s_token は空のまま)
+### Step 2: デプロイ
 
 ```bash
 cd ~/proxmox-lab/terraform
@@ -54,39 +58,22 @@ terraform init
 terraform apply
 ```
 
-この時点で以下が自動設定される:
-- master / worker01 / worker02: worker03 への逆方向ルート (`192.168.211.24/32 via 192.168.211.1`)
-- worker03: master / worker01 / worker02 へのクロスノードルート
-
-k3s のインストールは Terraform 管理外のため、次の Step で行う。
-
-### Step 3: k3s インストール
-
-→ [k8s/README.md](../k8s/README.md) の手順に従い master / worker01 / worker02 に k3s をインストールする。
-
-### Step 4: worker03 を k3s クラスターに参加させる
-
-k3s-master からトークンを取得して `terraform.tfvars` に設定する。
+完了後、クラスターの状態を確認する。
 
 ```bash
-ssh ubuntu@192.168.211.21 'sudo cat /var/lib/rancher/k3s/server/node-token'
+kubectl get nodes
 ```
 
-取得した値を `terraform.tfvars` の `k3s_token` に設定してから worker03 を再作成する。
-
-```bash
-cd ~/proxmox-lab/terraform
-terraform apply -replace=proxmox_virtual_environment_vm.k3s_worker_node02
+出力例:
+```
+NAME           STATUS   ROLES                  AGE   VERSION
+k3s-master     Ready    control-plane,master   5m    v1.34.x+k3s1
+k3s-worker01   Ready    <none>                 3m    v1.34.x+k3s1
+k3s-worker02   Ready    <none>                 2m    v1.34.x+k3s1
+k3s-worker03   Ready    <none>                 1m    v1.34.x+k3s1
 ```
 
-> **destroy が失敗する場合** (node02 が node01 の ZFS プールを参照できないエラー):
->
-> ```bash
-> ssh root@192.168.210.12 'qm stop 204 --skiplock; qm destroy 204 --skiplock --purge'
-> terraform apply -replace=proxmox_virtual_environment_vm.k3s_worker_node02
-> ```
-
-### Step 5: Proxmox Replication の設定 (手動)
+### Step 3: Proxmox Replication の設定 (手動)
 
 VM をデプロイした後、Proxmox Web UI から Replication を設定する。
 node01 ↔ node02 間で ZFS スナップショットが定期同期される。
