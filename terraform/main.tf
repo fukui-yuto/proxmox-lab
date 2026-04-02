@@ -364,6 +364,7 @@ resource "null_resource" "k3s_master_install" {
     }
     inline = [
       "cloud-init status --wait || true",
+      "sudo hostnamectl set-hostname k3s-master",
       "export K3S_TOKEN=$(sudo cat /run/k3s-token) && curl -sfL https://get.k3s.io | sh -",
       "sudo rm -f /run/k3s-token",
       "sudo k3s kubectl wait --for=condition=Ready node/k3s-master --timeout=120s"
