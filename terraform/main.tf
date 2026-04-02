@@ -339,6 +339,21 @@ resource "null_resource" "k3s_master_install" {
   }
   depends_on = [proxmox_virtual_environment_vm.k3s_master]
 
+  # フェーズ1: k3s トークンをファイルに書き込む (sensitive のため出力抑制)
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.210.21"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "10m"
+    }
+    inline = [
+      "printf '%s' '${random_password.k3s_token.result}' | sudo tee /run/k3s-token > /dev/null"
+    ]
+  }
+
+  # フェーズ2: cloud-init 待機・k3s インストール (出力が見える)
   provisioner "remote-exec" {
     connection {
       type        = "ssh"
@@ -349,7 +364,8 @@ resource "null_resource" "k3s_master_install" {
     }
     inline = [
       "cloud-init status --wait || true",
-      "curl -sfL https://get.k3s.io | K3S_TOKEN=${random_password.k3s_token.result} sh -",
+      "export K3S_TOKEN=$(sudo cat /run/k3s-token) && curl -sfL https://get.k3s.io | sh -",
+      "sudo rm -f /run/k3s-token",
       "sudo k3s kubectl wait --for=condition=Ready node/k3s-master --timeout=120s"
     ]
   }
