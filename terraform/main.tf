@@ -159,126 +159,13 @@ resource "null_resource" "node02_template" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node02) ※ ZFS なしのため local-lvm を使用
+# k3s ワーカー (node02 × 3: worker03/04/05) ※ ZFS なしのため local-lvm を使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
-  name      = "k3s-worker03"
+  count     = 3
+  name      = "k3s-worker0${count.index + 3}"
   node_name = "pve-node02"
-  vm_id     = 204
-
-  depends_on = [null_resource.node02_template]
-
-  clone {
-    vm_id        = 9001          # node02 のローカルテンプレート (migration 不要)
-    datastore_id = "local-lvm"
-  }
-
-  cpu {
-    cores = 1
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  network_device {
-    bridge = "vmbr0"
-  }
-
-  disk {
-    datastore_id = "local-lvm"
-    size         = 20
-    interface    = "virtio0"
-  }
-
-  initialization {
-    dns {
-      servers = ["192.168.210.254", "8.8.8.8"]
-    }
-    ip_config {
-      ipv4 {
-        address = "192.168.210.24/24"
-        gateway = "192.168.210.254"
-      }
-    }
-    user_account {
-      username = "ubuntu"
-      keys     = [var.ssh_public_key]
-    }
-  }
-
-  # destroy 時: pve-node02 が data-pve-node01 (ZFS) を参照してエラーになるため
-  # Proxmox API より先に qm destroy --purge で手動削除する
-  provisioner "local-exec" {
-    when    = destroy
-    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 204 --skiplock 2>/dev/null; qm destroy 204 --skiplock --purge 2>/dev/null'; exit 0"
-  }
-}
-
-# -------------------------------------------------------------------
-# k3s ワーカー04 (node02) ※ worker03 と同様に local-lvm を使用
-# -------------------------------------------------------------------
-resource "proxmox_virtual_environment_vm" "k3s_worker04" {
-  name      = "k3s-worker04"
-  node_name = "pve-node02"
-  vm_id     = 205
-
-  depends_on = [null_resource.node02_template]
-
-  clone {
-    vm_id        = 9001          # node02 のローカルテンプレート (migration 不要)
-    datastore_id = "local-lvm"
-  }
-
-  cpu {
-    cores = 1
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  network_device {
-    bridge = "vmbr0"
-  }
-
-  disk {
-    datastore_id = "local-lvm"
-    size         = 20
-    interface    = "virtio0"
-  }
-
-  initialization {
-    dns {
-      servers = ["192.168.210.254", "8.8.8.8"]
-    }
-    ip_config {
-      ipv4 {
-        address = "192.168.210.25/24"
-        gateway = "192.168.210.254"
-      }
-    }
-    user_account {
-      username = "ubuntu"
-      keys     = [var.ssh_public_key]
-    }
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 205 --skiplock 2>/dev/null; qm destroy 205 --skiplock --purge 2>/dev/null'; exit 0"
-  }
-}
-
-# -------------------------------------------------------------------
-# k3s ワーカー05 (node02) ※ worker03/04 と同様に local-lvm を使用
-# -------------------------------------------------------------------
-resource "proxmox_virtual_environment_vm" "k3s_worker05" {
-  name      = "k3s-worker05"
-  node_name = "pve-node02"
-  vm_id     = 206
+  vm_id     = 204 + count.index
 
   depends_on = [null_resource.node02_template]
 
@@ -312,7 +199,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker05" {
     }
     ip_config {
       ipv4 {
-        address = "192.168.210.26/24"
+        address = "192.168.210.2${count.index + 4}/24"
         gateway = "192.168.210.254"
       }
     }
@@ -322,10 +209,27 @@ resource "proxmox_virtual_environment_vm" "k3s_worker05" {
     }
   }
 
+  # destroy 時: pve-node02 が data-pve-node01 (ZFS) を参照してエラーになるため
+  # Proxmox API より先に qm destroy --purge で手動削除する
   provisioner "local-exec" {
     when    = destroy
-    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 206 --skiplock 2>/dev/null; qm destroy 206 --skiplock --purge 2>/dev/null'; exit 0"
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop ${self.vm_id} --skiplock 2>/dev/null; qm destroy ${self.vm_id} --skiplock --purge 2>/dev/null'; exit 0"
   }
+}
+
+moved {
+  from = proxmox_virtual_environment_vm.k3s_worker_node02
+  to   = proxmox_virtual_environment_vm.k3s_worker_node02[0]
+}
+
+moved {
+  from = proxmox_virtual_environment_vm.k3s_worker04
+  to   = proxmox_virtual_environment_vm.k3s_worker_node02[1]
+}
+
+moved {
+  from = proxmox_virtual_environment_vm.k3s_worker05
+  to   = proxmox_virtual_environment_vm.k3s_worker_node02[2]
 }
 
 # -------------------------------------------------------------------
@@ -399,10 +303,11 @@ resource "null_resource" "k3s_workers_install" {
   }
 }
 
-# k3s worker03 インストール
-resource "null_resource" "k3s_worker03_install" {
+# k3s worker03/04/05 インストール (node02)
+resource "null_resource" "k3s_worker_node02_install" {
+  count = 3
   triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_worker_node02.id
+    vm_id = proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id
   }
   depends_on = [
     null_resource.k3s_master_install,
@@ -413,7 +318,7 @@ resource "null_resource" "k3s_worker03_install" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      host        = "192.168.210.24"
+      host        = "192.168.210.2${count.index + 4}"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
@@ -424,52 +329,19 @@ resource "null_resource" "k3s_worker03_install" {
   }
 }
 
-# k3s worker04 インストール
-resource "null_resource" "k3s_worker04_install" {
-  triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_worker04.id
-  }
-  depends_on = [
-    null_resource.k3s_master_install,
-    proxmox_virtual_environment_vm.k3s_worker04,
-  ]
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.25"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
-    inline = [
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
-    ]
-  }
+moved {
+  from = null_resource.k3s_worker03_install
+  to   = null_resource.k3s_worker_node02_install[0]
 }
 
-# k3s worker05 インストール
-resource "null_resource" "k3s_worker05_install" {
-  triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_worker05.id
-  }
-  depends_on = [
-    null_resource.k3s_master_install,
-    proxmox_virtual_environment_vm.k3s_worker05,
-  ]
+moved {
+  from = null_resource.k3s_worker04_install
+  to   = null_resource.k3s_worker_node02_install[1]
+}
 
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.26"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
-    inline = [
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
-    ]
-  }
+moved {
+  from = null_resource.k3s_worker05_install
+  to   = null_resource.k3s_worker_node02_install[2]
 }
 
 # kubeconfig を Raspberry Pi に配置
