@@ -2,6 +2,7 @@
 # Linux Bridge + VLAN サブインターフェース設定
 - name: ネットワーク設定
   hosts: proxmox
+  gather_facts: false
   tasks:
     - name: /etc/network/interfaces を設定
       copy:
