@@ -254,7 +254,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
       user        = "ubuntu"
       host        = "192.168.211.24"
       private_key = file("~/.ssh/id_ed25519")
-      timeout     = "6m"
+      timeout     = "10m"
     }
     inline = [
       # VLAN10 ブリッジが L2 未接続のため /32 ルートをゲートウェイ (node02) 経由に設定
