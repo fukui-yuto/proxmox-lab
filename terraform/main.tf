@@ -1,4 +1,5 @@
 terraform {
+  required_version = ">= 1.5"
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
@@ -9,6 +10,21 @@ terraform {
       version = "~> 3.0"
     }
   }
+}
+
+locals {
+  gateway     = "192.168.210.254"
+  dns_servers = ["192.168.210.254", "8.8.8.8"]
+  master_ip   = "192.168.210.21"
+  ssh_key     = "~/.ssh/id_ed25519"
+  # worker01〜05 の IP (インデックス順)
+  worker_ips = [
+    "192.168.210.22", # worker01 (node01)
+    "192.168.210.23", # worker02 (node01)
+    "192.168.210.24", # worker03 (node02)
+    "192.168.210.25", # worker04 (node02)
+    "192.168.210.26", # worker05 (node02)
+  ]
 }
 
 provider "proxmox" {
@@ -57,12 +73,12 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 
   initialization {
     dns {
-      servers = ["192.168.210.254", "8.8.8.8"]
+      servers = local.dns_servers
     }
     ip_config {
       ipv4 {
-        address = "192.168.210.21/24"
-        gateway = "192.168.210.254"
+        address = "${local.master_ip}/24"
+        gateway = local.gateway
       }
     }
     user_account {
@@ -106,12 +122,12 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
 
   initialization {
     dns {
-      servers = ["192.168.210.254", "8.8.8.8"]
+      servers = local.dns_servers
     }
     ip_config {
       ipv4 {
-        address = "192.168.210.2${count.index + 2}/24"
-        gateway = "192.168.210.254"
+        address = "${local.worker_ips[count.index]}/24"
+        gateway = local.gateway
       }
     }
     user_account {
@@ -195,12 +211,12 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 
   initialization {
     dns {
-      servers = ["192.168.210.254", "8.8.8.8"]
+      servers = local.dns_servers
     }
     ip_config {
       ipv4 {
-        address = "192.168.210.2${count.index + 4}/24"
-        gateway = "192.168.210.254"
+        address = "${local.worker_ips[count.index + 2]}/24"
+        gateway = local.gateway
       }
     }
     user_account {
@@ -228,15 +244,16 @@ resource "null_resource" "k3s_master_install" {
   }
   depends_on = [proxmox_virtual_environment_vm.k3s_master]
 
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = local.master_ip
+    private_key = file(local.ssh_key)
+    timeout     = "10m"
+  }
+
   # フェーズ1: k3s トークンをファイルに書き込む (sensitive のため出力抑制)
   provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.21"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
     inline = [
       "printf '%s' '${random_password.k3s_token.result}' | sudo tee /run/k3s-token > /dev/null"
     ]
@@ -244,13 +261,6 @@ resource "null_resource" "k3s_master_install" {
 
   # フェーズ2: cloud-init 待機・k3s インストール (出力が見える)
   provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.21"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
     inline = [
       "cloud-init status --wait || true",
       "sudo hostnamectl set-hostname k3s-master",
@@ -263,56 +273,47 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker01 / worker02 インストール
+# k3s worker01〜05 インストール (全ワーカー共通)
+# worker01/02: k3s_worker[0/1]、worker03/04/05: k3s_worker_node02[0/1/2]
 resource "null_resource" "k3s_workers_install" {
-  count = 2
+  count = 5
   triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_worker[count.index].id
+    vm_id = count.index < 2 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 2].id
   }
   depends_on = [
     null_resource.k3s_master_install,
     proxmox_virtual_environment_vm.k3s_worker,
+    proxmox_virtual_environment_vm.k3s_worker_node02,
   ]
 
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = local.worker_ips[count.index]
+    private_key = file(local.ssh_key)
+    timeout     = "10m"
+  }
+
   provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.2${count.index + 2}"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
     inline = [
       "echo 'ipv4' | sudo tee /etc/curlrc",
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+      "curl -sfL https://get.k3s.io | K3S_URL=https://${local.master_ip}:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
 }
 
-# k3s worker03/04/05 インストール (node02)
-resource "null_resource" "k3s_worker_node02_install" {
-  count = 3
-  triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id
-  }
-  depends_on = [
-    null_resource.k3s_master_install,
-    proxmox_virtual_environment_vm.k3s_worker_node02,
-  ]
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.210.2${count.index + 4}"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
-    inline = [
-      "echo 'ipv4' | sudo tee /etc/curlrc",
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
-    ]
-  }
+# state 移行: k3s_worker_node02_install[0/1/2] → k3s_workers_install[2/3/4]
+moved {
+  from = null_resource.k3s_worker_node02_install[0]
+  to   = null_resource.k3s_workers_install[2]
+}
+moved {
+  from = null_resource.k3s_worker_node02_install[1]
+  to   = null_resource.k3s_workers_install[3]
+}
+moved {
+  from = null_resource.k3s_worker_node02_install[2]
+  to   = null_resource.k3s_workers_install[4]
 }
 
 # kubeconfig を Raspberry Pi に配置
@@ -325,8 +326,8 @@ resource "null_resource" "kubeconfig_setup" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ~/.kube
-      ssh -o StrictHostKeyChecking=no ubuntu@192.168.210.21 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/config
-      sed -i 's/127.0.0.1/192.168.210.21/g' ~/.kube/config
+      ssh -o StrictHostKeyChecking=no ubuntu@${local.master_ip} 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/config
+      sed -i 's/127.0.0.1/${local.master_ip}/g' ~/.kube/config
     EOT
   }
 }
@@ -344,7 +345,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
     ip_config {
       ipv4 {
         address = "192.168.210.53/24"
-        gateway = "192.168.210.254"
+        gateway = local.gateway
       }
     }
     user_account {
