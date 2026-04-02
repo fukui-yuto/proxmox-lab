@@ -318,7 +318,7 @@ resource "null_resource" "k3s_worker_node02_install" {
 # kubeconfig を Raspberry Pi に配置
 resource "null_resource" "kubeconfig_setup" {
   triggers = {
-    vm_id = proxmox_virtual_environment_vm.k3s_master.id
+    k3s_master_install_id = null_resource.k3s_master_install.id
   }
   depends_on = [null_resource.k3s_master_install]
 
