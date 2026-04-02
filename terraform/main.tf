@@ -42,7 +42,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   memory {
-    dedicated = 2048
+    dedicated = 4096
   }
 
   network_device {
@@ -273,6 +273,62 @@ resource "proxmox_virtual_environment_vm" "k3s_worker04" {
 }
 
 # -------------------------------------------------------------------
+# k3s ワーカー05 (node02) ※ worker03/04 と同様に local-lvm を使用
+# -------------------------------------------------------------------
+resource "proxmox_virtual_environment_vm" "k3s_worker05" {
+  name      = "k3s-worker05"
+  node_name = "pve-node02"
+  vm_id     = 206
+
+  depends_on = [null_resource.node02_template]
+
+  clone {
+    vm_id        = 9001
+    datastore_id = "local-lvm"
+  }
+
+  cpu {
+    cores = 1
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  network_device {
+    bridge = "vmbr0"
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = 20
+    interface    = "virtio0"
+  }
+
+  initialization {
+    dns {
+      servers = ["192.168.210.254", "8.8.8.8"]
+    }
+    ip_config {
+      ipv4 {
+        address = "192.168.210.26/24"
+        gateway = "192.168.210.254"
+      }
+    }
+    user_account {
+      username = "ubuntu"
+      keys     = [var.ssh_public_key]
+    }
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 206 --skiplock 2>/dev/null; qm destroy 206 --skiplock --purge 2>/dev/null'; exit 0"
+  }
+}
+
+# -------------------------------------------------------------------
 # k3s インストール
 # -------------------------------------------------------------------
 
@@ -362,6 +418,30 @@ resource "null_resource" "k3s_worker04_install" {
       type        = "ssh"
       user        = "ubuntu"
       host        = "192.168.210.25"
+      private_key = file("~/.ssh/id_ed25519")
+      timeout     = "10m"
+    }
+    inline = [
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+    ]
+  }
+}
+
+# k3s worker05 インストール
+resource "null_resource" "k3s_worker05_install" {
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.k3s_worker05.id
+  }
+  depends_on = [
+    null_resource.k3s_master_install,
+    proxmox_virtual_environment_vm.k3s_worker05,
+  ]
+
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      host        = "192.168.210.26"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
