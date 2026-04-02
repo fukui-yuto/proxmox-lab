@@ -354,7 +354,7 @@ resource "null_resource" "k3s_master_install" {
       user        = "ubuntu"
       host        = "192.168.211.21"
       private_key = file("~/.ssh/id_ed25519")
-      timeout     = "5m"
+      timeout     = "10m"
     }
     inline = [
       "curl -sfL https://get.k3s.io | K3S_TOKEN=${random_password.k3s_token.result} sh -",
@@ -380,7 +380,7 @@ resource "null_resource" "k3s_workers_install" {
       user        = "ubuntu"
       host        = "192.168.211.2${count.index + 2}"
       private_key = file("~/.ssh/id_ed25519")
-      timeout     = "5m"
+      timeout     = "10m"
     }
     inline = [
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
@@ -432,7 +432,7 @@ resource "null_resource" "k3s_worker03_install" {
       user        = "ubuntu"
       host        = "192.168.211.24"
       private_key = file("~/.ssh/id_ed25519")
-      timeout     = "5m"
+      timeout     = "10m"
     }
     inline = [
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
@@ -456,7 +456,7 @@ resource "null_resource" "k3s_worker04_install" {
       user        = "ubuntu"
       host        = "192.168.211.25"
       private_key = file("~/.ssh/id_ed25519")
-      timeout     = "5m"
+      timeout     = "10m"
     }
     inline = [
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
