@@ -82,6 +82,7 @@ proxmox-lab/
 | k3s-worker01 | VM | 192.168.211.22 | k3s ワーカー (pve-node01) |
 | k3s-worker02 | VM | 192.168.211.23 | k3s ワーカー (pve-node01) |
 | k3s-worker03 | VM | 192.168.211.24 | k3s ワーカー (pve-node02) |
+| k3s-worker04 | VM | 192.168.211.25 | k3s ワーカー (pve-node02) |
 | dns-ct | LXC | 192.168.210.53 | Pi-hole (DNS) |
 
 ---
