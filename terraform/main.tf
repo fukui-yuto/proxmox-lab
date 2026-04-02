@@ -56,6 +56,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   initialization {
+    hostname = "k3s-master"
     dns {
       servers = ["192.168.210.254", "8.8.8.8"]
     }
@@ -348,7 +349,7 @@ resource "null_resource" "k3s_master_install" {
       timeout     = "10m"
     }
     inline = [
-      "cloud-init status --wait",
+      "cloud-init status --wait || true",
       "curl -sfL https://get.k3s.io | K3S_TOKEN=${random_password.k3s_token.result} sh -",
       "sudo k3s kubectl wait --for=condition=Ready node/k3s-master --timeout=120s"
     ]
