@@ -482,7 +482,7 @@ resource "null_resource" "kubeconfig_setup" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ~/.kube
-      scp -o StrictHostKeyChecking=no ubuntu@192.168.210.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+      ssh -o StrictHostKeyChecking=no ubuntu@192.168.210.21 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/config
       sed -i 's/127.0.0.1/192.168.210.21/g' ~/.kube/config
     EOT
   }
