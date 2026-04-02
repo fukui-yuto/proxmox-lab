@@ -283,7 +283,7 @@ resource "null_resource" "k3s_workers_install" {
       timeout     = "10m"
     }
     inline = [
-      "sudo sed -i 's/#precedence ::ffff:0:0\\/96  100/precedence ::ffff:0:0\\/96  100/' /etc/gai.conf",
+      "echo 'ipv4' | sudo tee /etc/curlrc",
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
