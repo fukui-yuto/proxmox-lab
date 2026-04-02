@@ -10,9 +10,9 @@
 ```
 [Proxmox クラスター "homelab"]
   pve-node01 / pve-node02 (NUC5i3RYH × 2)
-  ├── k3s-master  (192.168.211.21)
-  ├── k3s-worker01 (192.168.211.22)
-  ├── k3s-worker02 (192.168.211.23)
+  ├── k3s-master  (192.168.210.21)
+  ├── k3s-worker01 (192.168.210.22)
+  ├── k3s-worker02 (192.168.210.23)
   └── dns-ct / Pi-hole (192.168.210.53)
 ```
 

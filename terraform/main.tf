@@ -47,7 +47,6 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 
   network_device {
     bridge = "vmbr0"
-    vlan_id = 10
   }
 
   disk {
@@ -62,29 +61,14 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
     }
     ip_config {
       ipv4 {
-        address = "192.168.211.21/24"
-        gateway = "192.168.211.1"
+        address = "192.168.210.21/24"
+        gateway = "192.168.210.254"
       }
     }
     user_account {
       username = "ubuntu"
       keys     = [var.ssh_public_key]
     }
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.211.21"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "3m"
-    }
-    inline = [
-      "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.24/32\n          via: 192.168.211.1\nEOF",
-      "sudo chmod 600 /etc/netplan/99-worker03-route.yaml",
-      "sudo netplan apply"
-    ]
   }
 }
 
@@ -111,8 +95,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
   }
 
   network_device {
-    bridge  = "vmbr0"
-    vlan_id = 10
+    bridge = "vmbr0"
   }
 
   disk {
@@ -127,29 +110,14 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
     }
     ip_config {
       ipv4 {
-        address = "192.168.211.2${count.index + 2}/24"
-        gateway = "192.168.211.1"
+        address = "192.168.210.2${count.index + 2}/24"
+        gateway = "192.168.210.254"
       }
     }
     user_account {
       username = "ubuntu"
       keys     = [var.ssh_public_key]
     }
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.211.2${count.index + 2}"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "3m"
-    }
-    inline = [
-      "sudo tee /etc/netplan/99-worker03-route.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.24/32\n          via: 192.168.211.1\nEOF",
-      "sudo chmod 600 /etc/netplan/99-worker03-route.yaml",
-      "sudo netplan apply"
-    ]
   }
 }
 
@@ -215,8 +183,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   }
 
   network_device {
-    bridge  = "vmbr0"
-    vlan_id = 10
+    bridge = "vmbr0"
   }
 
   disk {
@@ -231,8 +198,8 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     }
     ip_config {
       ipv4 {
-        address = "192.168.211.24/24"
-        gateway = "192.168.211.2"  # node02 の VLAN10 ブリッジ (node01 は L2 未到達)
+        address = "192.168.210.24/24"
+        gateway = "192.168.210.254"
       }
     }
     user_account {
@@ -246,22 +213,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   provisioner "local-exec" {
     when    = destroy
     command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 204 --skiplock 2>/dev/null; qm destroy 204 --skiplock --purge 2>/dev/null'; exit 0"
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.211.24"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "10m"
-    }
-    inline = [
-      # VLAN10 ブリッジが L2 未接続のため /32 ルートをゲートウェイ (node02) 経由に設定
-      "sudo tee /etc/netplan/99-cross-node-routes.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.21/32\n          via: 192.168.211.2\n        - to: 192.168.211.22/32\n          via: 192.168.211.2\n        - to: 192.168.211.23/32\n          via: 192.168.211.2\n        - to: 192.168.211.25/32\n          via: 192.168.211.2\nEOF",
-      "sudo chmod 600 /etc/netplan/99-cross-node-routes.yaml",
-      "sudo netplan apply"
-    ]
   }
 }
 
@@ -290,8 +241,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker04" {
   }
 
   network_device {
-    bridge  = "vmbr0"
-    vlan_id = 10
+    bridge = "vmbr0"
   }
 
   disk {
@@ -306,8 +256,8 @@ resource "proxmox_virtual_environment_vm" "k3s_worker04" {
     }
     ip_config {
       ipv4 {
-        address = "192.168.211.25/24"
-        gateway = "192.168.211.2"
+        address = "192.168.210.25/24"
+        gateway = "192.168.210.254"
       }
     }
     user_account {
@@ -319,21 +269,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker04" {
   provisioner "local-exec" {
     when    = destroy
     command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop 205 --skiplock 2>/dev/null; qm destroy 205 --skiplock --purge 2>/dev/null'; exit 0"
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      host        = "192.168.211.25"
-      private_key = file("~/.ssh/id_ed25519")
-      timeout     = "6m"
-    }
-    inline = [
-      "sudo tee /etc/netplan/99-cross-node-routes.yaml > /dev/null <<'EOF'\nnetwork:\n  version: 2\n  ethernets:\n    eth0:\n      routes:\n        - to: 192.168.211.21/32\n          via: 192.168.211.2\n        - to: 192.168.211.22/32\n          via: 192.168.211.2\n        - to: 192.168.211.23/32\n          via: 192.168.211.2\nEOF",
-      "sudo chmod 600 /etc/netplan/99-cross-node-routes.yaml",
-      "sudo netplan apply"
-    ]
   }
 }
 
@@ -352,7 +287,7 @@ resource "null_resource" "k3s_master_install" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      host        = "192.168.211.21"
+      host        = "192.168.210.21"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
@@ -378,41 +313,13 @@ resource "null_resource" "k3s_workers_install" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      host        = "192.168.211.2${count.index + 2}"
+      host        = "192.168.210.2${count.index + 2}"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
     inline = [
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
-  }
-}
-
-# node01 側 VM (master / worker01 / worker02) に worker04 (.25) へのルートを追加
-resource "null_resource" "route_to_worker04" {
-  triggers = {
-    worker04_id = proxmox_virtual_environment_vm.k3s_worker04.id
-  }
-  depends_on = [proxmox_virtual_environment_vm.k3s_worker04]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      for host in 192.168.211.21 192.168.211.22 192.168.211.23; do
-        ssh -o StrictHostKeyChecking=no ubuntu@$host "
-          sudo tee /etc/netplan/99-worker04-route.yaml > /dev/null <<'EOF'
-network:
-  version: 2
-  ethernets:
-    eth0:
-      routes:
-        - to: 192.168.211.25/32
-          via: 192.168.211.1
-EOF
-          sudo chmod 600 /etc/netplan/99-worker04-route.yaml
-          sudo netplan apply
-        "
-      done
-    EOT
   }
 }
 
@@ -430,12 +337,12 @@ resource "null_resource" "k3s_worker03_install" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      host        = "192.168.211.24"
+      host        = "192.168.210.24"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
     inline = [
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
 }
@@ -454,12 +361,12 @@ resource "null_resource" "k3s_worker04_install" {
     connection {
       type        = "ssh"
       user        = "ubuntu"
-      host        = "192.168.211.25"
+      host        = "192.168.210.25"
       private_key = file("~/.ssh/id_ed25519")
       timeout     = "10m"
     }
     inline = [
-      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
+      "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
 }
@@ -474,8 +381,8 @@ resource "null_resource" "kubeconfig_setup" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ~/.kube
-      scp -o StrictHostKeyChecking=no ubuntu@192.168.211.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
-      sed -i 's/127.0.0.1/192.168.211.21/g' ~/.kube/config
+      scp -o StrictHostKeyChecking=no ubuntu@192.168.210.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+      sed -i 's/127.0.0.1/192.168.210.21/g' ~/.kube/config
     EOT
   }
 }

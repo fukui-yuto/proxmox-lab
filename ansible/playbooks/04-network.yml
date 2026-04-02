@@ -1,5 +1,5 @@
 ---
-# Linux Bridge + VLAN サブインターフェース設定
+# Linux Bridge 設定 (管理用 vmbr0 + ストレージ用 vmbr0.20)
 - name: ネットワーク設定
   hosts: proxmox
   gather_facts: false
@@ -15,27 +15,12 @@
           auto nic0
           iface nic0 inet manual
 
-          # 管理用ブリッジ (VLAN1 / 192.168.210.0/24)
+          # 管理用ブリッジ (192.168.210.0/24)
           auto vmbr0
           iface vmbr0 inet static
               address {{ ansible_host }}/24
               gateway 192.168.210.254
               bridge-ports nic0
-              bridge-stp off
-              bridge-fd 0
-
-          # VM 通信用 VLAN subinterface (L2 のみ、IP なし)
-          auto vmbr0.10
-          iface vmbr0.10 inet manual
-              vlan-raw-device vmbr0
-
-          # Proxmox が自動生成する VLAN10 ブリッジにホスト IP を付与
-          # tap201/202/203 はこのブリッジに接続されているため、ここに IP が必要
-          # bridge-ports を明示することで再起動後も IP が保持される
-          auto vmbr0v10
-          iface vmbr0v10 inet static
-              address {{ vlan10_ip }}/24
-              bridge-ports vmbr0.10
               bridge-stp off
               bridge-fd 0
 
@@ -46,97 +31,8 @@
               vlan-raw-device vmbr0
       vars:
         storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' }}"
-        vlan10_ip: "{{ '192.168.211.1' if inventory_hostname == 'pve-node01' else '192.168.211.2' }}"
       notify: restart networking
-
-    - name: クロスノードルートスクリプトを配置 (pve-node01 → node02 workers)
-      copy:
-        dest: /etc/network/if-up.d/cross-node-routes
-        mode: "0755"
-        content: |
-          #!/bin/bash
-          # VLAN10 ブリッジが L2 未接続のため管理 NW 経由でルーティング
-          [ "$IFACE" = "vmbr0v10" ] || exit 0
-          ip route replace 192.168.211.24/32 via 192.168.210.12 2>/dev/null || true
-          ip route replace 192.168.211.25/32 via 192.168.210.12 2>/dev/null || true
-      when: inventory_hostname == 'pve-node01'
-
-    - name: クロスノードルートスクリプトを配置 (pve-node02 → master/worker01/02)
-      copy:
-        dest: /etc/network/if-up.d/cross-node-routes
-        mode: "0755"
-        content: |
-          #!/bin/bash
-          # VLAN10 ブリッジが L2 未接続のため管理 NW 経由でルーティング
-          [ "$IFACE" = "vmbr0v10" ] || exit 0
-          ip route replace 192.168.211.21/32 via 192.168.210.11 2>/dev/null || true
-          ip route replace 192.168.211.22/32 via 192.168.210.11 2>/dev/null || true
-          ip route replace 192.168.211.23/32 via 192.168.210.11 2>/dev/null || true
-      when: inventory_hostname == 'pve-node02'
-
-    - name: クロスノードルートを即時適用 (pve-node01)
-      command: "ip route replace {{ item }} via 192.168.210.12"
-      loop:
-        - 192.168.211.24/32
-        - 192.168.211.25/32
-      when: inventory_hostname == 'pve-node01'
-      changed_when: false
-
-    - name: クロスノードルートを即時適用 (pve-node02)
-      command: "ip route replace {{ item }} via 192.168.210.11"
-      loop:
-        - 192.168.211.21/32
-        - 192.168.211.22/32
-        - 192.168.211.23/32
-      when: inventory_hostname == 'pve-node02'
-      changed_when: false
-
-    - name: IP フォワーディングを有効化
-      sysctl:
-        name: net.ipv4.ip_forward
-        value: "1"
-        state: present
-        sysctl_file: /etc/sysctl.d/99-ip-forward.conf
-        reload: true
-
-    - name: ICMP リダイレクト送信を無効化
-      sysctl:
-        name: "{{ item }}"
-        value: "0"
-        state: present
-        sysctl_file: /etc/sysctl.d/99-ip-forward.conf
-        reload: true
-      loop:
-        - net.ipv4.conf.all.send_redirects
-        - net.ipv4.conf.default.send_redirects
-
-    - name: iptables-persistent をインストール
-      apt:
-        name: iptables-persistent
-        state: present
-
-    - name: 古い MASQUERADE ルール (宛先制限なし) を削除
-      iptables:
-        table: nat
-        chain: POSTROUTING
-        source: 192.168.211.0/24
-        out_interface: vmbr0
-        jump: MASQUERADE
-        state: absent
-
-    - name: VLAN10 → インターネット の NAT マスカレードを設定 (管理NW宛を除外)
-      iptables:
-        table: nat
-        chain: POSTROUTING
-        source: 192.168.211.0/24
-        destination: "! 192.168.210.0/24"
-        out_interface: vmbr0
-        jump: MASQUERADE
-      notify: save iptables
 
   handlers:
     - name: restart networking
       command: ifreload -a
-
-    - name: save iptables
-      command: netfilter-persistent save

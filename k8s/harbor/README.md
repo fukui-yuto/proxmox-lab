@@ -67,7 +67,7 @@ helm upgrade --install harbor \
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.211.21  harbor.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  harbor.homelab.local"
 ```
 
 ## Docker でのイメージ操作

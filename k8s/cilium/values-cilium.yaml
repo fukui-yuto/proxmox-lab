@@ -14,7 +14,7 @@ cni:
 
 # k3s の kubeProxy 相当を Cilium が代替
 kubeProxyReplacement: true
-k8sServiceHost: "192.168.211.21"  # k3s-master の IP
+k8sServiceHost: "192.168.210.21"  # k3s-master の IP
 k8sServicePort: 6443
 
 # -------------------------------------------------------------------

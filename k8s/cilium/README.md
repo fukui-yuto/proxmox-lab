@@ -56,7 +56,7 @@ curl -sfL https://get.k3s.io | sh -s - \
 # worker ノードで実行 (master の token を使用)
 K3S_TOKEN=$(sudo cat /var/lib/rancher/k3s/server/node-token)  # master で実行
 
-curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 \
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 \
   K3S_TOKEN=${K3S_TOKEN} sh -
 ```
 
@@ -64,8 +64,8 @@ curl -sfL https://get.k3s.io | K3S_URL=https://192.168.211.21:6443 \
 
 ```bash
 # Raspberry Pi (ansible 実行環境) で実行
-scp ubuntu@192.168.211.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
-sed -i 's/127.0.0.1/192.168.211.21/g' ~/.kube/config
+scp ubuntu@192.168.210.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+sed -i 's/127.0.0.1/192.168.210.21/g' ~/.kube/config
 ```
 
 ## Cilium のインストール
@@ -134,7 +134,7 @@ cilium connectivity test
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.211.21  hubble.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  hubble.homelab.local"
 ```
 
 ### Hubble CLI でのフロー確認

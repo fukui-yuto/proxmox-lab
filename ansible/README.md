@@ -57,8 +57,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `01-base.yml` | リポジトリ設定・SSH 強化・hosts 設定 |
 | `02-cluster.yml` | クラスター作成・node02 参加・QDevice 追加 |
 | `03-storage.yml` | ZFS プール作成・Proxmox ストレージ登録 |
-| `04-network.yml` | VLAN Bridge (vmbr0.10 / vmbr0.20) 設定 |
-| `05-raspi-network.yml` | Raspberry Pi の静的ルート設定 |
+| `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
+| `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 
 ### クラスター確認
 

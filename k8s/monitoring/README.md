@@ -33,10 +33,10 @@ k3s-master から kubeconfig をコピーして接続設定を行う。
 mkdir -p ~/.kube
 
 # k3s-master から kubeconfig をコピー
-scp ubuntu@192.168.211.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
+scp ubuntu@192.168.210.21:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 
 # アドレスを 127.0.0.1 → k3s-master の IP に書き換え
-sed -i 's/127.0.0.1/192.168.211.21/g' ~/.kube/config
+sed -i 's/127.0.0.1/192.168.210.21/g' ~/.kube/config
 ```
 
 ### 接続確認
@@ -96,21 +96,21 @@ kubectl apply -f dashboards/
 
 > **注意:** 初回ログイン後に必ずパスワードを変更すること。
 
-Ingress は Traefik 経由で `192.168.211.21` (k3s-master) の 80 番ポートで公開されている。
-`192.168.211.22` / `23` / `24` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
+Ingress は Traefik 経由で `192.168.210.21` (k3s-master) の 80 番ポートで公開されている。
+`192.168.210.22` / `23` / `24` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
 
 #### Windows PC からのアクセス設定
 
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.211.21  grafana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  grafana.homelab.local"
 ```
 
 または `C:\Windows\System32\drivers\etc\hosts` を管理者権限のエディタで開き、以下を追記する。
 
 ```
-192.168.211.21  grafana.homelab.local
+192.168.210.21  grafana.homelab.local
 ```
 
 ### Prometheus (ポートフォワード)
@@ -165,17 +165,12 @@ kube-prometheus-stack-prometheus-node-exporter-xxx (worker03)  1/1     Running  
 
 ### worker03 が Grafana に表示されない
 
-worker03 (192.168.211.24) は pve-node02 上にあり VLAN10 が L2 未接続のため、
-Prometheus が `no route to host` で node-exporter をスクレイプできない場合がある。
-
-`terraform/main.tf` の `remote-exec` で master・worker01・worker02 に逆方向ルートを設定している。
-既存 VM への適用手順は [terraform/README.md](../../terraform/README.md) を参照。
-
-適用後の確認:
+全 VM は同一 L2 セグメント (192.168.210.0/24) に配置されているため、通常は自動的に到達可能。
+Prometheus ターゲットを確認する:
 
 ```bash
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if '192.168.211.24' in t.get('scrapeUrl','')]"
+sleep 3 && curl -s http://localhost:9090/api/v1/targets | python3 -c "import sys,json;[print(t['scrapeUrl'],t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if '192.168.210.24' in t.get('scrapeUrl','')]"
 ```
 
 全ターゲットが `up` になれば Grafana ダッシュボードに worker03 が表示される。

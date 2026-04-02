@@ -118,14 +118,11 @@ docker build → Harbor (プライベートレジストリ) → ArgoCD → k3s
       │
 [ルーター / ONU]
       │
-[L2 マネージドスイッチ]  ← VLAN タギング
+[L2 マネージドスイッチ]
    │         │
 [node01]  [node02]
-      │
-[router-vm / VyOS]  ← VLAN 間ルーティング・ファイアウォール
 
-VLAN 1  (192.168.210.0/24)  管理 / Proxmox Web UI / Keycloak
-VLAN 10 (192.168.211.0/24)  k3s VM / アプリ通信
+VLAN 1  (192.168.210.0/24)  管理 / Proxmox Web UI / k3s VM / Keycloak
 VLAN 20 (192.168.212.0/24)  ストレージ / Proxmox Replication
 ```
 
@@ -135,14 +132,16 @@ VLAN 20 (192.168.212.0/24)  ストレージ / Proxmox Replication
 
 | 名前 | 種別 | IP | vCPU | RAM | 用途 |
 |------|------|----|------|-----|------|
-| k3s-master | VM | 192.168.211.21 | 1 | 1GB | k3s コントロールプレーン |
-| k3s-worker01 | VM | 192.168.211.22 | 1 | 2GB | k3s ワーカー |
-| k3s-worker02 | VM | 192.168.211.23 | 1 | 2GB | k3s ワーカー |
+| k3s-master | VM | 192.168.210.21 | 1 | 2GB | k3s コントロールプレーン |
+| k3s-worker01 | VM | 192.168.210.22 | 1 | 4GB | k3s ワーカー |
+| k3s-worker02 | VM | 192.168.210.23 | 1 | 4GB | k3s ワーカー |
+| k3s-worker03 | VM | 192.168.210.24 | 1 | 4GB | k3s ワーカー (pve-node02) |
+| k3s-worker04 | VM | 192.168.210.25 | 1 | 4GB | k3s ワーカー (pve-node02) |
 | dns-ct | LXC | 192.168.210.53 | 1 | 256MB | Pi-hole (内部 DNS) |
 | router-vm | VM | 192.168.210.1 | 1 | 512MB | VyOS (ソフトウェアルーター) |
 | keycloak-vm | VM | 192.168.210.20 | 1 | 1GB | Keycloak (SSO / OIDC) |
 | pbs | VM | 192.168.210.30 | 1 | 1GB | Proxmox Backup Server |
-| elasticsearch | VM | 192.168.211.40 | 1 | 2GB | Elasticsearch |
+| elasticsearch | VM | 192.168.210.40 | 1 | 2GB | Elasticsearch |
 
 ---
 
