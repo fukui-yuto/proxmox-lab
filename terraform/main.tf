@@ -154,6 +154,43 @@ resource "proxmox_virtual_environment_vm" "k3s_worker" {
 }
 
 # -------------------------------------------------------------------
+# node02 用テンプレート (node01 の 9000 を vzdump → restore で複製)
+# cross-node clone + migration を回避し、同ノードクローンにする
+# -------------------------------------------------------------------
+resource "null_resource" "node02_template" {
+  triggers = {
+    source_template = var.ubuntu_template_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      if ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm config 9001' > /dev/null 2>&1; then
+        echo "Template 9001 already exists on pve-node02, skipping."
+        exit 0
+      fi
+      echo "Creating template 9001 on pve-node02 via vzdump/restore..."
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "vzdump ${var.ubuntu_template_id} --storage local --compress zstd --mode stop"
+      BACKUP=$(ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "ls -t /var/lib/vz/dump/vzdump-qemu-${var.ubuntu_template_id}-*.vma.zst | head -1")
+      FILENAME=$(basename "$BACKUP")
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "scp -o StrictHostKeyChecking=no $BACKUP root@192.168.210.12:/var/lib/vz/dump/"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.12 \
+        "qmrestore /var/lib/vz/dump/$FILENAME 9001 --storage local-lvm && qm template 9001"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 "rm -f $BACKUP"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.12 "rm -f /var/lib/vz/dump/$FILENAME"
+      echo "Template 9001 created on pve-node02."
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm destroy 9001 --purge 2>/dev/null'; exit 0"
+  }
+}
+
+# -------------------------------------------------------------------
 # k3s ワーカー (node02) ※ ZFS なしのため local-lvm を使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
@@ -161,10 +198,11 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   node_name = "pve-node02"
   vm_id     = 204
 
+  depends_on = [null_resource.node02_template]
+
   clone {
-    vm_id        = var.ubuntu_template_id
-    node_name    = "pve-node01"   # テンプレートが node01 にあるため明示
-    datastore_id = "local-lvm"    # node02 に ZFS がないため local-lvm に強制
+    vm_id        = 9001          # node02 のローカルテンプレート (migration 不要)
+    datastore_id = "local-lvm"
   }
 
   cpu {
@@ -235,10 +273,11 @@ resource "proxmox_virtual_environment_vm" "k3s_worker04" {
   node_name = "pve-node02"
   vm_id     = 205
 
+  depends_on = [null_resource.node02_template]
+
   clone {
-    vm_id        = var.ubuntu_template_id
-    node_name    = "pve-node01"   # テンプレートが node01 にあるため明示
-    datastore_id = "local-lvm"    # node02 に ZFS がないため local-lvm に強制
+    vm_id        = 9001          # node02 のローカルテンプレート (migration 不要)
+    datastore_id = "local-lvm"
   }
 
   cpu {
