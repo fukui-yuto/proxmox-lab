@@ -56,7 +56,6 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   initialization {
-    hostname = "k3s-master"
     dns {
       servers = ["192.168.210.254", "8.8.8.8"]
     }
