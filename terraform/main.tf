@@ -217,21 +217,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
   }
 }
 
-moved {
-  from = proxmox_virtual_environment_vm.k3s_worker_node02
-  to   = proxmox_virtual_environment_vm.k3s_worker_node02[0]
-}
-
-moved {
-  from = proxmox_virtual_environment_vm.k3s_worker04
-  to   = proxmox_virtual_environment_vm.k3s_worker_node02[1]
-}
-
-moved {
-  from = proxmox_virtual_environment_vm.k3s_worker05
-  to   = proxmox_virtual_environment_vm.k3s_worker_node02[2]
-}
-
 # -------------------------------------------------------------------
 # k3s インストール
 # -------------------------------------------------------------------
@@ -298,6 +283,7 @@ resource "null_resource" "k3s_workers_install" {
       timeout     = "10m"
     }
     inline = [
+      "sudo sed -i 's/#precedence ::ffff:0:0\\/96  100/precedence ::ffff:0:0\\/96  100/' /etc/gai.conf",
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
@@ -327,21 +313,6 @@ resource "null_resource" "k3s_worker_node02_install" {
       "curl -sfL https://get.k3s.io | K3S_URL=https://192.168.210.21:6443 K3S_TOKEN=${random_password.k3s_token.result} sh -"
     ]
   }
-}
-
-moved {
-  from = null_resource.k3s_worker03_install
-  to   = null_resource.k3s_worker_node02_install[0]
-}
-
-moved {
-  from = null_resource.k3s_worker04_install
-  to   = null_resource.k3s_worker_node02_install[1]
-}
-
-moved {
-  from = null_resource.k3s_worker05_install
-  to   = null_resource.k3s_worker_node02_install[2]
 }
 
 # kubeconfig を Raspberry Pi に配置
