@@ -15,7 +15,7 @@ ansible/
     ├── 05-raspi-network.yml      # Raspberry Pi 静的ルート設定
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
-    ├── site.yml                  # 01〜05-raspi を一括実行
+    ├── site.yml                  # 01〜06 を一括実行
     └── shutdown.yml              # クラスター安全シャットダウン
 ```
 
@@ -59,6 +59,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `03-storage.yml` | ZFS プール作成・Proxmox ストレージ登録 |
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
+| `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
 
 ### クラスター確認
 
@@ -70,7 +71,7 @@ ssh root@192.168.210.11 pvecm status
 
 ## クラスター安定性向上 (無線切断対策)
 
-子機ルーター経由の無線接続が一時的に切断されてもクォーラムを維持・自動復旧させる設定。
+`site.yml` に含まれるため、一括実行で自動適用される。個別実行する場合は以下。
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/06-resilience.yml

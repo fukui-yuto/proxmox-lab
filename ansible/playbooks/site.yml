@@ -1,5 +1,5 @@
 ---
-# Proxmox クラスター全体のセットアップ
+# Proxmox クラスター全体のセットアップ (01〜06 一括実行)
 # 実行: ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 
 - import_playbook: 01-base.yml
@@ -7,3 +7,4 @@
 - import_playbook: 03-storage.yml
 - import_playbook: 04-network.yml
 - import_playbook: 05-raspi-network.yml
+- import_playbook: 06-resilience.yml
