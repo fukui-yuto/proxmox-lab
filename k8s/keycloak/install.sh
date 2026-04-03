@@ -2,28 +2,17 @@
 # Keycloak デプロイスクリプト
 # 実行場所: Raspberry Pi (ansible 実行環境)
 # 前提: kubectl が k3s クラスターに接続できること
+# 注意: bitnami chart は 2025年8月以降イメージが有料化のため manifest 方式に変更
 
 set -euo pipefail
 
 NAMESPACE="keycloak"
-RELEASE_NAME="keycloak"
-CHART_VERSION="21.4.4"
-
-echo "=== Helm リポジトリ追加 ==="
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
 
 echo "=== Namespace 作成 ==="
 kubectl apply -f namespace.yaml
 
-echo "=== Keycloak デプロイ ==="
-helm upgrade --install "${RELEASE_NAME}" \
-  bitnami/keycloak \
-  --namespace "${NAMESPACE}" \
-  --version "${CHART_VERSION}" \
-  --values values-keycloak.yaml \
-  --timeout 15m \
-  --wait
+echo "=== Keycloak デプロイ (PostgreSQL + Keycloak) ==="
+kubectl apply -f keycloak.yaml
 
 echo "=== デプロイ確認 ==="
 kubectl get pods -n "${NAMESPACE}"

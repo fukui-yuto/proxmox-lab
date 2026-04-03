@@ -28,22 +28,15 @@ bash install.sh
 ### 手動で実行する場合
 
 ```bash
-# Helm リポジトリ追加
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
 # Namespace 作成
 kubectl apply -f namespace.yaml
 
-# デプロイ
-helm upgrade --install keycloak \
-  bitnami/keycloak \
-  --namespace keycloak \
-  --version 21.4.4 \
-  --values values-keycloak.yaml \
-  --timeout 15m \
-  --wait
+# デプロイ (PostgreSQL + Keycloak)
+kubectl apply -f keycloak.yaml
 ```
+
+> **注意:** bitnami/keycloak chart は 2025年8月以降イメージが有料化のため、
+> 公式イメージ (`quay.io/keycloak/keycloak`) を使った manifest 方式に変更。
 
 ## アクセス
 
