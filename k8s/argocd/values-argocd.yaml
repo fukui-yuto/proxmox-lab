@@ -88,7 +88,7 @@ repoServer:
       memory: 256Mi
     limits:
       cpu: 500m
-      memory: 512Mi
+      memory: 1Gi
   livenessProbe:
     initialDelaySeconds: 10
     periodSeconds: 10
