@@ -71,6 +71,22 @@ die() {
   exit 1
 }
 
+wait_for_quorum() {
+  local elapsed=0
+  log "  クラスタ クォーラム確立待機中..."
+  while ! ssh -o BatchMode=yes "root@${NODE01_IP}" \
+      "pvecm status 2>/dev/null | grep -q 'Quorate:.*Yes'" 2>/dev/null; do
+    sleep 5
+    elapsed=$(( elapsed + 5 ))
+    if (( elapsed >= SSH_WAIT_TIMEOUT )); then
+      die "クォーラムが ${SSH_WAIT_TIMEOUT}秒以内に確立されませんでした"
+    fi
+    echo -n "."
+  done
+  echo ""
+  log "  クォーラム確立"
+}
+
 wait_for_ssh() {
   local name="$1"
   local ip="$2"
@@ -166,11 +182,12 @@ main() {
   log "[1/5] Proxmox ノード起動 (Wake-on-LAN)..."
   wakeup_proxmox
 
-  # 2. Proxmox SSH 接続待機
+  # 2. Proxmox SSH 接続待機 + クォーラム確立待機
   log "[2/5] Proxmox SSH 接続待機..."
   wait_for_ssh "pve-node01" "$NODE01_IP" "root"
   wait_for_ssh "pve-node02" "$NODE02_IP" "root"
   wait_for_ssh "pve-node03" "$NODE03_IP" "root"
+  wait_for_quorum
 
   # 3. VM 起動
   log "[3/5] VM 起動..."
