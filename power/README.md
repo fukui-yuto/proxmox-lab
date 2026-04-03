@@ -8,10 +8,11 @@
 power/
 ├── scripts/
 │   ├── stop-lab.sh              # アイドル検知 + 自動停止 (pve-node01 で動作)
-│   └── start-lab.sh             # ラボ起動 (Raspberry Pi から実行)
+│   ├── start-lab.sh             # ラボ起動 (Raspberry Pi から実行)
+│   └── shutdown-lab.sh          # 手動シャットダウン (Raspberry Pi から実行)
 └── ansible/
     ├── setup-idle-shutdown.yml  # 初回セットアップ用プレイブック
-    └── shutdown.yml             # 手動シャットダウン用プレイブック
+    └── shutdown.yml             # shutdown-lab.sh から呼び出されるプレイブック
 ```
 
 ---
