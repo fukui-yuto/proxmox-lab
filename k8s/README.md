@@ -15,20 +15,11 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm version
 ```
 
----
-
-## デプロイ済みアプリ
-
-| ディレクトリ | アプリ | 手順 |
-|---|---|---|
-| `monitoring/` | Prometheus + Grafana | [monitoring/README.md](monitoring/README.md) |
-
----
-
-## 予定アプリ
+## アプリ
 
 | ディレクトリ | アプリ | 用途 |
 |---|---|---|
+| `monitoring/` | Prometheus + Grafana | [monitoring/README.md](monitoring/README.md) |
 | `logging/` | Elasticsearch + Fluent Bit + Kibana | ログ収集・可視化 |
 | `tracing/` | OpenTelemetry + Tempo | 分散トレーシング |
 | `argocd/` | ArgoCD | GitOps |
@@ -36,4 +27,3 @@ helm version
 | `keycloak/` | Keycloak | SSO / 認証基盤 |
 | `kyverno/` | Kyverno | ポリシーエンジン |
 | `vault/` | Vault | シークレット管理 |
-| `cilium/` | Cilium | 高機能 CNI |
