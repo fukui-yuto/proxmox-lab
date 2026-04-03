@@ -8,3 +8,4 @@
 - import_playbook: 04-network.yml
 - import_playbook: 05-raspi-network.yml
 - import_playbook: 06-resilience.yml
+- import_playbook: 08-nic-tuning.yml

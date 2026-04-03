@@ -15,7 +15,8 @@ ansible/
     ├── 05-raspi-network.yml      # Raspberry Pi 静的ルート設定
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
-    └── site.yml                  # 01〜06 を一括実行
+    ├── 08-nic-tuning.yml         # pve-node01 e1000e NIC チューニング
+    └── site.yml                  # 01〜08 を一括実行
 ```
 
 > シャットダウン関連のプレイブックは `power/ansible/` に移動しました。
@@ -61,6 +62,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 | `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
+| `08-nic-tuning.yml` | pve-node01 e1000e NIC チューニング (TSO/GSO/GRO 無効化) |
 
 ### クラスター確認
 
@@ -154,6 +156,40 @@ ansible-playbook -i inventory/hosts.yml playbooks/04-network.yml
 ---
 
 ## トラブルシューティング
+
+### pve-node01 が k8s デプロイ時に落ちる場合
+
+**症状:** k8s アプリをデプロイするとネットワークが切断され pve-node01 がクラッシュする。
+
+**原因:** pve-node01 の e1000e NIC (Intel Gigabit) が高負荷時に Hardware Unit Hang を起こし、
+Corosync がクォーラム喪失 → VM 強制停止 → ノードリブートという連鎖が発生する。
+
+```
+# クラッシュ前のログ (前回起動のジャーナルで確認)
+journalctl -b -1 -p err | grep e1000e
+# → e1000e 0000:00:19.0 nic0: Detected Hardware Unit Hang
+```
+
+**対策:** `08-nic-tuning.yml` で TSO/GSO/GRO を無効化する。
+
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
+```
+
+適用後の確認:
+
+```bash
+ssh root@192.168.210.11 ethtool -k nic0 | grep -E "tcp-segmentation|generic-segmentation|generic-receive"
+# tcp-segmentation-offload: off
+# generic-segmentation-offload: off
+# generic-receive-offload: off
+```
+
+**k8s アクセス IP について:** k3s の ServiceLB は全ノードで Traefik をリッスンするため、
+hosts ファイルは pve-node01 の IP (192.168.210.21) ではなく pve-node02 の worker IP
+(192.168.210.24) を使うことで NIC 負荷を分散する。
+
+---
 
 ### ZFS プール作成に失敗する場合
 

@@ -1,0 +1,31 @@
+---
+# pve-node01 の e1000e NIC チューニング
+# 症状: k8s デプロイ時のネットワーク負荷増加で e1000e Hardware Unit Hang が発生し
+#       Corosync quorum 喪失 → pve-node01 がクラッシュする
+# 対策: TCP オフロード機能 (TSO/GSO/GRO) を無効化してハングを防止
+- name: pve-node01 e1000e NIC チューニング
+  hosts: pve-node01
+  gather_facts: false
+  tasks:
+    - name: e1000e modprobe オプション設定 (InterruptThrottleRate 低減)
+      copy:
+        dest: /etc/modprobe.d/e1000e.conf
+        content: "options e1000e InterruptThrottleRate=1\n"
+      notify: update initramfs
+
+    - name: NIC オフロード無効化スクリプトを配置 (/etc/network/if-up.d)
+      copy:
+        dest: /etc/network/if-up.d/disable-nic-offload
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # e1000e Hardware Unit Hang 対策: TSO/GSO/GRO を無効化
+          [ "$IFACE" = "nic0" ] || exit 0
+          ethtool -K nic0 tso off gso off gro off
+
+    - name: NIC オフロードを即時無効化
+      command: ethtool -K nic0 tso off gso off gro off
+
+  handlers:
+    - name: update initramfs
+      command: update-initramfs -u
