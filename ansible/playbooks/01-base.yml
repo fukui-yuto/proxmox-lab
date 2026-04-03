@@ -19,9 +19,9 @@
         content: "deb http://download.proxmox.com/debian/pve {{ ansible_distribution_release }} pve-no-subscription\n"
 
     - name: パッケージ更新
-      apt:
-        update_cache: true
-        upgrade: dist
+      command: apt-get dist-upgrade -y --fix-missing
+      environment:
+        DEBIAN_FRONTEND: noninteractive
 
     - name: SSH パスワード認証を無効化
       lineinfile:
