@@ -302,20 +302,6 @@ resource "null_resource" "k3s_workers_install" {
   }
 }
 
-# state 移行: k3s_worker_node02_install[0/1/2] → k3s_workers_install[2/3/4]
-moved {
-  from = null_resource.k3s_worker_node02_install[0]
-  to   = null_resource.k3s_workers_install[2]
-}
-moved {
-  from = null_resource.k3s_worker_node02_install[1]
-  to   = null_resource.k3s_workers_install[3]
-}
-moved {
-  from = null_resource.k3s_worker_node02_install[2]
-  to   = null_resource.k3s_workers_install[4]
-}
-
 # kubeconfig を Raspberry Pi に配置
 resource "null_resource" "kubeconfig_setup" {
   triggers = {
