@@ -93,7 +93,71 @@ argocd login argocd.homelab.local \
   --insecure
 ```
 
-## Application の登録例
+## 基本的な使い方
+
+### ArgoCD とは
+
+Git リポジトリの内容を自動的に Kubernetes に反映するツール。
+「Git に push する = クラスターに反映される」という GitOps を実現する。
+
+```
+開発者が Git に push
+    ↓
+ArgoCD が差分を検知
+    ↓
+クラスターに自動デプロイ
+```
+
+### STEP 1: ログイン
+
+1. 初期パスワードを取得する
+
+```bash
+kubectl get secret argocd-initial-admin-secret \
+  -n argocd \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+2. `http://argocd.homelab.local` を開き、`admin` / 取得したパスワードでログイン
+3. ログイン後に **User Info → Update Password** でパスワードを変更する
+
+### STEP 2: Git リポジトリの登録
+
+左メニュー → **Settings → Repositories → Connect Repo**
+
+| 項目 | 値 |
+|---|---|
+| Connection method | HTTPS |
+| Repository URL | `https://github.com/<your-org>/<your-repo>` |
+| Username / Password | GitHub の認証情報 (private repo の場合) |
+
+→ **CONNECT** をクリック。`Successful` になれば OK。
+
+### STEP 3: Application の作成 (UI)
+
+左メニュー → **Applications → NEW APP**
+
+| 項目 | 値 |
+|---|---|
+| Application Name | `my-app` |
+| Project | `default` |
+| Sync Policy | `Automatic` (自動同期) |
+| Repository URL | 登録した Git URL |
+| Path | k8s マニフェストが置いてあるディレクトリ (例: `k8s/my-app`) |
+| Cluster URL | `https://kubernetes.default.svc` |
+| Namespace | `default` |
+
+→ **CREATE** をクリック。
+
+### STEP 4: 同期確認
+
+- アプリカードが **Synced / Healthy** になれば正常にデプロイされている
+- **SYNC** ボタンで手動同期、**REFRESH** で Git の最新を取得できる
+- Git に変更を push すると自動的にクラスターに反映される
+
+---
+
+## Application の登録例 (CLI)
 
 ```bash
 # Git リポジトリから Application を作成

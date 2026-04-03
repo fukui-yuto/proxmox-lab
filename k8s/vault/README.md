@@ -45,6 +45,74 @@ helm upgrade --install vault \
   --wait
 ```
 
+## 基本的な使い方
+
+### Vault とは
+
+パスワード・APIキー・証明書などの機密情報 (シークレット) を安全に保管するツール。
+アプリの設定ファイルにパスワードを直書きする代わりに、Vault から取得する運用にできる。
+
+```
+アプリが Vault にシークレットを要求
+    ↓
+Vault が認証・認可を確認
+    ↓
+シークレットを返す (設定ファイルに平文で書く必要がない)
+```
+
+### STEP 1: ログイン
+
+1. `http://vault.homelab.local` を開く
+2. Method: **Token** を選択
+3. Token: 初期化時に発行した Root Token (`hvs.` で始まる文字列) を入力
+4. **Sign In** をクリック
+
+> **注意:** vault-0 Pod が再起動するたびに Sealed 状態に戻る。その都度アンシールが必要 (下記参照)。
+
+### STEP 2: KV シークレットエンジンを有効化する
+
+シークレットを保存するには、まずストレージエンジンを有効化する。
+
+**UI の場合:**
+1. 左メニュー → **Secrets Engines → Enable new engine**
+2. **KV** を選択 → Path: `secret` → **Enable Engine**
+
+**CLI の場合:**
+```bash
+kubectl exec -n vault vault-0 -- vault secrets enable -path=secret kv-v2
+```
+
+### STEP 3: シークレットを保存・取得する
+
+**UI の場合:**
+1. 左メニュー → **secret → Create secret**
+2. Path: `myapp/config`
+3. Key / Value を入力 (例: `username` = `admin`, `password` = `s3cr3t`)
+4. **Save** をクリック
+
+**CLI の場合:**
+```bash
+# 書き込み
+kubectl exec -n vault vault-0 -- vault kv put secret/myapp/config \
+  username="admin" \
+  password="s3cr3t"
+
+# 読み取り
+kubectl exec -n vault vault-0 -- vault kv get secret/myapp/config
+```
+
+### Pod 再起動後のアンシール手順
+
+vault-0 が再起動した場合は以下の 3 コマンドを実行する:
+
+```bash
+kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 1>
+kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 2>
+kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 3>
+```
+
+---
+
 ## 初期化 (初回デプロイ時のみ)
 
 ### STEP 1: Vault の初期化

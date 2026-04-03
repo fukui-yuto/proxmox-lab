@@ -58,7 +58,58 @@ kubectl apply -f keycloak.yaml
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  keycloak.homelab.local"
 ```
 
-## Realm の作成
+## 基本的な使い方
+
+### Keycloak とは
+
+複数のアプリに対して「1つのログインで全部使える」SSO (Single Sign-On) を提供するツール。
+Grafana・ArgoCD・Harbor などのログインを Keycloak に統一できる。
+
+```
+ユーザーが Grafana にアクセス
+    ↓
+「Keycloak でログイン」にリダイレクト
+    ↓
+Keycloak で1回ログイン → Grafana・ArgoCD など全てにアクセス可能
+```
+
+### STEP 1: ログイン
+
+1. `http://keycloak.homelab.local` を開く
+2. **Administration Console** をクリック
+3. `admin` / `Keycloak12345` でログイン
+4. 右上ユーザーアイコン → **Manage account → Password** でパスワードを変更する
+
+> **注意:** 初回起動時は設定ビルドが走るため 3〜5 分かかる。
+
+### STEP 2: homelab Realm を作成する
+
+Realm はアプリ群を管理する「テナント」のようなもの。ラボ用に1つ作成する。
+
+1. 左上の **Keycloak** (master realm) をクリック
+2. **Create Realm** をクリック
+3. Realm name: `homelab` → **Create**
+
+以降の操作は `homelab` realm で行う。
+
+### STEP 3: ユーザーを作成する
+
+1. 左メニュー → **Users → Create new user**
+2. 入力:
+   - Username: 任意 (例: `yuto`)
+   - Email: 任意
+3. **Create** をクリック
+4. **Credentials タブ → Set password** でパスワードを設定
+   - Temporary: **OFF** にする (OFF にしないとログイン時にパスワード変更を求められる)
+
+### STEP 4: 動作確認
+
+左メニュー → **Sessions** でアクティブなセッションが確認できる。
+ユーザーが各アプリ (Grafana など) と OIDC 連携すると、ここにセッションが表示される。
+
+---
+
+## Realm の作成 (再掲)
 
 各サービスと連携するための Realm を作成する。
 

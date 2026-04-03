@@ -70,7 +70,78 @@ helm upgrade --install harbor \
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  harbor.homelab.local"
 ```
 
-## Docker でのイメージ操作
+## 基本的な使い方
+
+### Harbor とは
+
+プライベートなコンテナイメージ置き場。
+Docker Hub の代わりに自分のラボ内でイメージを管理できる。
+Trivy による脆弱性スキャンも自動で行われる。
+
+```
+docker build → docker push → Harbor に保存
+                                  ↓
+                    k3s が Harbor からイメージを pull
+```
+
+### STEP 1: ログインしてプロジェクトを作成
+
+1. `http://harbor.homelab.local` を開き `admin` / `Harbor12345` でログイン
+2. 左メニュー → **Projects → NEW PROJECT**
+   - Project Name: `homelab`
+   - Access Level: Private
+   → **OK**
+3. ログイン後に右上アイコン → **Change Password** でパスワードを変更する
+
+### STEP 2: ローカル PC から Docker でイメージを push
+
+```bash
+# Harbor にログイン
+docker login harbor.homelab.local -u admin -p Harbor12345
+
+# 既存イメージにタグを付ける
+docker tag nginx:latest harbor.homelab.local/homelab/nginx:latest
+
+# Harbor に push
+docker push harbor.homelab.local/homelab/nginx:latest
+```
+
+Harbor UI の **Projects → homelab → Repositories** にイメージが表示される。
+
+### STEP 3: k3s クラスターから pull できるようにする
+
+k3s ノードは HTTP (TLS なし) で Harbor にアクセスするため設定が必要。
+全ノード (master + worker) で以下を実行する。
+
+```bash
+# Terraform の remote-exec で管理しているため、再 apply で反映する
+# 手動確認の場合:
+sudo cat /etc/rancher/k3s/registries.yaml
+```
+
+設定済みの場合は以下の Deployment でテストできる:
+
+```yaml
+# test-harbor.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-harbor
+spec:
+  containers:
+    - name: nginx
+      image: harbor.homelab.local/homelab/nginx:latest
+```
+
+### STEP 4: 脆弱性スキャン結果の確認
+
+イメージ push 後に Trivy が自動スキャンを実行する。
+
+**Projects → homelab → Repositories → イメージ名 → SCAN** で確認できる。
+
+---
+
+## Docker でのイメージ操作 (コマンドリファレンス)
 
 ### Harbor へのログイン
 
