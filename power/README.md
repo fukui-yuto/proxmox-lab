@@ -24,15 +24,16 @@ power/
   ├─ アイドル判定 (全条件を満たすと +1)
   │    ├─ node01 CPU アイドル率 >= 95%
   │    ├─ node02 CPU アイドル率 >= 95%
+  │    ├─ node03 CPU アイドル率 >= 95%
   │    ├─ vmbr0 ネットワーク <= 500 KB/s
   │    └─ pve-node01 へのログインセッション = 0
   │
   └─ 12 回連続アイドル (= 60 分) で停止シーケンス実行
-       1. kubectl drain k3s-worker01〜05
-       2. worker VM 停止 (202/203 on node01, 204/205/206 on node02)
+       1. kubectl drain k3s-worker01〜07
+       2. worker VM 停止 (202/203 on node01, 204/205/206 on node02, 207/208 on node03)
        3. k3s-master VM 停止 (201)
        4. dns-ct LXC 停止 (101)
-       5. pve-node02 poweroff
+       5. pve-node02 / pve-node03 poweroff
        6. pve-node01 poweroff (60 秒待機後)
 ```
 
@@ -101,14 +102,14 @@ bash ~/proxmox-lab/power/scripts/start-lab.sh
 
 実行内容:
 1. Wake-on-LAN で Proxmox を起動 (MAC アドレス設定済みの場合)
-2. pve-node01 / pve-node02 の SSH 接続可能まで待機
-3. dns-ct → k3s-master → worker01〜05 の順に VM を起動
+2. pve-node01 / pve-node02 / pve-node03 の SSH 接続可能まで待機
+3. dns-ct → k3s-master → worker01〜07 の順に VM を起動
 4. 全 k8s ノードが Ready になるまで待機
 5. `kubectl uncordon` で全 worker を復帰
 
 ### Wake-on-LAN の設定
 
-`power/scripts/start-lab.sh` 冒頭の `NODE01_MAC` / `NODE02_MAC` に実際の MAC アドレスを記入する。
+`power/scripts/start-lab.sh` 冒頭の `NODE01_MAC` / `NODE02_MAC` / `NODE03_MAC` に実際の MAC アドレスを記入する。
 MAC アドレスの確認・WoL の事前設定手順は `scripts/README.md` の「7. Proxmox ノードの起動 (Wake-on-LAN)」を参照。
 
 ---

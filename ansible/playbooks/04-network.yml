@@ -30,7 +30,7 @@
               address {{ storage_ip }}/24
               vlan-raw-device vmbr0
       vars:
-        storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' }}"
+        storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' if inventory_hostname == 'pve-node02' else '192.168.212.13' }}"
       notify: restart networking
 
   handlers:

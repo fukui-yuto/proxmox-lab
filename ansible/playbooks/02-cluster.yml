@@ -41,6 +41,39 @@
       command: pvecm add 192.168.210.11 --use_ssh
       when: "'homelab' not in cluster_status.stdout"
 
+- name: node03 の SSH 公開鍵を node01 に登録
+  hosts: pve-node01
+  tasks:
+    - name: node03 の公開鍵を取得
+      slurp:
+        src: /root/.ssh/id_rsa.pub
+      register: node03_pubkey
+      delegate_to: pve-node03
+
+    - name: node03 の公開鍵を node01 の authorized_keys に追加
+      authorized_key:
+        user: root
+        key: "{{ node03_pubkey.content | b64decode }}"
+
+- name: node03 をクラスターに参加
+  hosts: pve-node03
+  tasks:
+    - name: クラスター参加済みか確認
+      command: pvecm status
+      register: cluster_status
+      failed_when: false
+      changed_when: false
+
+    - name: node01 の host key を known_hosts に登録
+      known_hosts:
+        name: "192.168.210.11"
+        key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 192.168.210.11') }}"
+        state: present
+
+    - name: クラスターに参加 (未参加の場合)
+      command: pvecm add 192.168.210.11 --use_ssh
+      when: "'homelab' not in cluster_status.stdout"
+
 - name: QDevice ホスト (RaspberryPi) の準備
   hosts: pve-node01
   tasks:
@@ -52,6 +85,7 @@
       loop:
         - pve-node01
         - pve-node02
+        - pve-node03
 
     - name: node01 の SSH 公開鍵を取得
       slurp:

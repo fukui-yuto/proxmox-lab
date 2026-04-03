@@ -36,6 +36,7 @@
         block: |
           192.168.210.11 pve-node01.local pve-node01
           192.168.210.12 pve-node02.local pve-node02
+          192.168.210.13 pve-node03.local pve-node03
           192.168.210.55 rasberrypi5
 
   handlers:

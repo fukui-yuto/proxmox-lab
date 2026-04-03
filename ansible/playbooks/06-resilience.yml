@@ -34,11 +34,14 @@
         sed -i "s/config_version: ${current}/config_version: ${new}/" /etc/corosync/corosync.conf
       when: token_changed.changed or retransmits_changed.changed
 
-    - name: 更新した corosync.conf を node02 に scp で同期
-      command: scp /etc/corosync/corosync.conf root@192.168.210.12:/etc/corosync/corosync.conf
+    - name: 更新した corosync.conf を node02/03 に scp で同期
+      command: "scp /etc/corosync/corosync.conf root@{{ item }}:/etc/corosync/corosync.conf"
+      loop:
+        - 192.168.210.12
+        - 192.168.210.13
       when: token_changed.changed or retransmits_changed.changed
 
-    - name: corosync を両ノードで再起動
+    - name: corosync を全ノードで再起動
       service:
         name: corosync
         state: restarted
@@ -46,6 +49,7 @@
       loop:
         - pve-node01
         - pve-node02
+        - pve-node03
       when: token_changed.changed or retransmits_changed.changed
 
     - name: 設定確認
@@ -70,11 +74,13 @@
           # qnetd watchdog: NUC への疎通が失われたら corosync-qnetd を再起動する
           NODE01="192.168.210.11"
           NODE02="192.168.210.12"
+          NODE03="192.168.210.13"
           LOG="/var/log/qnetd-watchdog.log"
 
           if ! ping -c 2 -W 3 "$NODE01" > /dev/null 2>&1 && \
-             ! ping -c 2 -W 3 "$NODE02" > /dev/null 2>&1; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') 両ノード疎通不可 → corosync-qnetd を再起動" >> "$LOG"
+             ! ping -c 2 -W 3 "$NODE02" > /dev/null 2>&1 && \
+             ! ping -c 2 -W 3 "$NODE03" > /dev/null 2>&1; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') 全ノード疎通不可 → corosync-qnetd を再起動" >> "$LOG"
             systemctl restart corosync-qnetd
           fi
 

@@ -17,13 +17,15 @@ locals {
   dns_servers = ["192.168.210.254", "8.8.8.8"]
   master_ip   = "192.168.210.21"
   ssh_key     = "~/.ssh/id_ed25519"
-  # worker01〜05 の IP (インデックス順)
+  # worker01〜07 の IP (インデックス順)
   worker_ips = [
     "192.168.210.22", # worker01 (node01)
     "192.168.210.23", # worker02 (node01)
     "192.168.210.24", # worker03 (node02)
     "192.168.210.25", # worker04 (node02)
     "192.168.210.26", # worker05 (node02)
+    "192.168.210.27", # worker06 (node03)
+    "192.168.210.28", # worker07 (node03)
   ]
 }
 
@@ -175,6 +177,42 @@ resource "null_resource" "node02_template" {
 }
 
 # -------------------------------------------------------------------
+# node03 用テンプレート (node01 の 9000 を vzdump → restore で複製)
+# -------------------------------------------------------------------
+resource "null_resource" "node03_template" {
+  triggers = {
+    source_template = var.ubuntu_template_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      if ssh -o StrictHostKeyChecking=no root@192.168.210.13 'qm config 9002' > /dev/null 2>&1; then
+        echo "Template 9002 already exists on pve-node03, skipping."
+        exit 0
+      fi
+      echo "Creating template 9002 on pve-node03 via vzdump/restore..."
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "vzdump ${var.ubuntu_template_id} --storage local --compress zstd --mode stop"
+      BACKUP=$(ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "ls -t /var/lib/vz/dump/vzdump-qemu-${var.ubuntu_template_id}-*.vma.zst | head -1")
+      FILENAME=$(basename "$BACKUP")
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
+        "scp -o StrictHostKeyChecking=no $BACKUP root@192.168.210.13:/var/lib/vz/dump/"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.13 \
+        "qmrestore /var/lib/vz/dump/$FILENAME 9002 --storage local-lvm && qm template 9002"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.11 "rm -f $BACKUP"
+      ssh -o StrictHostKeyChecking=no root@192.168.210.13 "rm -f /var/lib/vz/dump/$FILENAME"
+      echo "Template 9002 created on pve-node03."
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.13 'qm destroy 9002 --purge 2>/dev/null'; exit 0"
+  }
+}
+
+# -------------------------------------------------------------------
 # k3s ワーカー (node02 × 3: worker03/04/05) ※ ZFS なしのため local-lvm を使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
@@ -234,6 +272,63 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
+# k3s ワーカー (node03 × 2: worker06/07) ※ ZFS なしのため local-lvm を使用
+# -------------------------------------------------------------------
+resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
+  count     = 2
+  name      = "k3s-worker0${count.index + 6}"
+  node_name = "pve-node03"
+  vm_id     = 207 + count.index
+
+  depends_on = [null_resource.node03_template]
+
+  clone {
+    vm_id        = 9002
+    datastore_id = "local-lvm"
+  }
+
+  cpu {
+    cores = 1
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  network_device {
+    bridge = "vmbr0"
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = 20
+    interface    = "virtio0"
+  }
+
+  initialization {
+    dns {
+      servers = local.dns_servers
+    }
+    ip_config {
+      ipv4 {
+        address = "${local.worker_ips[count.index + 5]}/24"
+        gateway = local.gateway
+      }
+    }
+    user_account {
+      username = "ubuntu"
+      keys     = [var.ssh_public_key]
+    }
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.13 'qm stop ${self.vm_id} --skiplock 2>/dev/null; qm destroy ${self.vm_id} --skiplock --purge 2>/dev/null'; exit 0"
+  }
+}
+
+# -------------------------------------------------------------------
 # k3s インストール
 # -------------------------------------------------------------------
 
@@ -273,17 +368,18 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker01〜05 インストール (全ワーカー共通)
-# worker01/02: k3s_worker[0/1]、worker03/04/05: k3s_worker_node02[0/1/2]
+# k3s worker01〜07 インストール (全ワーカー共通)
+# worker01/02: k3s_worker[0/1]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06/07: k3s_worker_node03[0/1]
 resource "null_resource" "k3s_workers_install" {
-  count = 5
+  count = 7
   triggers = {
-    vm_id = count.index < 2 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 2].id
+    vm_id = count.index < 2 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : count.index < 5 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 2].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 5].id
   }
   depends_on = [
     null_resource.k3s_master_install,
     proxmox_virtual_environment_vm.k3s_worker,
     proxmox_virtual_environment_vm.k3s_worker_node02,
+    proxmox_virtual_environment_vm.k3s_worker_node03,
   ]
 
   connection {

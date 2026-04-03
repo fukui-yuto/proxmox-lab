@@ -5,8 +5,8 @@
 #
 # 実行順序:
 #   1. Wake-on-LAN で Proxmox ノードを起動 (MAC 設定済みの場合)
-#   2. pve-node01 / pve-node02 の SSH 接続可能まで待機
-#   3. VM を順番に起動: dns-ct → k3s-master → worker01〜05
+#   2. pve-node01 / pve-node02 / pve-node03 の SSH 接続可能まで待機
+#   3. VM を順番に起動: dns-ct → k3s-master → worker01〜07
 #   4. k8s 全ノードが Ready になるまで待機
 #   5. kubectl uncordon で全 worker ノードをスケジュール可能に復帰
 #
@@ -23,10 +23,12 @@ set -euo pipefail
 # Proxmox ノード
 NODE01_IP="192.168.210.11"
 NODE02_IP="192.168.210.12"
+NODE03_IP="192.168.210.13"
 
 # WoL 用 MAC アドレス (未設定の場合は WoL をスキップ)
 NODE01_MAC="XX:XX:XX:XX:XX:XX"
 NODE02_MAC="XX:XX:XX:XX:XX:XX"
+NODE03_MAC="XX:XX:XX:XX:XX:XX"
 BROADCAST="192.168.210.255"
 
 # Proxmox 起動待機タイムアウト (秒)
@@ -40,13 +42,15 @@ VMID_WORKER02=203     # node01
 VMID_WORKER03=204     # node02
 VMID_WORKER04=205     # node02
 VMID_WORKER05=206     # node02
+VMID_WORKER06=207     # node03
+VMID_WORKER07=208     # node03
 
 # k3s-master
 K3S_MASTER_IP="192.168.210.21"
 K3S_MASTER_USER="ubuntu"
 
 # kubectl uncordon 対象のワーカーノード名
-K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05)
+K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
 
 # k8s 全ノード Ready 待機タイムアウト (秒)
 K8S_READY_TIMEOUT=300
@@ -109,10 +113,11 @@ wakeup_proxmox() {
     log "  WoL: MAC アドレス未設定のためスキップします"
     log "  (手動で Proxmox を起動してから再実行してください)"
     log "  MAC アドレスの確認: Proxmox ノード上で 'ip link show'"
-    log "  設定箇所: power/scripts/start-lab.sh の NODE01_MAC / NODE02_MAC"
+    log "  設定箇所: power/scripts/start-lab.sh の NODE01_MAC / NODE02_MAC / NODE03_MAC"
   else
     send_wol "pve-node01" "$NODE01_MAC"
     send_wol "pve-node02" "$NODE02_MAC"
+    send_wol "pve-node03" "$NODE03_MAC"
   fi
 }
 
@@ -155,6 +160,7 @@ main() {
   log "[2/5] Proxmox SSH 接続待機..."
   wait_for_ssh "pve-node01" "$NODE01_IP" "root"
   wait_for_ssh "pve-node02" "$NODE02_IP" "root"
+  wait_for_ssh "pve-node03" "$NODE03_IP" "root"
 
   # 3. VM 起動
   log "[3/5] VM 起動..."
@@ -174,6 +180,8 @@ main() {
   start_vm "$NODE02_IP" "$VMID_WORKER03" "k3s-worker03"
   start_vm "$NODE02_IP" "$VMID_WORKER04" "k3s-worker04"
   start_vm "$NODE02_IP" "$VMID_WORKER05" "k3s-worker05"
+  start_vm "$NODE03_IP" "$VMID_WORKER06" "k3s-worker06"
+  start_vm "$NODE03_IP" "$VMID_WORKER07" "k3s-worker07"
 
   # 4. k8s 全ノード Ready 待機
   log "[4/5] k8s 全ノード Ready 待機..."
@@ -212,6 +220,7 @@ main() {
   log "ラボ起動完了"
   log "  Proxmox UI : https://${NODE01_IP}:8006"
   log "              https://${NODE02_IP}:8006"
+  log "              https://${NODE03_IP}:8006"
   log "=========================================="
 
   # 最終ノード状態確認

@@ -6,16 +6,16 @@
 # 動作概要:
 #   アイドル状態が 12 回連続 (= 60 分) 継続した場合に停止処理を実行する。
 #   アイドル判定条件 (全て満たす必要あり):
-#     - pve-node01 / pve-node02 の CPU アイドル率 >= CPU_IDLE_THRESHOLD
+#     - pve-node01 / pve-node02 / pve-node03 の CPU アイドル率 >= CPU_IDLE_THRESHOLD
 #     - vmbr0 のネットワーク使用量 <= NET_THRESHOLD_KB KB/s
 #     - pve-node01 へのログインセッションが 0
 #
 # 停止順序:
-#   1. kubectl drain (k3s worker01〜05)
-#   2. worker VM 停止 (202/203 on node01, 204/205/206 on node02)
+#   1. kubectl drain (k3s worker01〜07)
+#   2. worker VM 停止 (202/203 on node01, 204/205/206 on node02, 207/208 on node03)
 #   3. k3s-master VM 停止 (201)
 #   4. dns-ct LXC 停止 (101)
-#   5. pve-node02 poweroff (SSH 経由)
+#   5. pve-node02 / pve-node03 poweroff (SSH 経由)
 #   6. pve-node01 (自身) poweroff
 #
 # オプション:
@@ -35,6 +35,7 @@ fi
 
 # Proxmox ノード
 NODE02_IP="192.168.210.12"
+NODE03_IP="192.168.210.13"
 
 # VM/LXC IDs (pve-node01)
 VMID_K3S_MASTER=201
@@ -47,12 +48,16 @@ VMID_WORKER03=204
 VMID_WORKER04=205
 VMID_WORKER05=206
 
+# VM IDs (pve-node03)
+VMID_WORKER06=207
+VMID_WORKER07=208
+
 # k3s-master へのアクセス
 K3S_MASTER_IP="192.168.210.21"
 K3S_MASTER_USER="ubuntu"
 
 # kubectl drain 対象のワーカーノード名
-K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05)
+K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
 
 # アイドル閾値
 CPU_IDLE_THRESHOLD=95    # CPU アイドル率 (%) この値以上でアイドルとみなす
@@ -154,6 +159,15 @@ check_idle() {
     is_idle=false
   fi
 
+  # CPU チェック (node03)
+  local cpu_idle_node03
+  cpu_idle_node03=$(get_cpu_idle_percent "$NODE03_IP")
+  log "  CPU アイドル率 node03: ${cpu_idle_node03}%"
+  if (( cpu_idle_node03 < CPU_IDLE_THRESHOLD )); then
+    log "  -> 非アイドル: node03 CPU idle ${cpu_idle_node03}% < ${CPU_IDLE_THRESHOLD}%"
+    is_idle=false
+  fi
+
   # ネットワークチェック
   local net_kb
   net_kb=$(get_network_kb "$NET_INTERFACE")
@@ -231,6 +245,15 @@ shutdown_vm_node02() {
     || die "${name} の停止に失敗しました"
 }
 
+shutdown_vm_node03() {
+  local vmid="$1"
+  local name="$2"
+  log "  VM 停止: ${name} (VMID: ${vmid}, node03)"
+  ssh -o ConnectTimeout=10 -o BatchMode=yes "root@${NODE03_IP}" \
+    "qm shutdown ${vmid} --timeout ${VM_SHUTDOWN_TIMEOUT}" 2>&1 | tee -a "$LOG_FILE" \
+    || die "${name} の停止に失敗しました"
+}
+
 wait_vm_stopped() {
   local vmid="$1"
   local name="$2"
@@ -267,6 +290,8 @@ perform_shutdown() {
   shutdown_vm_node02 "$VMID_WORKER03" "k3s-worker03"
   shutdown_vm_node02 "$VMID_WORKER04" "k3s-worker04"
   shutdown_vm_node02 "$VMID_WORKER05" "k3s-worker05"
+  shutdown_vm_node03 "$VMID_WORKER06" "k3s-worker06"
+  shutdown_vm_node03 "$VMID_WORKER07" "k3s-worker07"
 
   # node01 の worker 停止完了を待機
   wait_vm_stopped "$VMID_WORKER01" "k3s-worker01"
@@ -282,11 +307,16 @@ perform_shutdown() {
   pct shutdown "$VMID_DNS_CT" --timeout "$VM_SHUTDOWN_TIMEOUT" 2>&1 | tee -a "$LOG_FILE" \
     || die "dns-ct (VMID: ${VMID_DNS_CT}) の停止に失敗しました"
 
-  # 5. pve-node02 poweroff
+  # 5. pve-node02 / pve-node03 poweroff
   log "pve-node02 を poweroff します..."
   ssh -o ConnectTimeout=10 -o BatchMode=yes "root@${NODE02_IP}" "poweroff" \
     2>&1 | tee -a "$LOG_FILE" \
     || log "  WARNING: pve-node02 への poweroff 送信に失敗 (既に停止している可能性)"
+
+  log "pve-node03 を poweroff します..."
+  ssh -o ConnectTimeout=10 -o BatchMode=yes "root@${NODE03_IP}" "poweroff" \
+    2>&1 | tee -a "$LOG_FILE" \
+    || log "  WARNING: pve-node03 への poweroff 送信に失敗 (既に停止している可能性)"
 
   # 6. pve-node01 (自身) poweroff
   log "60 秒後に pve-node01 を poweroff します..."

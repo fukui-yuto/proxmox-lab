@@ -45,7 +45,7 @@ cd ~/proxmox-lab/ansible
 ansible -i inventory/hosts.yml proxmox -m ping
 ```
 
-両ノードから `pong` が返れば OK。
+全ノードから `pong` が返れば OK。
 
 ### 全手順を一括実行
 
@@ -56,7 +56,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | Playbook | 内容 |
 |---------|------|
 | `01-base.yml` | リポジトリ設定・SSH 強化・hosts 設定 |
-| `02-cluster.yml` | クラスター作成・node02 参加・QDevice 追加 |
+| `02-cluster.yml` | クラスター作成・node02/03 参加・QDevice 追加 |
 | `03-storage.yml` | ZFS プール作成・Proxmox ストレージ登録 |
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
