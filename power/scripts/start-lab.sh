@@ -130,9 +130,9 @@ start_vm() {
   local vmid="$2"
   local name="$3"
   log "  VM 起動: ${name} (VMID: ${vmid})"
+  local rc=0
   local out
-  out=$(ssh -o BatchMode=yes "root@${node_ip}" "qm start ${vmid}" 2>&1)
-  local rc=$?
+  out=$(ssh -o BatchMode=yes "root@${node_ip}" "qm start ${vmid}" 2>&1) || rc=$?
   echo "$out" | tee -a "$LOG_FILE"
   if [[ $rc -ne 0 ]] && ! echo "$out" | grep -q "already running"; then
     die "${name} (VMID: ${vmid}) の起動に失敗しました"
@@ -144,9 +144,9 @@ start_lxc() {
   local vmid="$2"
   local name="$3"
   log "  LXC 起動: ${name} (VMID: ${vmid})"
+  local rc=0
   local out
-  out=$(ssh -o BatchMode=yes "root@${node_ip}" "pct start ${vmid}" 2>&1)
-  local rc=$?
+  out=$(ssh -o BatchMode=yes "root@${node_ip}" "pct start ${vmid}" 2>&1) || rc=$?
   echo "$out" | tee -a "$LOG_FILE"
   if [[ $rc -ne 0 ]] && ! echo "$out" | grep -q "already running"; then
     die "${name} (VMID: ${vmid}) の起動に失敗しました"
