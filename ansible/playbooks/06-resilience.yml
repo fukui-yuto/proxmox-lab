@@ -34,6 +34,15 @@
         sed -i "s/config_version: ${current}/config_version: ${new}/" /etc/corosync/corosync.conf
       when: token_changed.changed or retransmits_changed.changed
 
+    - name: node02/03 の host key を node01 の known_hosts に登録
+      known_hosts:
+        name: "{{ item }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 ' + item) }}"
+        state: present
+      loop:
+        - "192.168.210.12"
+        - "192.168.210.13"
+
     - name: 更新した corosync.conf を node02/03 に scp で同期
       command: "scp /etc/corosync/corosync.conf root@{{ item }}:/etc/corosync/corosync.conf"
       loop:

@@ -8,6 +8,18 @@
       args:
         creates: /etc/corosync/corosync.conf
 
+- name: 全ノードの host key を node01 に登録
+  hosts: pve-node01
+  tasks:
+    - name: node02/03 の host key を node01 の known_hosts に登録
+      known_hosts:
+        name: "{{ item }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 ' + item) }}"
+        state: present
+      loop:
+        - "192.168.210.12"
+        - "192.168.210.13"
+
 - name: node02 の SSH 公開鍵を node01 に登録
   hosts: pve-node01
   tasks:
