@@ -119,6 +119,40 @@ ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml -e confirm
 
 ---
 
+## Wake-on-LAN (WoL)
+
+全 Proxmox ノードの `nic0` で WoL (magic packet) を有効化している。
+
+### 設定内容
+
+`/etc/network/interfaces` の `nic0` stanza に以下が追加されている：
+
+```
+iface nic0 inet manual
+    post-up ethtool -s nic0 wol g
+```
+
+起動時に自動で WoL が有効化される。
+
+### 現在の WoL 状態を確認
+
+```bash
+ansible proxmox -i inventory/hosts.yml -m command -a "ethtool nic0" | grep "Wake-on"
+```
+
+| 表示 | 意味 |
+|------|------|
+| `Wake-on: g` | 有効 (magic packet) |
+| `Wake-on: d` | 無効 |
+
+### 設定を適用 (再適用時)
+
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/04-network.yml
+```
+
+---
+
 ## トラブルシューティング
 
 ### ZFS プール作成に失敗する場合
