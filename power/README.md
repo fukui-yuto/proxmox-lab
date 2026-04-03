@@ -137,3 +137,27 @@ bash ~/proxmox-lab/power/scripts/shutdown-lab.sh
 # カウントをリセットしてアイドル検知を最初からやり直す
 ssh root@192.168.210.11 "echo 0 > /var/lib/lab-idle-shutdown/idle_count"
 ```
+
+---
+
+## トラブルシューティング
+
+### node03 が起動後にクラスタへ参加できない (corosync config_version 不一致)
+
+**症状**: node03 の corosync が起動直後に終了し、Proxmox UI でオフライン表示になる。
+
+```bash
+ssh root@192.168.210.13 "journalctl -u corosync | grep 'config version'"
+# → Received config version (X) is different than my config version (Y)! Exiting
+```
+
+**原因**: node03 がオフライン中にクラスタ設定が変更され、`/etc/corosync/corosync.conf` のバージョンが古いまま残っている。
+
+**対処**: node01 から正しい設定をコピーして corosync を再起動する。
+
+```bash
+scp /etc/corosync/corosync.conf root@192.168.210.13:/etc/corosync/corosync.conf
+ssh root@192.168.210.13 systemctl restart corosync
+```
+
+**予防**: クラスタ設定を変更する際は全ノードをオンラインにした状態で行う。
