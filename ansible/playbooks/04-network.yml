@@ -14,6 +14,7 @@
           # 物理 NIC
           auto nic0
           iface nic0 inet manual
+              post-up ethtool -s nic0 wol g
 
           # 管理用ブリッジ (192.168.210.0/24)
           auto vmbr0
@@ -32,6 +33,9 @@
       vars:
         storage_ip: "{{ '192.168.212.11' if inventory_hostname == 'pve-node01' else '192.168.212.12' if inventory_hostname == 'pve-node02' else '192.168.212.13' }}"
       notify: restart networking
+
+    - name: Wake-on-LAN を即時有効化 (ethtool)
+      command: ethtool -s nic0 wol g
 
   handlers:
     - name: restart networking
