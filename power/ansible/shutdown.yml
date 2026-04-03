@@ -1,11 +1,15 @@
 ---
-# Proxmox クラスタの安全なシャットダウン
-# 実行順: VM停止 → node02シャットダウン → node01シャットダウン
+# power/ansible/shutdown.yml
+# Proxmox クラスタの安全なシャットダウン (手動実行用)
+#
+# k8s ノードの drain は行わない。
+# k8s drain を含む自動停止は power/scripts/stop-lab.sh を使用すること。
 #
 # 使い方:
-#   ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml
+#   cd ansible
+#   ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml
 #   # 確認プロンプトをスキップ:
-#   ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml -e confirm=yes
+#   ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml -e confirm=yes
 
 - name: Proxmox クラスタ シャットダウン確認
   hosts: localhost

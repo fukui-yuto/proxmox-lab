@@ -15,9 +15,10 @@ ansible/
     ├── 05-raspi-network.yml      # Raspberry Pi 静的ルート設定
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
-    ├── site.yml                  # 01〜06 を一括実行
-    └── shutdown.yml              # クラスター安全シャットダウン
+    └── site.yml                  # 01〜06 を一括実行
 ```
+
+> シャットダウン関連のプレイブックは `power/ansible/` に移動しました。
 
 ---
 
@@ -102,19 +103,19 @@ ansible-playbook -i inventory/hosts.yml playbooks/07-proxmox-sdn.yml
 
 ---
 
-## クラスターのシャットダウン
+## クラスターのシャットダウン・起動
 
-`shutdown.yml` は全 VM を停止してから node02 → node01 の順で安全にシャットダウンする。
+シャットダウンおよび自動停止・起動スクリプトは `power/` ディレクトリで管理する。
 
 ```bash
-# 確認プロンプトあり
-ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml
+# 手動シャットダウン (k8s drain なし)
+ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml
 
 # 確認をスキップ
-ansible-playbook -i inventory/hosts.yml playbooks/shutdown.yml -e confirm=yes
+ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml -e confirm=yes
 ```
 
-> 起動は `scripts/proxmox-wakeup.sh` を使用する。詳細は `scripts/README.md` を参照。
+> 自動停止・起動の詳細は `power/README.md` を参照。
 
 ---
 
