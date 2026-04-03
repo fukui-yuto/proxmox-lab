@@ -45,6 +45,7 @@ power/
 pve-node01 の SSH 公開鍵登録・スクリプトデプロイ・systemd timer の設定を一括で行う。
 
 ```bash
+# ansible/ ディレクトリから実行すること (inventory/hosts.yml の場所が基準)
 cd ~/proxmox-lab/ansible
 ansible-playbook -i inventory/hosts.yml ../power/ansible/setup-idle-shutdown.yml
 ```
