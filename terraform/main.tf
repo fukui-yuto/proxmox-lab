@@ -199,7 +199,7 @@ resource "null_resource" "node03_template" {
       ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
         "scp -o StrictHostKeyChecking=no $BACKUP root@192.168.210.13:/var/lib/vz/dump/"
       ssh -o StrictHostKeyChecking=no root@192.168.210.13 \
-        "qmrestore /var/lib/vz/dump/$FILENAME 9002 --storage local-lvm && qm template 9002"
+        "qmrestore /var/lib/vz/dump/$FILENAME 9002 --storage local && qm template 9002"
       ssh -o StrictHostKeyChecking=no root@192.168.210.11 "rm -f $BACKUP"
       ssh -o StrictHostKeyChecking=no root@192.168.210.13 "rm -f /var/lib/vz/dump/$FILENAME"
       echo "Template 9002 created on pve-node03."
@@ -272,7 +272,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node03 × 2: worker06/07) ※ ZFS なしのため local-lvm を使用
+# k3s ワーカー (node03 × 2: worker06/07) ※ local (dir) ストレージを使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   count     = 2
@@ -284,7 +284,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
 
   clone {
     vm_id        = 9002
-    datastore_id = "local-lvm"
+    datastore_id = "local"
   }
 
   cpu {
@@ -301,9 +301,10 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = "local"
     size         = 20
     interface    = "virtio0"
+    file_format  = "qcow2"
   }
 
   initialization {
