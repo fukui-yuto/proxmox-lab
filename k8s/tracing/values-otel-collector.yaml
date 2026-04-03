@@ -1,6 +1,9 @@
 # OpenTelemetry Collector Helm values
 # トレースを受信して Tempo に転送する
 
+image:
+  repository: otel/opentelemetry-collector-contrib
+
 mode: deployment
 
 resources:
