@@ -119,11 +119,7 @@ MAC アドレスの確認・WoL の事前設定手順は `scripts/README.md` の
 アイドル検知を待たず即時シャットダウンする場合 (k8s drain は行わない):
 
 ```bash
-cd ~/proxmox-lab/ansible
-ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml
-
-# 確認プロンプトをスキップ
-ansible-playbook -i inventory/hosts.yml ../power/ansible/shutdown.yml -e confirm=yes
+bash ~/proxmox-lab/power/scripts/shutdown-lab.sh
 ```
 
 ---
