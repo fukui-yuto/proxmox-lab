@@ -4,6 +4,11 @@
 - name: Raspberry Pi ネットワーク設定
   hosts: raspi
   tasks:
+    - name: wakeonlan インストール
+      apt:
+        name: wakeonlan
+        state: present
+
     - name: Netplan 設定ファイルを配置
       copy:
         dest: /etc/netplan/50-homelab.yaml
