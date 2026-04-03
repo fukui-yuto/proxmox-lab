@@ -199,7 +199,7 @@ main() {
   while true; do
     local not_ready
     not_ready=$(ssh -o BatchMode=yes "${K3S_MASTER_USER}@${K3S_MASTER_IP}" \
-      "sudo kubectl get nodes --no-headers 2>/dev/null | grep -cv ' Ready'" \
+      "sudo kubectl get nodes --no-headers 2>/dev/null | awk '\$2 != \"Ready\" {c++} END {print c+0}'" \
       2>/dev/null || echo "99")
 
     if (( not_ready == 0 )); then
