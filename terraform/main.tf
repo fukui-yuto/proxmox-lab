@@ -91,10 +91,10 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー × 2 (テンプレートとZFSがnode01のみのため両方node01に配置)
+# k3s ワーカー × 1 (テンプレートとZFSがnode01のみのためnode01に配置)
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker" {
-  count     = 2
+  count     = 1
   name      = "k3s-worker0${count.index + 1}"
   node_name = "pve-node01"
   vm_id     = 202 + count.index
@@ -373,12 +373,17 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker01〜07 インストール (全ワーカー共通)
-# worker01/02: k3s_worker[0/1]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06/07: k3s_worker_node03[0/1]
+# k3s worker01,03〜07 インストール (全ワーカー共通、worker02 は削除済み)
+# worker01: k3s_worker[0]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06/07: k3s_worker_node03[0/1]
+# count インデックスと worker_ips のマッピング (index 1 = worker02 はスキップ):
+#   count 0 → worker_ips[0] (worker01)
+#   count 1 → worker_ips[2] (worker03)  ※ worker02(index 1) をスキップするため +1
+#   count 2 → worker_ips[3] (worker04)
+#   ...
 resource "null_resource" "k3s_workers_install" {
-  count = 7
+  count = 6
   triggers = {
-    vm_id = count.index < 2 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : count.index < 5 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 2].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 5].id
+    vm_id = count.index < 1 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : count.index < 4 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 1].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 4].id
   }
   depends_on = [
     null_resource.k3s_master_install,
@@ -390,7 +395,7 @@ resource "null_resource" "k3s_workers_install" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    host        = local.worker_ips[count.index]
+    host        = local.worker_ips[count.index > 0 ? count.index + 1 : 0]
     private_key = file(local.ssh_key)
     timeout     = "10m"
   }
