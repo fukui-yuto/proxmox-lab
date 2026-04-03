@@ -25,6 +25,11 @@ helm upgrade --install "${RELEASE_NAME}" \
   --timeout 10m \
   --wait
 
+echo "=== Ingress port patch (443 → 80) ==="
+# chart が port 443 の ingress を生成するため HTTP (port 80) に patch する
+kubectl patch ingress argocd-server -n "${NAMESPACE}" --type=json \
+  -p='[{"op":"replace","path":"/spec/rules/0/http/paths/0/backend/service/port/number","value":80}]'
+
 echo "=== デプロイ確認 ==="
 kubectl get pods -n "${NAMESPACE}"
 

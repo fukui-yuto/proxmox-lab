@@ -31,8 +31,9 @@ server:
     hostname: argocd.homelab.local
     # insecure モードのため TLS 設定は不要
     tls: false
-    # HTTP (port 80) にルーティング (port 443 だと Traefik が HTTPS 接続を試みて Bad Gateway になる)
-    servicePort: 80
+    # chart が port 443 の ingress を生成するため、デプロイ後に以下で手動 patch が必要:
+    # kubectl patch ingress argocd-server -n argocd --type=json \
+    #   -p='[{"op":"replace","path":"/spec/rules/0/http/paths/0/backend/service/port/number","value":80}]'
 
 # -------------------------------------------------------------------
 # ApplicationSet コントローラー
