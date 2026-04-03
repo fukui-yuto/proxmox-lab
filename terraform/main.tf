@@ -190,6 +190,9 @@ resource "null_resource" "node03_template" {
         echo "Template 9002 already exists on pve-node03, skipping."
         exit 0
       fi
+      echo "Enabling images content on local storage of pve-node03..."
+      ssh -o StrictHostKeyChecking=no root@192.168.210.13 \
+        "pvesm set local --content iso,vztmpl,backup,images,rootdir"
       echo "Creating template 9002 on pve-node03 via vzdump/restore..."
       ssh -o StrictHostKeyChecking=no root@192.168.210.11 \
         "vzdump ${var.ubuntu_template_id} --storage local --compress zstd --mode stop"
