@@ -31,6 +31,8 @@ server:
     hostname: argocd.homelab.local
     # insecure モードのため TLS 設定は不要
     tls: false
+    # HTTP (port 80) にルーティング (port 443 だと Traefik が HTTPS 接続を試みて Bad Gateway になる)
+    servicePort: 80
 
 # -------------------------------------------------------------------
 # ApplicationSet コントローラー
@@ -75,10 +77,10 @@ repoServer:
   resources:
     requests:
       cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
       memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
 
 # -------------------------------------------------------------------
 # Application コントローラー
