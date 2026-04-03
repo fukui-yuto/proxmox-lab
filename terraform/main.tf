@@ -311,6 +311,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   }
 
   initialization {
+    datastore_id = "local"
     dns {
       servers = local.dns_servers
     }
