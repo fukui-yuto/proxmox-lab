@@ -469,3 +469,38 @@ resource "proxmox_virtual_environment_container" "pihole" {
     type             = "debian"
   }
 }
+
+# -------------------------------------------------------------------
+# k3s レジストリ設定 (Harbor など社内レジストリの insecure/エンドポイント設定)
+# registries.yaml を全 k3s ノードに配布し k3s/k3s-agent を再起動する。
+# レジストリ設定を変更した場合は registry_config_version をインクリメントする。
+# -------------------------------------------------------------------
+resource "null_resource" "k3s_registry_config" {
+  triggers = {
+    registry_config_version = "1"
+  }
+
+  depends_on = [null_resource.k3s_workers_install]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -e
+      CONTENT='mirrors:\n  harbor.homelab.local:\n    endpoint:\n      - "http://192.168.210.21"\nconfigs:\n  "harbor.homelab.local":\n    tls:\n      insecure_skip_verify: true'
+
+      apply_registry() {
+        local ip="$1"
+        local service="$2"
+        echo "==> Configuring registry on $ip (service: $service)"
+        ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
+          "sudo mkdir -p /etc/rancher/k3s && printf '$CONTENT\n' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null && sudo systemctl restart $service && echo 'done'"
+      }
+
+      apply_registry 192.168.210.21 k3s
+      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28; do
+        apply_registry "$ip" k3s-agent
+      done
+      echo "Registry config applied to all nodes."
+    EOT
+  }
+}
