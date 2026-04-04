@@ -30,7 +30,7 @@ spec:
         - name: kaniko
           image: gcr.io/kaniko-project/executor:v1.23.0
           args:
-            - "--context=git+https://github.com/fukui-yuto/proxmox-lab.git#refs/heads/main"
+            - "--context=git://github.com/fukui-yuto/proxmox-lab.git#main"
             - "--context-sub-path=k8s/aiops/anomaly-detection/detector"
             - "--dockerfile=Dockerfile"
             - "--destination=harbor.homelab.local/library/anomaly-detector:latest"
