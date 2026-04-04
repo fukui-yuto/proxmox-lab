@@ -40,8 +40,14 @@ service:
   type: ClusterIP
   port: 9200
 
-# シングルノード構成では yellow が正常状態のため readiness probe を調整
-readinessProbe:
-  httpGet:
-    path: /_cluster/health?wait_for_status=yellow&timeout=1s
-    port: 9200
+# シングルノード構成では yellow が正常状態。
+# readiness probe の bash スクリプトは wait_for_status=green がハードコードされているが、
+# START_FILE (/tmp/.es_start_file) が存在すると "/ が 200 を返すか" チェックに切り替わる。
+# lifecycle.postStart で START_FILE を即座に作成することで green チェックをスキップする。
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - bash
+        - -c
+        - "touch /tmp/.es_start_file"
