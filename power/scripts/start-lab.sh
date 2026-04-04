@@ -38,7 +38,7 @@ SSH_WAIT_TIMEOUT=300
 VMID_DNS_CT=101       # LXC (node01) — DNS を最初に起動
 VMID_K3S_MASTER=201   # node01
 VMID_WORKER01=202     # node01
-VMID_WORKER02=203     # node01
+# VMID_WORKER02=203 は削除済み (VM 203 は存在しない)
 VMID_WORKER03=204     # node02
 VMID_WORKER04=205     # node02
 VMID_WORKER05=206     # node02
@@ -50,7 +50,7 @@ K3S_MASTER_IP="192.168.210.21"
 K3S_MASTER_USER="ubuntu"
 
 # kubectl uncordon 対象のワーカーノード名
-K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
+K8S_WORKERS=(k3s-worker01 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
 
 # k8s 全ノード Ready 待機タイムアウト (秒)
 K8S_READY_TIMEOUT=300
@@ -194,7 +194,7 @@ main() {
 
   # dns-ct を最初に起動 (DNS が先に動いていると後続の名前解決が安定する)
   start_lxc "$NODE01_IP" "$VMID_DNS_CT" "dns-ct"
-  sleep 10
+  sleep 30  # Pi-hole (pihole-FTL) の起動完了まで待機
 
   # k3s-master 起動 → SSH 接続確認まで待機
   start_vm "$NODE01_IP" "$VMID_K3S_MASTER" "k3s-master"
@@ -203,7 +203,6 @@ main() {
 
   # worker (node01 / node02 を並行して起動)
   start_vm "$NODE01_IP" "$VMID_WORKER01" "k3s-worker01"
-  start_vm "$NODE01_IP" "$VMID_WORKER02" "k3s-worker02"
   start_vm "$NODE02_IP" "$VMID_WORKER03" "k3s-worker03"
   start_vm "$NODE02_IP" "$VMID_WORKER04" "k3s-worker04"
   start_vm "$NODE02_IP" "$VMID_WORKER05" "k3s-worker05"

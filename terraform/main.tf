@@ -14,13 +14,13 @@ terraform {
 
 locals {
   gateway     = "192.168.210.254"
-  dns_servers = ["192.168.210.254", "8.8.8.8"]
+  dns_servers = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
   master_ip   = "192.168.210.21"
   ssh_key     = "~/.ssh/id_ed25519"
   # worker01〜07 の IP (インデックス順)
   worker_ips = [
     "192.168.210.22", # worker01 (node01)
-    "192.168.210.23", # worker02 (node01)
+    "192.168.210.23", # worker02 (node01) — VM 203 は削除済み。インデックスを維持するため残す
     "192.168.210.24", # worker03 (node02)
     "192.168.210.25", # worker04 (node02)
     "192.168.210.26", # worker05 (node02)
