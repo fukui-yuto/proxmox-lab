@@ -178,7 +178,7 @@ kubectl exec -n vault vault-0 -- vault login <Initial Root Token>
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
 ```
 
 ## シークレットの基本操作

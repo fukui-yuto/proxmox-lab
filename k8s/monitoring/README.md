@@ -96,21 +96,21 @@ kubectl apply -f dashboards/
 
 > **注意:** 初回ログイン後に必ずパスワードを変更すること。
 
-Ingress は Traefik 経由で `192.168.210.21` (k3s-master) の 80 番ポートで公開されている。
-`192.168.210.22` / `23` / `24` (worker) の IP も ADDRESS に表示されるが、master への疎通のみで十分。
+Ingress は Traefik 経由で全ノードの 80 番ポートで公開されている。
+node01 の NIC 負荷分散のため、hosts ファイルには pve-node02 の worker IP (192.168.210.24) を使う。
 
 #### Windows PC からのアクセス設定
 
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  grafana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  grafana.homelab.local"
 ```
 
 または `C:\Windows\System32\drivers\etc\hosts` を管理者権限のエディタで開き、以下を追記する。
 
 ```
-192.168.210.21  grafana.homelab.local
+192.168.210.24  grafana.homelab.local
 ```
 
 ### Prometheus (ポートフォワード)

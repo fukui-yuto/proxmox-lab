@@ -72,7 +72,7 @@ kubectl get secret argocd-initial-admin-secret \
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  argocd.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argocd.homelab.local"
 ```
 
 ### ArgoCD CLI でのログイン
