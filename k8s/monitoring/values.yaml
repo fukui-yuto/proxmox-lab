@@ -10,10 +10,10 @@ prometheus:
     resources:
       requests:
         cpu: 200m
-        memory: 400Mi
-      limits:
-        cpu: 500m
         memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi  # WAL replay 時の OOM kill 対策
     storageSpec:
       volumeClaimTemplate:
         spec:
