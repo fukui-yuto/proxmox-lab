@@ -1,7 +1,9 @@
+---
+# alerting: PrometheusRule (予測・トレンドアラート)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: aiops-step1-alerting
+  name: aiops-alerting
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "11"
@@ -23,3 +25,59 @@ spec:
     syncOptions:
       - CreateNamespace=false
       - ServerSideApply=true
+---
+# pushgateway: Prometheus Pushgateway (異常検知メトリクスの受け口)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-pushgateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "11"
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus-pushgateway
+      targetRevision: "2.14.0"
+      helm:
+        valueFiles:
+          - $values/k8s/aiops/anomaly-detection/pushgateway/values.yaml
+    - repoURL: https://github.com/fukui-yuto/proxmox-lab
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+---
+# anomaly-detection: ログ異常検知 CronJob
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-anomaly-detection
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "12"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/aiops/anomaly-detection
+    directory:
+      include: "{namespace.yaml,cronjob.yaml}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aiops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

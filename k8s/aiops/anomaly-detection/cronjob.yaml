@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: log-anomaly-detector
+  namespace: aiops
+spec:
+  schedule: "*/5 * * * *"       # 5分ごとに実行
+  concurrencyPolicy: Forbid      # 前回実行中は新規起動しない
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: detector
+              image: harbor.homelab.local/library/anomaly-detector:latest
+              imagePullPolicy: Always
+              env:
+                - name: ES_URL
+                  value: "http://elasticsearch-master.logging.svc.cluster.local:9200"
+                - name: PUSHGATEWAY_URL
+                  value: "http://prometheus-pushgateway.monitoring.svc.cluster.local:9091"
+                - name: LOOKBACK_HOURS
+                  value: "6"
+                - name: WINDOW_MINUTES
+                  value: "5"
+                - name: ES_INDEX_PATTERN
+                  value: "fluent-bit-*"
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          imagePullSecrets:
+            - name: harbor-registry-secret

@@ -103,20 +103,19 @@ Fluent-bit → Elasticsearch
 
 ### タスク
 
-- [ ] Prometheus Pushgateway を Helm でインストール
+- [x] Prometheus Pushgateway を Helm でインストール
   - `anomaly-detection/pushgateway/values.yaml` 作成
-  - ArgoCD App 追加
-- [ ] Python 異常検知スクリプト実装
+  - ArgoCD App 追加 (`aiops-pushgateway`)
+- [x] Python 異常検知スクリプト実装
   - `anomaly-detection/detector/detect.py`: ES からログ件数を時系列取得 → ADTK で異常スコア計算
   - `anomaly-detection/detector/requirements.txt`: `elasticsearch`, `adtk`, `prometheus_client`
   - `anomaly-detection/detector/Dockerfile` 作成
-- [ ] Harbor にイメージを push
-- [ ] k8s CronJob マニフェスト作成 (`anomaly-detection/cronjob.yaml`)
-  - 5分ごとに実行
-  - Vault から ES 認証情報を取得
+- [x] kaniko Job でイメージをビルド・Harbor に push (`anomaly-detection/kaniko-job.yaml`)
+- [x] k8s CronJob マニフェスト作成 (`anomaly-detection/cronjob.yaml`)
+  - 5分ごとに実行 / ES 認証なし (現状)
 - [ ] Grafana に異常スコアのパネルを追加
-- [ ] README.md に手順を記載
-- [ ] git commit && git push
+- [x] README.md に手順を記載
+- [x] git commit && git push
 
 ### 学べること
 - 時系列異常検知アルゴリズム (ADTK, Isolation Forest)
@@ -205,7 +204,7 @@ AlertManager
 | Step | 内容 | 状態 |
 |------|------|------|
 | Step 1 | Grafana アラート知能化 | ✅ 完了 |
-| Step 2 | ログ異常検知 CronJob | 未着手 |
+| Step 2 | ログ異常検知 CronJob | ✅ 完了 (Grafana パネルは未) |
 | Step 3 | LLM アラートサマリ | 未着手 |
 | Step 4 | 自動修復 Runbook | 未着手 |
 

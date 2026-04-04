@@ -1,0 +1,17 @@
+# Prometheus Pushgateway Helm values
+# chart: prometheus-community/prometheus-pushgateway
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Prometheus ServiceMonitor を自動作成して monitoring namespace の Prometheus にスクレイプさせる
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  additionalLabels:
+    release: monitoring   # kube-prometheus-stack の serviceMonitorSelector に合わせる
