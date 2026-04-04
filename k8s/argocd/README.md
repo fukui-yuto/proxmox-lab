@@ -215,6 +215,32 @@ helm uninstall argocd -n argocd
 kubectl delete namespace argocd
 ```
 
+## 常時起動 / オンデマンド起動
+
+| 種別 | Application | 備考 |
+|------|-------------|------|
+| 常時起動 (automated sync) | kyverno, kyverno-policies | webhook 停止でクラスター操作不能になるため必須 |
+| 常時起動 (automated sync) | monitoring | クラスター監視 |
+| 常時起動 (automated sync) | logging-elasticsearch, logging-fluent-bit, logging-kibana | ログ収集・閲覧 |
+| オンデマンド (手動 sync) | vault | シークレット管理が必要な時 |
+| オンデマンド (手動 sync) | harbor | イメージビルド・push 時 |
+| オンデマンド (手動 sync) | keycloak | SSO が必要な時 |
+| オンデマンド (手動 sync) | tracing-tempo, tracing-otel-collector | トレース調査時 |
+
+### オンデマンドアプリの起動・停止
+
+```bash
+# 起動 (例: vault)
+argocd app sync vault
+
+# 停止 (例: vault) — リソースを削除して停止
+argocd app delete vault --cascade
+
+# または ArgoCD UI から SYNC / DELETE を操作する
+```
+
+---
+
 ## Sync Wave — 起動順序制御
 
 全アプリを一斉起動すると pve-node01 の e1000e NIC がトラフィックバーストで

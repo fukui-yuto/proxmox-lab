@@ -157,6 +157,34 @@ ansible-playbook -i inventory/hosts.yml playbooks/04-network.yml
 
 ## トラブルシューティング
 
+### pve-node01 起動後の NIC チューニング適用手順
+
+k8s を起動する前に必ず適用すること。未適用のまま k8s を立ち上げると NIC ハングが再発する。
+
+```bash
+# 1. NIC チューニングを適用
+ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
+
+# 2. 適用確認
+ssh root@192.168.210.11 ethtool -k nic0 | grep -E "tcp-segmentation|generic-segmentation|generic-receive"
+# tcp-segmentation-offload: off
+# generic-segmentation-offload: off
+# generic-receive-offload: off
+
+ssh root@192.168.210.11 ethtool -g nic0 | grep -A5 "Current hardware"
+# RX: 4096, TX: 4096
+
+ssh root@192.168.210.11 ip link show nic0 | grep qlen
+# qlen 10000
+
+# 3. 確認後に k8s を起動する
+```
+
+> **注意:** reboot 後は `/etc/network/if-up.d/disable-nic-offload` が自動実行されるため
+> 通常は再適用不要。ただし modprobe 設定変更後は `update-initramfs -u` が必要。
+
+---
+
 ### pve-node01 が k8s デプロイ時に落ちる場合
 
 **症状:** k8s アプリをデプロイするとネットワークが切断され pve-node01 がクラッシュする。
