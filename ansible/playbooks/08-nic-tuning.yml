@@ -2,7 +2,11 @@
 # pve-node01 の e1000e NIC チューニング
 # 症状: k8s デプロイ時のネットワーク負荷増加で e1000e Hardware Unit Hang が発生し
 #       Corosync quorum 喪失 → pve-node01 がクラッシュする
-# 対策: TCP オフロード機能 (TSO/GSO/GRO) を無効化してハングを防止
+# 対策:
+#   1. TCP オフロード機能 (TSO/GSO/GRO) を無効化
+#   2. RX/TX リングバッファを拡大してバースト時のパケットドロップを防止
+#   3. 割り込みコアレシングで割り込みストームを抑制
+#   4. txqueuelen を拡大して送信キュー詰まりを防止
 - name: pve-node01 e1000e NIC チューニング
   hosts: pve-node01
   gather_facts: false
@@ -13,18 +17,36 @@
         content: "options e1000e InterruptThrottleRate=1\n"
       notify: update initramfs
 
-    - name: NIC オフロード無効化スクリプトを配置 (/etc/network/if-up.d)
+    - name: NIC チューニングスクリプトを配置 (/etc/network/if-up.d)
       copy:
         dest: /etc/network/if-up.d/disable-nic-offload
         mode: "0755"
         content: |
           #!/bin/sh
-          # e1000e Hardware Unit Hang 対策: TSO/GSO/GRO を無効化
+          # e1000e Hardware Unit Hang 対策
           [ "$IFACE" = "nic0" ] || exit 0
+          # TSO/GSO/GRO 無効化
           ethtool -K nic0 tso off gso off gro off
+          # RX/TX リングバッファ拡大 (デフォルト 256 → 4096)
+          ethtool -G nic0 rx 4096 tx 4096
+          # 割り込みコアレシング: 50μs ごとにまとめて処理 (割り込みストーム抑制)
+          ethtool -C nic0 rx-usecs 50 tx-usecs 50
+          # 送信キュー長拡大 (デフォルト 1000 → 10000)
+          ip link set nic0 txqueuelen 10000
 
     - name: NIC オフロードを即時無効化
       command: ethtool -K nic0 tso off gso off gro off
+
+    - name: RX/TX リングバッファを即時拡大
+      command: ethtool -G nic0 rx 4096 tx 4096
+      ignore_errors: true  # ハード上限未満の場合は最大値に切り捨てられる
+
+    - name: 割り込みコアレシングを即時設定
+      command: ethtool -C nic0 rx-usecs 50 tx-usecs 50
+      ignore_errors: true  # NIC が coalescing をサポートしない場合はスキップ
+
+    - name: txqueuelen を即時拡大
+      command: ip link set nic0 txqueuelen 10000
 
   handlers:
     - name: update initramfs

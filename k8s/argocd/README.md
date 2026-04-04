@@ -215,6 +215,27 @@ helm uninstall argocd -n argocd
 kubectl delete namespace argocd
 ```
 
+## Sync Wave — 起動順序制御
+
+全アプリを一斉起動すると pve-node01 の e1000e NIC がトラフィックバーストで
+Hardware Unit Hang を起こすため、sync wave で起動を段階的に分散している。
+
+| Wave | Application | 理由 |
+|------|-------------|------|
+| 0 | kyverno | ポリシーエンジン。他リソース作成前に必要 |
+| 1 | kyverno-policies | kyverno が Ready になってから適用 |
+| 2 | vault | シークレット管理。他アプリが依存する可能性 |
+| 3 | monitoring | 可観測性。なるべく早期に起動 |
+| 4 | harbor | コンテナレジストリ |
+| 5 | keycloak | 認証基盤 |
+| 6 | logging-elasticsearch | 重い StatefulSet。後半に配置 |
+| 7 | logging-fluent-bit | elasticsearch が起動してから |
+| 8 | logging-kibana | elasticsearch が起動してから |
+| 9 | tracing-tempo | トレーシングバックエンド |
+| 10 | tracing-otel-collector | tempo が起動してから |
+
+ArgoCD は各 wave の全 Application が Healthy になるまで次の wave に進まない。
+
 ## 次のステップ
 
 - Harbor (Phase 3-2) をコンテナレジストリとして設定

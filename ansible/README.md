@@ -62,7 +62,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 | `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
-| `08-nic-tuning.yml` | pve-node01 e1000e NIC チューニング (TSO/GSO/GRO 無効化) |
+| `08-nic-tuning.yml` | pve-node01 e1000e NIC チューニング (TSO/GSO/GRO 無効化・リングバッファ拡大・割り込みコアレシング・txqueuelen 拡大) |
 
 ### クラスター確認
 
@@ -170,7 +170,14 @@ journalctl -b -1 -p err | grep e1000e
 # → e1000e 0000:00:19.0 nic0: Detected Hardware Unit Hang
 ```
 
-**対策:** `08-nic-tuning.yml` で TSO/GSO/GRO を無効化する。
+**対策:** `08-nic-tuning.yml` で以下を適用する。
+
+| 設定 | 内容 | 効果 |
+|------|------|------|
+| TSO/GSO/GRO 無効化 | TCP オフロード機能をカーネルで処理 | NIC ファームウェアの負荷軽減 |
+| RX/TX リングバッファ 4096 | デフォルト 256 → 4096 | バースト時のパケットドロップ防止 |
+| 割り込みコアレシング 50μs | rx-usecs/tx-usecs=50 | 割り込みストーム抑制 |
+| txqueuelen 10000 | デフォルト 1000 → 10000 | 送信キュー詰まり防止 |
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
@@ -179,10 +186,19 @@ ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
 適用後の確認:
 
 ```bash
+# オフロード確認
 ssh root@192.168.210.11 ethtool -k nic0 | grep -E "tcp-segmentation|generic-segmentation|generic-receive"
 # tcp-segmentation-offload: off
 # generic-segmentation-offload: off
 # generic-receive-offload: off
+
+# リングバッファ確認
+ssh root@192.168.210.11 ethtool -g nic0
+# RX: 4096, TX: 4096
+
+# txqueuelen 確認
+ssh root@192.168.210.11 ip link show nic0 | grep qlen
+# qlen 10000
 ```
 
 **k8s アクセス IP について:** k3s の ServiceLB は全ノードで Traefik をリッスンするため、
