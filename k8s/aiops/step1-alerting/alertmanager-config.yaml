@@ -1,0 +1,56 @@
+# AlertManager 設定スニペット (参照用)
+#
+# このファイルの設定内容は k8s/monitoring/values.yaml の
+# alertmanager.config セクションに統合されている。
+# 変更時は values.yaml を編集すること。
+#
+# ---------------------------------------------------------------
+# 設計方針
+# ---------------------------------------------------------------
+# 1. group_by でアラートを意味のあるグループに束ねる
+#    - namespace + alertname + severity で同一問題を1通知にまとめる
+# 2. inhibit_rules でノイズを抑制
+#    - ノードダウン時は Pod/コンテナアラートを抑制 (上位障害が優先)
+#    - Critical アラート発火中は同一 instance の Warning を抑制
+# 3. routes で severity 別に受信先を分岐 (Slack 追加時に活用)
+# ---------------------------------------------------------------
+
+route:
+  group_by: ["namespace", "alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h          # デフォルト12h → 4hに短縮 (ラボ向け)
+  receiver: "null"
+  routes:
+    - matchers:
+        - alertname = "Watchdog"
+      receiver: "null"
+    - matchers:
+        - severity = "critical"
+      receiver: "null"          # Slack 追加時: receiver: "slack-critical"
+      continue: false
+    - matchers:
+        - severity = "warning"
+      receiver: "null"          # Slack 追加時: receiver: "slack-warning"
+      continue: false
+
+inhibit_rules:
+  # ノードがダウンしている場合、そのノード上の Pod/コンテナアラートを抑制
+  - source_matchers:
+      - alertname = "NodeNotReady"
+    target_matchers:
+      - alertname =~ "Pod.*|Container.*|Kube.*"
+    equal: ["node"]
+
+  # Critical アラート発火中は同一 instance の Warning を抑制
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ["alertname", "namespace", "instance"]
+
+  # Watchdog (死活監視用ダミー) は他のアラートに影響させない
+  - source_matchers:
+      - alertname = "Watchdog"
+    target_matchers:
+      - alertname != "Watchdog"

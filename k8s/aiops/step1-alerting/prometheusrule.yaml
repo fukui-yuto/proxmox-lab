@@ -1,0 +1,197 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aiops-predictive-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring   # kube-prometheus-stack の ruleSelector に合わせる
+spec:
+  groups:
+    # ---------------------------------------------------------------
+    # ディスク容量枯渇予測 (predict_linear)
+    # ---------------------------------------------------------------
+    - name: aiops.disk.prediction
+      interval: 5m
+      rules:
+        - alert: DiskSpaceExhaustionIn24h
+          expr: |
+            predict_linear(
+              node_filesystem_avail_bytes{
+                job="node-exporter",
+                fstype!~"tmpfs|overlay|squashfs"
+              }[4h], 86400
+            ) < 0
+          for: 15m
+          labels:
+            severity: warning
+            category: predictive
+          annotations:
+            summary: "ディスク空き容量が24時間以内に枯渇予測 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} の {{ $labels.mountpoint }} が、
+              現在のトレンドで継続すると24時間以内にディスクが枯渇する見込みです。
+              現在の空き: {{ $value | humanize1024 }}B
+            runbook: "kubectl exec -n monitoring <prometheus-pod> -- df -h でディスク使用量を確認"
+
+        - alert: DiskSpaceExhaustionIn4h
+          expr: |
+            predict_linear(
+              node_filesystem_avail_bytes{
+                job="node-exporter",
+                fstype!~"tmpfs|overlay|squashfs"
+              }[4h], 14400
+            ) < 0
+          for: 10m
+          labels:
+            severity: critical
+            category: predictive
+          annotations:
+            summary: "ディスク空き容量が4時間以内に枯渇予測 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} の {{ $labels.mountpoint }} が、
+              現在のトレンドで継続すると4時間以内にディスクが枯渇する見込みです。
+              即座に不要ファイルの削除またはディスク拡張が必要です。
+
+    # ---------------------------------------------------------------
+    # CPU スパイクトレンド検知 (rate + increase)
+    # ---------------------------------------------------------------
+    - name: aiops.cpu.trend
+      interval: 1m
+      rules:
+        - alert: CPUSpikeHighSustained
+          expr: |
+            (
+              1 - avg by(instance) (
+                rate(node_cpu_seconds_total{mode="idle"}[5m])
+              )
+            ) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            category: trend
+          annotations:
+            summary: "CPU使用率が85%超を10分継続 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} の CPU 使用率が
+              {{ $value | humanizePercentage }} で10分間継続しています。
+              kubectl top pods -A でどの Pod が CPU を消費しているか確認してください。
+
+        - alert: CPUSpikeIncreaseRapid
+          expr: |
+            increase(
+              node_cpu_seconds_total{mode!="idle", job="node-exporter"}[10m]
+            ) > 500
+          for: 5m
+          labels:
+            severity: warning
+            category: trend
+          annotations:
+            summary: "CPU使用量が急増 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} で過去10分間の CPU 使用量が急増しています。
+              バースト処理や異常プロセスの可能性があります。
+
+    # ---------------------------------------------------------------
+    # メモリ圧迫トレンド検知
+    # ---------------------------------------------------------------
+    - name: aiops.memory.trend
+      interval: 5m
+      rules:
+        - alert: MemoryExhaustionIn2h
+          expr: |
+            predict_linear(
+              node_memory_MemAvailable_bytes{job="node-exporter"}[1h], 7200
+            ) < 0
+          for: 15m
+          labels:
+            severity: warning
+            category: predictive
+          annotations:
+            summary: "メモリが2時間以内に枯渇予測 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} の空きメモリが、
+              現在のトレンドで2時間以内に枯渇する見込みです。
+              現在の空きメモリ: {{ $value | humanize1024 }}B
+
+        - alert: NodeMemoryPressureHigh
+          expr: |
+            (
+              node_memory_MemAvailable_bytes{job="node-exporter"}
+              / node_memory_MemTotal_bytes{job="node-exporter"}
+            ) < 0.10
+          for: 5m
+          labels:
+            severity: critical
+            category: threshold
+          annotations:
+            summary: "利用可能メモリが10%未満 ({{ $labels.instance }})"
+            description: |
+              ノード {{ $labels.instance }} の空きメモリが全体の
+              {{ $value | humanizePercentage }} しかありません。OOM Kill が発生する恐れがあります。
+
+    # ---------------------------------------------------------------
+    # Pod 再起動率 (CrashLoopBackOff 早期警告)
+    # ---------------------------------------------------------------
+    - name: aiops.pod.restarts
+      interval: 1m
+      rules:
+        - alert: PodRestartRateHigh
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total[1h]
+            ) > 3
+          for: 0m
+          labels:
+            severity: warning
+            category: trend
+          annotations:
+            summary: "Pod が1時間で3回以上再起動 ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} のコンテナ {{ $labels.container }} が
+              過去1時間で {{ $value | humanize }} 回再起動しています。
+              CrashLoopBackOff の前兆の可能性があります。
+              kubectl logs -n {{ $labels.namespace }} {{ $labels.pod }} -c {{ $labels.container }} --previous で確認してください。
+
+        - alert: PodRestartRateCritical
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total[30m]
+            ) > 5
+          for: 0m
+          labels:
+            severity: critical
+            category: trend
+          annotations:
+            summary: "Pod が30分で5回以上再起動 ({{ $labels.namespace }}/{{ $labels.pod }})"
+            description: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} のコンテナ {{ $labels.container }} が
+              過去30分で {{ $value | humanize }} 回再起動しています。
+              即座に調査が必要です。
+
+    # ---------------------------------------------------------------
+    # Prometheus PVC 使用率
+    # ---------------------------------------------------------------
+    - name: aiops.prometheus.storage
+      interval: 5m
+      rules:
+        - alert: PrometheusStorageHigh
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{
+                namespace="monitoring",
+                persistentvolumeclaim=~"prometheus-.*"
+              }
+              / kubelet_volume_stats_capacity_bytes{
+                namespace="monitoring",
+                persistentvolumeclaim=~"prometheus-.*"
+              }
+            ) > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            category: threshold
+          annotations:
+            summary: "Prometheus PVC 使用率が80%超"
+            description: |
+              Prometheus のストレージ使用率が {{ $value | humanizePercentage }} に達しています。
+              retention 設定の見直しまたはストレージ拡張を検討してください。

@@ -40,6 +40,11 @@ grafana:
     enabled: true
     size: 2Gi
 
+  grafana.ini:
+    server:
+      domain: grafana.homelab.local
+      root_url: "http://grafana.homelab.local"
+
   ingress:
     enabled: true
     ingressClassName: traefik
@@ -86,23 +91,49 @@ alertmanager:
     global:
       resolve_timeout: 5m
     route:
-      group_by: ["alertname", "namespace"]
+      group_by: ["namespace", "alertname", "severity"]
       group_wait: 30s
       group_interval: 5m
-      repeat_interval: 12h
+      repeat_interval: 4h
       receiver: "null"
       routes:
         - matchers:
             - alertname = "Watchdog"
           receiver: "null"
+        - matchers:
+            - severity = "critical"
+          receiver: "null"       # Slack 追加時: receiver: "slack-critical"
+          continue: false
+        - matchers:
+            - severity = "warning"
+          receiver: "null"       # Slack 追加時: receiver: "slack-warning"
+          continue: false
+    inhibit_rules:
+      # ノードダウン時はそのノード上の Pod/コンテナアラートを抑制
+      - source_matchers:
+          - alertname = "NodeNotReady"
+        target_matchers:
+          - alertname =~ "Pod.*|Container.*|Kube.*"
+        equal: ["node"]
+      # Critical 発火中は同一 instance の Warning を抑制
+      - source_matchers:
+          - severity = "critical"
+        target_matchers:
+          - severity = "warning"
+        equal: ["alertname", "namespace", "instance"]
     receivers:
       - name: "null"
     # Slack 通知を使う場合は以下のコメントを外す
     # receivers:
-    #   - name: slack
+    #   - name: slack-critical
     #     slack_configs:
     #       - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-    #         channel: "#alerts"
+    #         channel: "#alerts-critical"
+    #         send_resolved: true
+    #   - name: slack-warning
+    #     slack_configs:
+    #       - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    #         channel: "#alerts-warning"
     #         send_resolved: true
 
 # -------------------------------------------------------------------
