@@ -8,27 +8,27 @@
 
 ```
 k8s/aiops/
-├── PLAN.md                        # このファイル (タスク管理)
-├── README.md                      # 手順書 (実装時に追記)
-├── step1-alerting/                # Step1: Grafana アラート知能化
-│   ├── prometheusrule.yaml        # PromQL ルール定義
-│   └── alertmanager-config.yaml   # グループ化・抑制ルール
-├── step2-log-anomaly/             # Step2: ログ異常検知
-│   ├── cronjob.yaml               # k8s CronJob
-│   ├── pushgateway/               # Prometheus Pushgateway
+├── PLAN.md                          # このファイル (タスク管理)
+├── README.md                        # 手順書
+├── alerting/                        # 予測・トレンド型アラートルール
+│   ├── prometheusrule.yaml          # PromQL ルール定義
+│   └── alertmanager-config.yaml     # グループ化・抑制ルール (参照用)
+├── anomaly-detection/               # ログ異常検知
+│   ├── cronjob.yaml                 # k8s CronJob (5分ごと)
+│   ├── pushgateway/                 # Prometheus Pushgateway
 │   │   └── values.yaml
-│   └── detector/                  # Python 異常検知スクリプト
+│   └── detector/                    # Python 異常検知スクリプト
 │       ├── Dockerfile
 │       ├── requirements.txt
 │       └── detect.py
-├── step3-llm-summary/             # Step3: LLM アラートサマリ
-│   ├── deployment.yaml            # alert-summarizer Pod
-│   ├── secret.yaml                # API キー (Vault 管理)
-│   └── summarizer/
+├── alert-summarizer/                # LLM アラートサマリ
+│   ├── deployment.yaml              # alert-summarizer Pod
+│   ├── secret.yaml                  # API キー (Vault 管理)
+│   └── app/
 │       ├── Dockerfile
 │       ├── requirements.txt
 │       └── app.py
-└── step4-auto-remediation/        # Step4: 自動修復 Runbook
+└── auto-remediation/                # 自動修復 Runbook
     ├── argo-events/
     │   └── event-source.yaml
     └── argo-workflows/
@@ -66,15 +66,15 @@ k8s Events / Prometheus ────────→ [Step4] Argo Events + Argo W
 
 ### タスク
 
-- [ ] `predict_linear()` でディスク容量枯渇予測アラートを追加
-- [ ] `rate()` + `increase()` で CPU スパイクトレンド検知ルール追加
-- [ ] AlertManager の `group_by` でアラートグループ化設定
-- [ ] AlertManager の `inhibit_rules` でノイズ抑制設定
-- [ ] `step1-alerting/prometheusrule.yaml` に定義をコード化
-- [ ] `step1-alerting/alertmanager-config.yaml` に設定をコード化
-- [ ] `k8s/monitoring/values.yaml` に組み込み
-- [ ] README.md に手順を記載
-- [ ] git commit && git push
+- [x] `predict_linear()` でディスク容量枯渇予測アラートを追加
+- [x] `rate()` + `increase()` で CPU スパイクトレンド検知ルール追加
+- [x] AlertManager の `group_by` でアラートグループ化設定
+- [x] AlertManager の `inhibit_rules` でノイズ抑制設定
+- [x] `alerting/prometheusrule.yaml` に定義をコード化
+- [x] `alerting/alertmanager-config.yaml` に設定をコード化
+- [x] `k8s/monitoring/values.yaml` に組み込み
+- [x] README.md に手順を記載
+- [x] git commit && git push
 
 ### 学べること
 - PromQL の応用 (predict_linear, rate, increase)
@@ -104,14 +104,14 @@ Fluent-bit → Elasticsearch
 ### タスク
 
 - [ ] Prometheus Pushgateway を Helm でインストール
-  - `step2-log-anomaly/pushgateway/values.yaml` 作成
+  - `anomaly-detection/pushgateway/values.yaml` 作成
   - ArgoCD App 追加
 - [ ] Python 異常検知スクリプト実装
-  - `detect.py`: ES からログ件数を時系列取得 → ADTK で異常スコア計算
-  - `requirements.txt`: `elasticsearch`, `adtk`, `prometheus_client`
-  - `Dockerfile` 作成
+  - `anomaly-detection/detector/detect.py`: ES からログ件数を時系列取得 → ADTK で異常スコア計算
+  - `anomaly-detection/detector/requirements.txt`: `elasticsearch`, `adtk`, `prometheus_client`
+  - `anomaly-detection/detector/Dockerfile` 作成
 - [ ] Harbor にイメージを push
-- [ ] k8s CronJob マニフェスト作成 (`cronjob.yaml`)
+- [ ] k8s CronJob マニフェスト作成 (`anomaly-detection/cronjob.yaml`)
   - 5分ごとに実行
   - Vault から ES 認証情報を取得
 - [ ] Grafana に異常スコアのパネルを追加
@@ -148,14 +148,14 @@ AlertManager
 ### タスク
 
 - [ ] Vault に Claude API キーを登録
-- [ ] `app.py` 実装 (FastAPI)
+- [ ] `alert-summarizer/app/app.py` 実装 (FastAPI)
   - AlertManager webhook 受信エンドポイント
   - ES から直近エラーログを取得
   - Claude API でサマリ生成 (「何が起きているか」「次に確認すべきこと」)
   - Slack webhook で通知 (or Grafana Annotation API)
-- [ ] `Dockerfile` / `requirements.txt` 作成
+- [ ] `alert-summarizer/app/Dockerfile` / `requirements.txt` 作成
 - [ ] Harbor にイメージを push
-- [ ] k8s Deployment / Service マニフェスト作成
+- [ ] `alert-summarizer/deployment.yaml` k8s Deployment / Service マニフェスト作成
 - [ ] AlertManager の webhook receiver 設定に追加
 - [ ] README.md に手順を記載
 - [ ] git commit && git push
@@ -187,8 +187,8 @@ AlertManager
 - [ ] Argo Workflows インストール
   - ArgoCD App 追加
 - [ ] Argo Events インストール
-  - AlertManager → Argo Events EventSource 設定
-- [ ] OOMKilled 自動修復 Workflow 作成
+  - AlertManager → Argo Events EventSource 設定 (`auto-remediation/argo-events/event-source.yaml`)
+- [ ] OOMKilled 自動修復 Workflow 作成 (`auto-remediation/argo-workflows/`)
 - [ ] CrashLoopBackOff 分析 Workflow 作成 (Claude API 連携)
 - [ ] README.md に手順を記載
 - [ ] git commit && git push
@@ -204,7 +204,7 @@ AlertManager
 
 | Step | 内容 | 状態 |
 |------|------|------|
-| Step 1 | Grafana アラート知能化 | 未着手 |
+| Step 1 | Grafana アラート知能化 | ✅ 完了 |
 | Step 2 | ログ異常検知 CronJob | 未着手 |
 | Step 3 | LLM アラートサマリ | 未着手 |
 | Step 4 | 自動修復 Runbook | 未着手 |

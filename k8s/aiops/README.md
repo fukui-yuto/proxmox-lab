@@ -10,10 +10,10 @@
 
 | ディレクトリ | 内容 | 状態 |
 |---|---|---|
-| `step1-alerting/` | Grafana アラート知能化 (PrometheusRule / AlertManager 設定) | ✅ 完了 |
-| `step2-log-anomaly/` | ログ異常検知 CronJob | 未着手 |
-| `step3-llm-summary/` | LLM アラートサマリ (Claude API) | 未着手 |
-| `step4-auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | 未着手 |
+| `alerting/` | 予測・トレンド型アラートルール (PrometheusRule / AlertManager 設定) | ✅ 完了 |
+| `anomaly-detection/` | ログ異常検知 CronJob | 未着手 |
+| `alert-summarizer/` | LLM アラートサマリ (Claude API) | 未着手 |
+| `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | 未着手 |
 
 ---
 
@@ -27,7 +27,7 @@
 
 ### デプロイ方法
 
-ArgoCD App `aiops-step1-alerting` が自動的に `k8s/aiops/step1-alerting/prometheusrule.yaml` を `monitoring` namespace へ適用する。
+ArgoCD App `aiops-step1-alerting` が自動的に `k8s/aiops/alerting/prometheusrule.yaml` を `monitoring` namespace へ適用する。
 
 ```bash
 # ArgoCD App を手動で適用する場合
