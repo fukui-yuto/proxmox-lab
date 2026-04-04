@@ -39,3 +39,9 @@ persistence:
 service:
   type: ClusterIP
   port: 9200
+
+# シングルノード構成では yellow が正常状態のため readiness probe を調整
+readinessProbe:
+  httpGet:
+    path: /_cluster/health?wait_for_status=yellow&timeout=1s
+    port: 9200
