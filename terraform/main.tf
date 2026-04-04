@@ -477,7 +477,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
 # -------------------------------------------------------------------
 resource "null_resource" "k3s_registry_config" {
   triggers = {
-    registry_config_version = "1"
+    registry_config_version = "3"
   }
 
   depends_on = [null_resource.k3s_workers_install]
@@ -486,14 +486,15 @@ resource "null_resource" "k3s_registry_config" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -e
-      CONTENT='mirrors:\n  harbor.homelab.local:\n    endpoint:\n      - "http://192.168.210.21"\nconfigs:\n  "harbor.homelab.local":\n    tls:\n      insecure_skip_verify: true'
+      CONTENT='mirrors:\n  harbor.homelab.local:\n    endpoint:\n      - "http://harbor.homelab.local"\nconfigs:\n  "harbor.homelab.local":\n    tls:\n      insecure_skip_verify: true'
+      HOSTS_ENTRY='192.168.210.21 harbor.homelab.local'
 
       apply_registry() {
         local ip="$1"
         local service="$2"
         echo "==> Configuring registry on $ip (service: $service)"
         ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
-          "sudo mkdir -p /etc/rancher/k3s && printf '$CONTENT\n' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null && sudo systemctl restart $service && echo 'done'"
+          "sudo mkdir -p /etc/rancher/k3s && printf '$CONTENT\n' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null && grep -qF '$HOSTS_ENTRY' /etc/hosts || echo '$HOSTS_ENTRY' | sudo tee -a /etc/hosts && sudo systemctl restart $service && echo 'done'"
       }
 
       apply_registry 192.168.210.21 k3s
