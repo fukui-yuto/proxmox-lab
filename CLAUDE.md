@@ -155,14 +155,16 @@
 
 ### Windows hosts ファイルへの追記
 
+> pve-node02 の worker IP (192.168.210.24) を使うことで node01 の NIC 負荷を分散できる。
+
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  grafana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  kibana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  elasticsearch.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  argocd.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  harbor.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  keycloak.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  grafana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argocd.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
 ```
 
 ### URL 一覧

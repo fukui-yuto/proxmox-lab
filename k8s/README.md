@@ -5,7 +5,7 @@ k3s クラスターの構成は `terraform apply` で完結する。
 
 ## 前提条件
 
-- `terraform apply` が完了していること (`kubectl get nodes` で 4 ノード Ready)
+- `terraform apply` が完了していること (`kubectl get nodes` で 7 ノード Ready)
 - Raspberry Pi に `helm` v3 がインストールされていること
 
 ### helm のインストール
@@ -17,16 +17,18 @@ helm version
 
 ## アプリ
 
-| ディレクトリ | アプリ | 用途 |
-|---|---|---|
-| `monitoring/` | Prometheus + Grafana | [monitoring/README.md](monitoring/README.md) |
-| `logging/` | Elasticsearch + Fluent Bit + Kibana | ログ収集・可視化 |
-| `tracing/` | OpenTelemetry + Tempo | 分散トレーシング |
-| `argocd/` | ArgoCD | GitOps |
-| `harbor/` | Harbor | プライベートコンテナレジストリ |
-| `keycloak/` | Keycloak | SSO / 認証基盤 |
-| `kyverno/` | Kyverno | ポリシーエンジン |
-| `vault/` | Vault | シークレット管理 |
+| ディレクトリ | アプリ | 用途 | 起動方式 |
+|---|---|---|---|
+| `argocd/` | ArgoCD | GitOps (全アプリの管理基盤) | 手動デプロイ後に自動管理 |
+| `monitoring/` | Prometheus + Grafana | メトリクス監視・可視化 | 常時起動 (automated sync) |
+| `logging/` | Elasticsearch + Fluent Bit + Kibana | ログ収集・可視化 | 常時起動 (automated sync) |
+| `kyverno/` | Kyverno | ポリシーエンジン | 常時起動 (automated sync) |
+| `vault/` | Vault | シークレット管理 | オンデマンド (手動 sync) |
+| `harbor/` | Harbor | プライベートコンテナレジストリ | オンデマンド (手動 sync) |
+| `keycloak/` | Keycloak | SSO / 認証基盤 | オンデマンド (手動 sync) |
+| `tracing/` | OpenTelemetry + Tempo | 分散トレーシング | オンデマンド (手動 sync) |
+
+各ツールの概念・仕組みは各ディレクトリの `GUIDE.md` を参照。
 
 ---
 
@@ -34,26 +36,31 @@ helm version
 
 ### Windows hosts ファイルへの追記
 
+> k3s ServiceLB は全ノードで Traefik をリッスンするため、どのワーカー IP でも動作する。
+> **pve-node02 の worker IP (192.168.210.24) を使うことで node01 の NIC 負荷を分散できる。**
+
 管理者権限の PowerShell で実行:
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  grafana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  kibana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  elasticsearch.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  argocd.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  harbor.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  keycloak.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.21  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  grafana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argocd.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
 ```
 
 ### URL 一覧
 
-| アプリ | URL | ユーザー | パスワード |
+| アプリ | URL | ユーザー | 初期パスワード |
 |---|---|---|---|
 | Grafana | http://grafana.homelab.local | `admin` | `values.yaml` の `grafana.adminPassword` |
 | Kibana | http://kibana.homelab.local | - | - |
 | Elasticsearch | http://elasticsearch.homelab.local | - | - |
-| ArgoCD | http://argocd.homelab.local | `admin` | `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d` |
+| ArgoCD | http://argocd.homelab.local | `admin` | `Argocd12345` |
 | Harbor | http://harbor.homelab.local | `admin` | `Harbor12345` |
 | Keycloak | http://keycloak.homelab.local | `admin` | `Keycloak12345` |
 | Vault | http://vault.homelab.local | - | 初期化時の Root Token (要 unseal) |
+
+> **注意:** 初回ログイン後に各サービスのパスワードを必ず変更すること。
