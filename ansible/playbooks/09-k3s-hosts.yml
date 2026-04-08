@@ -1,0 +1,35 @@
+---
+# k3s ノードの /etc/hosts に homelab サービスのエントリを追加する
+# 目的: containerd が Pi-hole DNS に依存せずイメージプルできるようにする
+#       harbor.homelab.local 等が DNS 未解決でも ImagePullBackOff にならない
+#
+# 使い方:
+#   ansible-playbook -i inventory/hosts.yml playbooks/09-k3s-hosts.yml
+#
+# Traefik Ingress は全ノードで HostNetwork / DaemonSet として動作しているが、
+# Ingress へのアクセスは k3s-worker03 (192.168.210.24) を代表 IP として使用する。
+
+- name: k3s ノードの /etc/hosts にサービスエントリを追加
+  hosts: k3s_nodes
+  become: true
+  vars:
+    ingress_ip: "192.168.210.24"
+    homelab_hosts:
+      - harbor.homelab.local
+      - grafana.homelab.local
+      - kibana.homelab.local
+      - argocd.homelab.local
+      - argo-workflows.homelab.local
+      - alert-summarizer.homelab.local
+      - elasticsearch.homelab.local
+      - keycloak.homelab.local
+      - vault.homelab.local
+
+  tasks:
+    - name: /etc/hosts にエントリを追加 (冪等)
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: "^{{ ingress_ip }}\\s+{{ item }}$"
+        line: "{{ ingress_ip }}  {{ item }}"
+        state: present
+      loop: "{{ homelab_hosts }}"
