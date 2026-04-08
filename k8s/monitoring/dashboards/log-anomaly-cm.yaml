@@ -163,6 +163,102 @@ data:
           "fieldConfig": {
             "defaults": { "unit": "short", "min": 0, "max": 1 }
           }
+        },
+        {
+          "id": 8,
+          "title": "Namespace 別エラー件数 (直近 6h)",
+          "description": "エラーが多い namespace を特定する。異常検知フラグが立ったときにここを確認する。",
+          "type": "barchart",
+          "gridPos": { "x": 0, "y": 18, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sort_desc(log_error_count_by_namespace{job=\"log-anomaly-detector\"})",
+              "legendFormat": "{{namespace}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "options": {
+            "orientation": "horizontal",
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "single" },
+            "xTickLabelRotation": 0
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Top エラー Pod (直近 6h)",
+          "description": "エラーログが最も多い Pod の一覧。CrashLoop・設定ミスの疑いがある Pod を特定する。",
+          "type": "table",
+          "gridPos": { "x": 12, "y": 18, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sort_desc(log_error_count_by_pod{job=\"log-anomaly-detector\"})",
+              "legendFormat": "",
+              "refId": "A",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "options": {
+            "sortBy": [{ "displayName": "Value", "desc": true }]
+          },
+          "fieldConfig": {
+            "defaults": { "unit": "short" },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "namespace" },
+                "properties": [{ "id": "displayName", "value": "Namespace" }, { "id": "custom.width", "value": 150 }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "pod" },
+                "properties": [{ "id": "displayName", "value": "Pod" }, { "id": "custom.width", "value": 300 }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Value" },
+                "properties": [
+                  { "id": "displayName", "value": "エラー件数" },
+                  { "id": "custom.width", "value": 100 },
+                  { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 100 }] } },
+                  { "id": "custom.displayMode", "value": "color-background" }
+                ]
+              }
+            ]
+          },
+          "transformations": [
+            { "id": "labelsToFields", "options": { "valueLabel": "pod" } },
+            { "id": "organize", "options": { "excludeByName": { "Time": true, "job": true, "__name__": true } } }
+          ]
+        },
+        {
+          "id": 10,
+          "title": "Namespace 別エラー率トレンド",
+          "description": "namespace ごとのエラー件数の時系列推移。どの namespace でいつエラーが増えたかを確認する。",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 26, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "log_error_count_by_namespace{job=\"log-anomaly-detector\"}",
+              "legendFormat": "{{namespace}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi", "sort": "desc" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
         }
       ]
     }
