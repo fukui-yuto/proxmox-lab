@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-summarizer
+  namespace: aiops
+spec:
+  selector:
+    app: alert-summarizer
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-summarizer
+  namespace: aiops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-summarizer
+  template:
+    metadata:
+      labels:
+        app: alert-summarizer
+    spec:
+      containers:
+        - name: alert-summarizer
+          image: harbor.homelab.local/library/alert-summarizer:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: alert-summarizer-secret
+          env:
+            - name: ES_URL
+              value: "http://elasticsearch-master.logging.svc.cluster.local:9200"
+            - name: GRAFANA_URL
+              value: "http://monitoring-grafana.monitoring.svc.cluster.local"
+            - name: GRAFANA_USER
+              value: "admin"
+            - name: CLAUDE_MODEL
+              value: "claude-haiku-4-5-20251001"
+            - name: ES_INDEX_PATTERN
+              value: "fluent-bit-*"
+            - name: LOG_LOOKBACK_MINUTES
+              value: "15"
+            - name: MAX_LOG_SAMPLES
+              value: "20"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      imagePullSecrets:
+        - name: harbor-registry-secret

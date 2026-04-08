@@ -102,11 +102,11 @@ alertmanager:
           receiver: "null"
         - matchers:
             - severity = "critical"
-          receiver: "null"       # Slack 追加時: receiver: "slack-critical"
+          receiver: "alert-summarizer"
           continue: false
         - matchers:
             - severity = "warning"
-          receiver: "null"       # Slack 追加時: receiver: "slack-warning"
+          receiver: "alert-summarizer"
           continue: false
     inhibit_rules:
       # ノードダウン時はそのノード上の Pod/コンテナアラートを抑制
@@ -123,18 +123,10 @@ alertmanager:
         equal: ["alertname", "namespace", "instance"]
     receivers:
       - name: "null"
-    # Slack 通知を使う場合は以下のコメントを外す
-    # receivers:
-    #   - name: slack-critical
-    #     slack_configs:
-    #       - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-    #         channel: "#alerts-critical"
-    #         send_resolved: true
-    #   - name: slack-warning
-    #     slack_configs:
-    #       - api_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-    #         channel: "#alerts-warning"
-    #         send_resolved: true
+      - name: "alert-summarizer"
+        webhook_configs:
+          - url: "http://alert-summarizer.aiops.svc.cluster.local:8080/webhook"
+            send_resolved: false
 
 # -------------------------------------------------------------------
 # node_exporter (各 k3s ノードのメトリクス収集)

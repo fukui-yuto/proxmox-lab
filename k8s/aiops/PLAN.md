@@ -146,18 +146,18 @@ AlertManager
 
 ### タスク
 
-- [ ] Vault に Claude API キーを登録
-- [ ] `alert-summarizer/app/app.py` 実装 (FastAPI)
+- [x] Vault に Claude API キーを登録 → k8s Secret で代替 (`alert-summarizer-secret`)
+- [x] `alert-summarizer/app/app.py` 実装 (FastAPI)
   - AlertManager webhook 受信エンドポイント
   - ES から直近エラーログを取得
   - Claude API でサマリ生成 (「何が起きているか」「次に確認すべきこと」)
-  - Slack webhook で通知 (or Grafana Annotation API)
-- [ ] `alert-summarizer/app/Dockerfile` / `requirements.txt` 作成
-- [ ] Harbor にイメージを push
-- [ ] `alert-summarizer/deployment.yaml` k8s Deployment / Service マニフェスト作成
-- [ ] AlertManager の webhook receiver 設定に追加
-- [ ] README.md に手順を記載
-- [ ] git commit && git push
+  - Grafana Annotation API で記録 / Slack webhook で通知 (オプション)
+- [x] `alert-summarizer/app/Dockerfile` / `requirements.txt` 作成
+- [x] Harbor にイメージを push (kaniko-job.yaml)
+- [x] `alert-summarizer/deployment.yaml` k8s Deployment / Service マニフェスト作成
+- [x] AlertManager の webhook receiver 設定に追加 (`k8s/monitoring/values.yaml`)
+- [x] README.md に手順を記載
+- [x] git commit && git push
 
 ### 学べること
 - LLM API (Claude) の活用
@@ -205,7 +205,7 @@ AlertManager
 |------|------|------|
 | Step 1 | Grafana アラート知能化 | ✅ 完了 |
 | Step 2 | ログ異常検知 CronJob | ✅ 完了 (Grafana パネルは未) |
-| Step 3 | LLM アラートサマリ | 未着手 |
+| Step 3 | LLM アラートサマリ | ✅ 完了 |
 | Step 4 | 自動修復 Runbook | 未着手 |
 
 ---

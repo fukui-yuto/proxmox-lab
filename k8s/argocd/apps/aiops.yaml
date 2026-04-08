@@ -56,6 +56,32 @@ spec:
     syncOptions:
       - CreateNamespace=false
 ---
+# alert-summarizer: LLM アラートサマリ (Claude API)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-alert-summarizer
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "12"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/aiops/alert-summarizer
+    directory:
+      include: "deployment.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aiops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
 # anomaly-detection: ログ異常検知 CronJob
 apiVersion: argoproj.io/v1alpha1
 kind: Application

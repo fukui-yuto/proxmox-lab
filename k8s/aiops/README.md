@@ -12,7 +12,7 @@
 |---|---|---|
 | `alerting/` | 予測・トレンド型アラートルール (PrometheusRule / AlertManager 設定) | ✅ 完了 |
 | `anomaly-detection/` | ログ異常検知 CronJob + Grafana ダッシュボード | ✅ 完了 |
-| `alert-summarizer/` | LLM アラートサマリ (Claude API) | 未着手 |
+| `alert-summarizer/` | LLM アラートサマリ (Claude API) | ✅ 完了 |
 | `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | 未着手 |
 
 ---
@@ -99,6 +99,121 @@ Fluent-bit → Elasticsearch (fluent-bit-* インデックス)
 
 ダッシュボードは `k8s/monitoring/dashboards/log-anomaly-cm.yaml` の ConfigMap (label: `grafana_dashboard=1`) として管理。
 ArgoCD monitoring app の sync で自動適用される。
+
+---
+
+## Step 3: LLM アラートサマリ (alert-summarizer)
+
+### 概要
+
+AlertManager がアラートを発火すると webhook で `alert-summarizer` Pod に通知が届く。
+Pod は Elasticsearch から直近エラーログを取得し、**Claude API** でサマリを生成。
+結果を **Grafana アノテーション**として記録し、オプションで **Slack 通知**も送信する。
+
+### アーキテクチャ
+
+```
+AlertManager
+    ↓ webhook (HTTP POST /webhook)
+[alert-summarizer Pod (FastAPI)]
+    ├─ Elasticsearch から直近 15 分のエラーログ取得
+    └─ Claude API (claude-haiku-4-5) でサマリ生成
+         ↓
+    Grafana Annotation API → Grafana 上にアノテーション表示
+    Slack Webhook (オプション) → Slack 通知
+```
+
+### サマリ出力形式
+
+Claude API が以下の形式で回答を生成する:
+
+```
+**[状況]** 何が起きているか (2〜3文)
+**[影響]** 影響範囲・サービス
+**[次のアクション]** 確認・対処すべき手順 (箇条書き 3項目以内)
+```
+
+### デプロイ手順
+
+#### 1. Harbor を起動して alert-summarizer イメージをビルド
+
+```bash
+# Harbor が起動済みであることを確認
+kubectl get pods -n harbor
+
+# Harbor 認証 Secret (anomaly-detection で作成済みの場合はスキップ)
+kubectl create secret docker-registry harbor-registry-secret \
+  --docker-server=harbor.homelab.local \
+  --docker-username=admin \
+  --docker-password=Harbor12345 \
+  -n aiops
+
+# kaniko で alert-summarizer イメージをビルド・push
+kubectl apply -f k8s/aiops/alert-summarizer/kaniko-job.yaml
+kubectl logs -f job/build-alert-summarizer -n aiops
+```
+
+#### 2. Claude API キーを Secret に設定
+
+```bash
+kubectl create secret generic alert-summarizer-secret \
+  --from-literal=ANTHROPIC_API_KEY="sk-ant-xxxxxxxx" \
+  --from-literal=GRAFANA_PASSWORD="changeme" \
+  --from-literal=SLACK_WEBHOOK_URL="" \
+  -n aiops
+```
+
+> Slack 通知が不要な場合は `SLACK_WEBHOOK_URL` を空白のままにする。
+
+#### 3. ArgoCD App を sync (Deployment をデプロイ)
+
+```bash
+kubectl apply -f k8s/argocd/apps/aiops.yaml
+# または ArgoCD UI で aiops-alert-summarizer を手動 Sync
+```
+
+#### 4. AlertManager を再起動して webhook 設定を反映
+
+`k8s/monitoring/values.yaml` の AlertManager webhook 設定が monitoring app の sync で反映される。
+
+```bash
+# monitoring app を Helm upgrade で更新
+kubectl apply -f k8s/argocd/apps/monitoring.yaml
+# または ArgoCD UI で monitoring app を Sync
+```
+
+#### 5. 動作確認
+
+```bash
+# Pod が起動しているか確認
+kubectl get pods -n aiops
+
+# ヘルスチェック
+kubectl exec -n aiops deploy/alert-summarizer -- curl -s localhost:8080/health
+
+# ログ確認
+kubectl logs -f deploy/alert-summarizer -n aiops
+
+# テスト webhook 送信
+kubectl exec -n aiops deploy/alert-summarizer -- \
+  curl -s -X POST localhost:8080/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"version":"4","status":"firing","receiver":"alert-summarizer","alerts":[{"status":"firing","labels":{"alertname":"TestAlert","severity":"warning"},"annotations":{"description":"テスト用アラート"},"startsAt":"2024-01-01T00:00:00Z"}]}'
+```
+
+### 設定値
+
+| 環境変数 | デフォルト | 説明 |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | *(Secret)* | Claude API キー (必須) |
+| `GRAFANA_PASSWORD` | *(Secret)* | Grafana admin パスワード |
+| `SLACK_WEBHOOK_URL` | *(Secret / 空)* | Slack Incoming Webhook URL (オプション) |
+| `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
+| `GRAFANA_URL` | `http://monitoring-grafana.monitoring.svc.cluster.local` | Grafana エンドポイント |
+| `GRAFANA_USER` | `admin` | Grafana ユーザー名 |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | 使用する Claude モデル |
+| `LOG_LOOKBACK_MINUTES` | `15` | ES から取得するログの遡り時間 |
+| `MAX_LOG_SAMPLES` | `20` | ES から取得するログサンプル数上限 |
 
 ### デプロイ手順
 

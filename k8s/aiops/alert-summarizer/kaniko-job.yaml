@@ -1,0 +1,54 @@
+# kaniko ビルド Job (一時実行用)
+# Harbor に alert-summarizer イメージをビルド・push する。
+#
+# 事前準備:
+#   kubectl create secret docker-registry harbor-registry-secret \
+#     --docker-server=harbor.homelab.local \
+#     --docker-username=admin \
+#     --docker-password=Harbor12345 \
+#     -n aiops
+#
+# 実行:
+#   kubectl apply -f k8s/aiops/alert-summarizer/kaniko-job.yaml
+#   kubectl logs -f job/build-alert-summarizer -n aiops
+#
+# 完了後:
+#   kubectl delete -f k8s/aiops/alert-summarizer/kaniko-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: build-alert-summarizer
+  namespace: aiops
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: kaniko
+          image: gcr.io/kaniko-project/executor:v1.23.0
+          args:
+            - "--context=git://github.com/fukui-yuto/proxmox-lab.git#main"
+            - "--context-sub-path=k8s/aiops/alert-summarizer/app"
+            - "--dockerfile=Dockerfile"
+            - "--destination=harbor.homelab.local/library/alert-summarizer:latest"
+            - "--insecure"
+            - "--skip-tls-verify"
+          volumeMounts:
+            - name: kaniko-secret
+              mountPath: /kaniko/.docker
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: kaniko-secret
+          secret:
+            secretName: harbor-registry-secret
+            items:
+              - key: .dockerconfigjson
+                path: config.json
