@@ -70,3 +70,22 @@ spec:
             periodSeconds: 10
       imagePullSecrets:
         - name: harbor-registry-secret
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alert-summarizer
+  namespace: aiops
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: alert-summarizer.homelab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alert-summarizer
+                port:
+                  number: 8080
