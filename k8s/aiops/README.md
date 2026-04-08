@@ -11,7 +11,7 @@
 | ディレクトリ | 内容 | 状態 |
 |---|---|---|
 | `alerting/` | 予測・トレンド型アラートルール (PrometheusRule / AlertManager 設定) | ✅ 完了 |
-| `anomaly-detection/` | ログ異常検知 CronJob | ✅ 完了 |
+| `anomaly-detection/` | ログ異常検知 CronJob + Grafana ダッシュボード | ✅ 完了 |
 | `alert-summarizer/` | LLM アラートサマリ (Claude API) | 未着手 |
 | `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | 未着手 |
 
@@ -82,6 +82,23 @@ Fluent-bit → Elasticsearch (fluent-bit-* インデックス)
 | `log_anomaly_total_detected` | 総ログ量の異常検知フラグ (1=異常) |
 | `log_anomaly_error_detected` | エラーログ量の異常検知フラグ (1=異常) |
 | `log_anomaly_error_shift_detected` | エラーログの急増フラグ (1=急増) |
+
+### Grafana ダッシュボード
+
+`http://grafana.homelab.local` → **Log Anomaly Detection** ダッシュボードで以下を確認できる。
+
+| パネル | 内容 |
+|---|---|
+| Total Log Anomaly | 総ログ量の異常フラグ (緑=正常 / 赤=異常) |
+| Error Log Anomaly | エラーログ量の異常フラグ |
+| Error Log Level-Shift | エラーログの急増フラグ |
+| Error Rate | 直近ウィンドウのエラー率 |
+| Log Count (Total vs Error) | 総ログ数とエラーログ数の時系列 |
+| Error Rate Trend | エラー率の時系列 |
+| Anomaly Flags Timeline | 3つの異常フラグの時系列 |
+
+ダッシュボードは `k8s/monitoring/dashboards/log-anomaly-cm.yaml` の ConfigMap (label: `grafana_dashboard=1`) として管理。
+ArgoCD monitoring app の sync で自動適用される。
 
 ### デプロイ手順
 
