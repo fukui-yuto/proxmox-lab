@@ -137,7 +137,7 @@ kubectl port-forward svc/prometheus-pushgateway 9091:9091 -n monitoring
 | 環境変数 | デフォルト | 説明 |
 |---|---|---|
 | `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
-| `PUSHGATEWAY_URL` | `http://prometheus-pushgateway.monitoring.svc.cluster.local:9091` | Pushgateway エンドポイント |
+| `PUSHGATEWAY_URL` | `http://aiops-pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091` | Pushgateway エンドポイント |
 | `LOOKBACK_HOURS` | `6` | 過去何時間分のログを集計するか |
 | `WINDOW_MINUTES` | `5` | 集計ウィンドウ (分) |
 | `ES_INDEX_PATTERN` | `fluent-bit-*` | ES インデックスパターン |
