@@ -1,5 +1,110 @@
 # AIOps 詳細ガイド — 予測アラート / 異常検知 / 自動修復
 
+## 今の状態をどこで確認するか
+
+AIOps の各コンポーネントは複数の UI に状態を記録する。
+「今何が起きているか」を把握するための観測ポイントをまとめる。
+
+```
+観測したいこと                   見る場所
+─────────────────────────────────────────────────────────────
+クラスター全体のリソース状態      Grafana ダッシュボード
+ログ異常スコアの推移              Grafana > Log Anomaly Detection
+アラートが発火しているか          Grafana > Alerting > Alert rules
+アラートのサマリ・経緯            Grafana > Annotations (時系列上の旗マーク)
+ログの中身・エラー検索            Kibana
+自動修復が実行されたか            Argo Workflows UI
+AIOps コンポーネントの稼働状態    ArgoCD
+```
+
+### Grafana (`http://grafana.homelab.local`)
+
+AIOps の主要な観測窓口。
+
+| 場所 | 確認できること |
+|------|--------------|
+| **Dashboards > Log Anomaly Detection** | 異常スコアの推移・エラーレートの変化 |
+| **Dashboards > Node Exporter Full** | ノードの CPU / メモリ / ディスク状態 |
+| **Dashboards > Kubernetes / Compute Resources** | Pod・コンテナのリソース使用量 |
+| **Alerting > Alert rules** | 現在発火中のアラート一覧と severity |
+| **Explore > (データソース: Prometheus)** | PromQL で任意のメトリクスを調査 |
+| **ダッシュボードの旗マーク (Annotations)** | alert-summarizer / 自動修復が記録したイベント |
+
+Annotations は時系列グラフの上に重ねて表示されるため、
+「CPU が上がったタイミングで何のアラートが来たか」を一目で確認できる。
+
+```
+Grafana ダッシュボード (時系列グラフ)
+CPU使用率
+100% │         ╱╲
+ 80% │        ╱  ╲
+ 60% │───────╱    ╲────
+     │
+     │    ↑ 🚨  ← Annotation (alert-summarizer が記録)
+     └───────────────────────────→ 時間
+```
+
+### Kibana (`http://kibana.homelab.local`)
+
+ログの中身を直接確認したいときに使う。
+
+| 操作 | 確認できること |
+|------|--------------|
+| Discover > `fluent-bit-*` インデックス | 全 Pod のリアルタイムログ |
+| フィルタ: `kubernetes.namespace_name: aiops` | AIOps 系コンポーネントのログのみ |
+| フィルタ: `log.level: error` | エラーログのみ絞り込み |
+
+異常検知 CronJob が「何を異常と判断したか」を確認する場合は
+Kibana でエラーログのスパイクを目視確認すると分かりやすい。
+
+### Argo Workflows (`http://argo-workflows.homelab.local`)
+
+自動修復の実行履歴を確認する場所。
+
+| 確認項目 | 場所 |
+|---------|------|
+| 過去のワークフロー実行一覧 | Workflows タブ |
+| 各ステップの実行ログ | ワークフロー詳細 > ステップをクリック |
+| 成功 / 失敗 / 実行中のステータス | ワークフロー一覧のステータスバッジ |
+
+OOMKilled や CrashLoopBackOff が発生したとき、ここで
+「いつ・どの Pod に対して・何をしたか」の履歴が確認できる。
+
+### ArgoCD (`http://argocd.homelab.local`)
+
+AIOps コンポーネント自体が正しくデプロイされているかを確認する場所。
+
+| ArgoCD App | 確認対象 |
+|-----------|---------|
+| `aiops-alerting` | PrometheusRule (予測・自動修復アラート) |
+| `aiops-pushgateway` | Prometheus Pushgateway |
+| `aiops-anomaly-detection` | 異常検知 CronJob |
+| `aiops-alert-summarizer` | alert-summarizer Deployment |
+| `aiops-auto-remediation` | RBAC + WorkflowTemplates |
+| `aiops-auto-remediation-events` | EventBus / EventSource / Sensor |
+
+### kubectl による素早い状態確認
+
+```bash
+# 異常検知 CronJob の最終実行状況
+kubectl get cronjob -n aiops
+
+# 自動修復ワークフローの実行履歴
+kubectl get workflows -n aiops
+
+# alert-summarizer のログ (アラート受信履歴)
+kubectl logs -n aiops deploy/alert-summarizer --tail=50
+
+# Argo Events Sensor の状態
+kubectl get sensor -n argo-events
+
+# 現在発火中のアラートを Prometheus API で確認
+kubectl exec -n monitoring prometheus-monitoring-kube-prometheus-prometheus-0 -- \
+  wget -qO- 'localhost:9090/api/v1/alerts' | python3 -m json.tool | grep alertname
+```
+
+---
+
 ## このスタックが解決する問題
 
 従来の監視は「閾値を超えたら通知する」という**リアクティブ**な設計が中心。
