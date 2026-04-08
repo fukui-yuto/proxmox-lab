@@ -477,7 +477,8 @@ resource "proxmox_virtual_environment_container" "pihole" {
 # -------------------------------------------------------------------
 resource "null_resource" "k3s_registry_config" {
   triggers = {
-    registry_config_version = "3"
+    # バージョンを上げると全ノードで再適用される
+    registry_config_version = "4"
   }
 
   depends_on = [null_resource.k3s_workers_install]
@@ -486,15 +487,34 @@ resource "null_resource" "k3s_registry_config" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
       set -e
+      INGRESS_IP="192.168.210.24"
       CONTENT='mirrors:\n  harbor.homelab.local:\n    endpoint:\n      - "http://harbor.homelab.local"\nconfigs:\n  "harbor.homelab.local":\n    tls:\n      insecure_skip_verify: true'
-      HOSTS_ENTRY='192.168.210.21 harbor.homelab.local'
+
+      # Traefik Ingress 経由でアクセスするホームラボサービス
+      # containerd が Pi-hole DNS に依存せずイメージプルできるように /etc/hosts に追記する
+      HOMELAB_HOSTS=(
+        harbor.homelab.local
+        grafana.homelab.local
+        kibana.homelab.local
+        argocd.homelab.local
+        argo-workflows.homelab.local
+        alert-summarizer.homelab.local
+        elasticsearch.homelab.local
+        keycloak.homelab.local
+        vault.homelab.local
+      )
 
       apply_registry() {
         local ip="$1"
         local service="$2"
         echo "==> Configuring registry on $ip (service: $service)"
         ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
-          "sudo mkdir -p /etc/rancher/k3s && printf '$CONTENT\n' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null && grep -qF '$HOSTS_ENTRY' /etc/hosts || echo '$HOSTS_ENTRY' | sudo tee -a /etc/hosts && sudo systemctl restart $service && echo 'done'"
+          "sudo mkdir -p /etc/rancher/k3s && printf '$CONTENT\n' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null && sudo systemctl restart $service && echo 'registry done'"
+        for host in "$${HOMELAB_HOSTS[@]}"; do
+          ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
+            "grep -qF '$INGRESS_IP $host' /etc/hosts || echo '$INGRESS_IP $host' | sudo tee -a /etc/hosts"
+        done
+        echo "  hosts done: $ip"
       }
 
       apply_registry 192.168.210.21 k3s
