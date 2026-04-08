@@ -153,17 +153,17 @@ kubectl apply -f k8s/aiops/alert-summarizer/kaniko-job.yaml
 kubectl logs -f job/build-alert-summarizer -n aiops
 ```
 
-#### 2. Claude API キーを Secret に設定
+#### 2. Secret を作成
 
 ```bash
 kubectl create secret generic alert-summarizer-secret \
-  --from-literal=ANTHROPIC_API_KEY="sk-ant-xxxxxxxx" \
+  --from-literal=ANTHROPIC_API_KEY="" \
   --from-literal=GRAFANA_PASSWORD="changeme" \
   --from-literal=SLACK_WEBHOOK_URL="" \
   -n aiops
 ```
 
-> Slack 通知が不要な場合は `SLACK_WEBHOOK_URL` を空白のままにする。
+> `ANTHROPIC_API_KEY` は省略可能。未設定の場合はアラートの生データを Grafana アノテーションに記録するフォールバック動作をする。
 
 #### 3. ArgoCD App を sync (Deployment をデプロイ)
 
@@ -205,7 +205,7 @@ kubectl exec -n aiops deploy/alert-summarizer -- \
 
 | 環境変数 | デフォルト | 説明 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | *(Secret)* | Claude API キー (必須) |
+| `ANTHROPIC_API_KEY` | *(空)* | Claude API キー (省略可。未設定時は生アラートデータを Grafana に記録) |
 | `GRAFANA_PASSWORD` | *(Secret)* | Grafana admin パスワード |
 | `SLACK_WEBHOOK_URL` | *(Secret / 空)* | Slack Incoming Webhook URL (オプション) |
 | `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
