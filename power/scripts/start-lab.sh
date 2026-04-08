@@ -6,9 +6,10 @@
 # 実行順序:
 #   1. Wake-on-LAN で Proxmox ノードを起動 (MAC 設定済みの場合)
 #   2. pve-node01 / pve-node02 / pve-node03 の SSH 接続可能まで待機
-#   3. VM を順番に起動: dns-ct → k3s-master → worker01〜07
-#   4. k8s 全ノードが Ready になるまで待機
-#   5. kubectl uncordon で全 worker ノードをスケジュール可能に復帰
+#   3. pve-node01 NIC チューニング適用 (e1000e ハング対策・VM 起動前に必須)
+#   4. VM を順番に起動: dns-ct → k3s-master → worker01〜07
+#   5. k8s 全ノードが Ready になるまで待機
+#   6. kubectl uncordon で全 worker ノードをスケジュール可能に復帰
 #
 # 使い方:
 #   bash ~/proxmox-lab/power/scripts/start-lab.sh
@@ -179,22 +180,34 @@ main() {
   log "=========================================="
 
   # 1. Wake-on-LAN
-  log "[1/5] Proxmox ノード起動 (Wake-on-LAN)..."
+  log "[1/6] Proxmox ノード起動 (Wake-on-LAN)..."
   wakeup_proxmox
 
   # 2. Proxmox SSH 接続待機 + クォーラム確立待機
-  log "[2/5] Proxmox SSH 接続待機..."
+  log "[2/6] Proxmox SSH 接続待機..."
   wait_for_ssh "pve-node01" "$NODE01_IP" "root"
   wait_for_ssh "pve-node02" "$NODE02_IP" "root"
   wait_for_ssh "pve-node03" "$NODE03_IP" "root"
   wait_for_quorum
 
-  # 3. VM 起動
-  log "[3/5] VM 起動..."
+  # 3. pve-node01 NIC チューニング適用 (e1000e ハング対策)
+  # 全アプリ一斉起動時に pve-node01 の NIC がハングするため VM 起動前に必ず実施する
+  log "[3/6] pve-node01 NIC チューニング適用..."
+  if command -v ansible-playbook &>/dev/null; then
+    ansible-playbook -i ~/proxmox-lab/ansible/inventory/hosts.yml \
+      ~/proxmox-lab/ansible/playbooks/08-nic-tuning.yml 2>&1 | tee -a "$LOG_FILE"
+    log "  NIC チューニング適用完了"
+  else
+    log "  WARNING: ansible-playbook が見つかりません。NIC チューニングをスキップします"
+    log "  手動実行: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/08-nic-tuning.yml"
+  fi
+
+  # 4. VM 起動
+  log "[4/6] VM 起動..."
 
   # dns-ct を最初に起動 (DNS が先に動いていると後続の名前解決が安定する)
   start_lxc "$NODE01_IP" "$VMID_DNS_CT" "dns-ct"
-  sleep 30  # Pi-hole (pihole-FTL) の起動完了まで待機
+  sleep 30  # dnsmasq の起動完了まで待機
 
   # k3s-master 起動 → SSH 接続確認まで待機
   start_vm "$NODE01_IP" "$VMID_K3S_MASTER" "k3s-master"
@@ -209,14 +222,13 @@ main() {
   start_vm "$NODE03_IP" "$VMID_WORKER06" "k3s-worker06"
   start_vm "$NODE03_IP" "$VMID_WORKER07" "k3s-worker07"
 
-  # 4. k8s 全ノード Ready 待機
-  log "[4/5] k8s 全ノード Ready 待機..."
+  # 5. k8s 全ノード Ready 待機
+  log "[5/6] k8s 全ノード Ready 待機..."
   local elapsed=0
   while true; do
     local not_ready
-    not_ready=$(ssh -o BatchMode=yes "${K3S_MASTER_USER}@${K3S_MASTER_IP}" \
-      "sudo kubectl get nodes --no-headers 2>/dev/null | awk '\$2 != \"Ready\" {c++} END {print c+0}'" \
-      2>/dev/null || echo "99")
+    not_ready=$(kubectl get nodes --no-headers 2>/dev/null \
+      | awk '$2 != "Ready" {c++} END {print c+0}' || echo "99")
 
     if (( not_ready == 0 )); then
       log "  全ノードが Ready です"
@@ -233,12 +245,11 @@ main() {
     fi
   done
 
-  # 5. kubectl uncordon
-  log "[5/5] kubectl uncordon..."
+  # 6. kubectl uncordon
+  log "[6/6] kubectl uncordon..."
   for node in "${K8S_WORKERS[@]}"; do
     log "  uncordon: $node"
-    ssh -o BatchMode=yes "${K3S_MASTER_USER}@${K3S_MASTER_IP}" \
-      "sudo kubectl uncordon ${node}" 2>&1 | tee -a "$LOG_FILE" \
+    kubectl uncordon "${node}" 2>&1 | tee -a "$LOG_FILE" \
       || log "  WARNING: ${node} uncordon 失敗 (既にスケジュール可能の可能性)"
   done
 
@@ -250,8 +261,7 @@ main() {
   log "=========================================="
 
   # 最終ノード状態確認
-  ssh -o BatchMode=yes "${K3S_MASTER_USER}@${K3S_MASTER_IP}" \
-    "sudo kubectl get nodes -o wide" 2>&1 | tee -a "$LOG_FILE" || true
+  kubectl get nodes -o wide 2>&1 | tee -a "$LOG_FILE" || true
 }
 
 main
