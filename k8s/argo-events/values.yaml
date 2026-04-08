@@ -1,0 +1,30 @@
+# Argo Events — homelab 向け最小構成
+# chart: argo-events (https://argoproj.github.io/argo-helm)
+# -------------------------------------------------------------------
+
+controller:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+eventsource:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+sensor:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

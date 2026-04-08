@@ -1,0 +1,49 @@
+# Sensor: OOMKilled イベントを受信して remediate-oomkilled Workflow を起動する
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: oomkilled-sensor
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: argo-events-sensor
+  dependencies:
+    - name: oomkilled-dep
+      eventSourceName: alertmanager
+      eventName: oomkilled
+  triggers:
+    - template:
+        name: trigger-oomkilled-workflow
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: remediate-oomkilled-
+                namespace: aiops
+              spec:
+                workflowTemplateRef:
+                  name: remediate-oomkilled
+                arguments:
+                  parameters:
+                    - name: namespace
+                      value: "default"
+                    - name: pod
+                      value: "unknown"
+                    - name: container
+                      value: "unknown"
+          parameters:
+            - src:
+                dependencyName: oomkilled-dep
+                dataKey: body.alerts.0.labels.namespace
+              dest: spec.arguments.parameters.0.value
+            - src:
+                dependencyName: oomkilled-dep
+                dataKey: body.alerts.0.labels.pod
+              dest: spec.arguments.parameters.1.value
+            - src:
+                dependencyName: oomkilled-dep
+                dataKey: body.alerts.0.labels.container
+              dest: spec.arguments.parameters.2.value

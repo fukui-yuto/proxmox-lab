@@ -183,14 +183,20 @@ AlertManager
 
 ### タスク
 
-- [ ] Argo Workflows インストール
-  - ArgoCD App 追加
-- [ ] Argo Events インストール
-  - AlertManager → Argo Events EventSource 設定 (`auto-remediation/argo-events/event-source.yaml`)
-- [ ] OOMKilled 自動修復 Workflow 作成 (`auto-remediation/argo-workflows/`)
-- [ ] CrashLoopBackOff 分析 Workflow 作成 (Claude API 連携)
-- [ ] README.md に手順を記載
-- [ ] git commit && git push
+- [x] Argo Workflows インストール
+  - `k8s/argo-workflows/values.yaml` + ArgoCD App 追加 (`k8s/argocd/apps/argo-workflows.yaml`)
+- [x] Argo Events インストール
+  - `k8s/argo-events/values.yaml` + ArgoCD App 追加 (`k8s/argocd/apps/argo-events.yaml`)
+  - EventBus / EventSource / Sensor 設定 (`auto-remediation/argo-events/`)
+- [x] OOMKilled 自動修復 Workflow 作成 (`auto-remediation/argo-workflows/workflow-oomkilled.yaml`)
+  - Pod → ReplicaSet → Deployment を辿り、メモリリミットを 1.5 倍にパッチ
+- [x] CrashLoopBackOff 分析 Workflow 作成 (`auto-remediation/argo-workflows/workflow-crashloop.yaml`)
+  - ログ収集 + 正規表現エラーパターン分析 (Claude API 不使用)
+- [x] PrometheusRule に PodOOMKilled / PodCrashLoopBackOff アラート追加
+- [x] AlertManager に Argo Events webhook receiver 追加
+- [x] remediation-runner イメージ用 Dockerfile + kaniko Job 作成
+- [x] README.md に手順を記載
+- [x] git commit && git push
 
 ### 学べること
 - Argo Events / Argo Workflows の設計
@@ -206,7 +212,7 @@ AlertManager
 | Step 1 | Grafana アラート知能化 | ✅ 完了 |
 | Step 2 | ログ異常検知 CronJob | ✅ 完了 (Grafana パネルは未) |
 | Step 3 | LLM アラートサマリ | ✅ 完了 |
-| Step 4 | 自動修復 Runbook | 未着手 |
+| Step 4 | 自動修復 Runbook | ✅ 完了 |
 
 ---
 

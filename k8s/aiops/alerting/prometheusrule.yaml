@@ -169,6 +169,41 @@ spec:
               即座に調査が必要です。
 
     # ---------------------------------------------------------------
+    # 自動修復トリガー用アラート (Argo Events → Argo Workflows)
+    # remediation ラベルで AlertManager がルーティングを分岐させる
+    # ---------------------------------------------------------------
+    - name: aiops.remediation
+      interval: 1m
+      rules:
+        - alert: PodOOMKilled
+          expr: |
+            kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: warning
+            category: remediation
+            remediation: "oom"
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} OOMKilled"
+            description: |
+              コンテナ {{ $labels.container }} が OOMKill されました。
+              自動修復: メモリリミットを 1.5 倍に増加します。
+
+        - alert: PodCrashLoopBackOff
+          expr: |
+            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+          for: 2m
+          labels:
+            severity: warning
+            category: remediation
+            remediation: "crashloop"
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} CrashLoopBackOff"
+            description: |
+              コンテナ {{ $labels.container }} が CrashLoopBackOff 状態です。
+              自動分析: ログ収集・エラーパターン検出を実行します。
+
+    # ---------------------------------------------------------------
     # Prometheus PVC 使用率
     # ---------------------------------------------------------------
     - name: aiops.prometheus.storage

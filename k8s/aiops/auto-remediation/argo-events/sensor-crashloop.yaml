@@ -1,0 +1,49 @@
+# Sensor: CrashLoopBackOff イベントを受信して analyze-crashloop Workflow を起動する
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: crashloop-sensor
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: argo-events-sensor
+  dependencies:
+    - name: crashloop-dep
+      eventSourceName: alertmanager
+      eventName: crashloop
+  triggers:
+    - template:
+        name: trigger-crashloop-workflow
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: analyze-crashloop-
+                namespace: aiops
+              spec:
+                workflowTemplateRef:
+                  name: analyze-crashloop
+                arguments:
+                  parameters:
+                    - name: namespace
+                      value: "default"
+                    - name: pod
+                      value: "unknown"
+                    - name: container
+                      value: "unknown"
+          parameters:
+            - src:
+                dependencyName: crashloop-dep
+                dataKey: body.alerts.0.labels.namespace
+              dest: spec.arguments.parameters.0.value
+            - src:
+                dependencyName: crashloop-dep
+                dataKey: body.alerts.0.labels.pod
+              dest: spec.arguments.parameters.1.value
+            - src:
+                dependencyName: crashloop-dep
+                dataKey: body.alerts.0.labels.container
+              dest: spec.arguments.parameters.2.value

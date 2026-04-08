@@ -100,6 +100,15 @@ alertmanager:
         - matchers:
             - alertname = "Watchdog"
           receiver: "null"
+        # 自動修復トリガー: remediation ラベルで Argo Events に先に送信
+        - matchers:
+            - remediation = "oom"
+          receiver: "argo-events-oom"
+          continue: true   # alert-summarizer にも転送
+        - matchers:
+            - remediation = "crashloop"
+          receiver: "argo-events-crashloop"
+          continue: true   # alert-summarizer にも転送
         - matchers:
             - severity = "critical"
           receiver: "alert-summarizer"
@@ -126,6 +135,14 @@ alertmanager:
       - name: "alert-summarizer"
         webhook_configs:
           - url: "http://alert-summarizer.aiops.svc.cluster.local:8080/webhook"
+            send_resolved: false
+      - name: "argo-events-oom"
+        webhook_configs:
+          - url: "http://alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000/oomkilled"
+            send_resolved: false
+      - name: "argo-events-crashloop"
+        webhook_configs:
+          - url: "http://alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000/crashloop"
             send_resolved: false
 
 # -------------------------------------------------------------------

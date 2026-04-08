@@ -1,0 +1,208 @@
+# WorkflowTemplate: CrashLoopBackOff ログ収集・分析
+#
+# 処理フロー:
+#   1. Pod の直前コンテナログを取得 (kubectl logs --previous)
+#   2. k8s イベントを取得
+#   3. エラーパターンを正規表現で分類 (Claude API 不使用)
+#   4. Grafana にアノテーションとして記録
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: analyze-crashloop
+  namespace: aiops
+spec:
+  entrypoint: main
+  serviceAccountName: remediation-workflow
+  arguments:
+    parameters:
+      - name: namespace
+        value: "default"
+      - name: pod
+        value: "unknown"
+      - name: container
+        value: "unknown"
+  templates:
+    # ─── メインフロー ────────────────────────────────────────────────────────
+    - name: main
+      steps:
+        - - name: analyze
+            template: analyze
+        - - name: notify
+            template: notify
+            arguments:
+              parameters:
+                - name: report
+                  value: "{{steps.analyze.outputs.result}}"
+
+    # ─── Step 1: ログ収集・パターン分析 ─────────────────────────────────────
+    - name: analyze
+      script:
+        image: harbor.homelab.local/library/remediation-runner:latest
+        imagePullPolicy: Always
+        command: [python3]
+        env:
+          - name: NAMESPACE
+            value: "{{workflow.parameters.namespace}}"
+          - name: POD
+            value: "{{workflow.parameters.pod}}"
+          - name: CONTAINER
+            value: "{{workflow.parameters.container}}"
+        source: |
+          import os
+          import re
+          from collections import Counter
+          from kubernetes import client, config
+
+          config.load_incluster_config()
+          v1 = client.CoreV1Api()
+
+          namespace = os.environ["NAMESPACE"]
+          pod_name = os.environ["POD"]
+          container_name = os.environ["CONTAINER"]
+
+          print(f"[CrashLoopBackOff 分析] {namespace}/{pod_name} (container: {container_name})")
+
+          # 直前コンテナのログを取得
+          logs = ""
+          try:
+              logs = v1.read_namespaced_pod_log(
+                  pod_name, namespace,
+                  container=container_name,
+                  previous=True,
+                  tail_lines=80,
+              )
+              print(f"ログ取得: {len(logs.splitlines())} 行 (--previous)")
+          except Exception:
+              try:
+                  logs = v1.read_namespaced_pod_log(
+                      pod_name, namespace,
+                      container=container_name,
+                      tail_lines=80,
+                  )
+                  print(f"ログ取得: {len(logs.splitlines())} 行 (current)")
+              except Exception as e:
+                  logs = f"(ログ取得失敗: {e})"
+                  print(logs)
+
+          # Pod イベントを取得 (直近 5 件)
+          events_summary = []
+          try:
+              events = v1.list_namespaced_event(
+                  namespace,
+                  field_selector=f"involvedObject.name={pod_name}",
+              )
+              for e in events.items[-5:]:
+                  events_summary.append(f"  [{e.reason}] {e.message}")
+          except Exception as e:
+              events_summary.append(f"  (イベント取得失敗: {e})")
+
+          # エラーパターン分類
+          ERROR_PATTERNS = {
+              "OOMKilled": [r"OOMKilled", r"out of memory", r"Cannot allocate memory"],
+              "設定エラー": [r"config.*error", r"invalid.*config", r"failed to load config",
+                           r"environment variable.*not set", r"required.*missing"],
+              "接続エラー": [r"connection refused", r"dial tcp", r"no such host",
+                           r"connection timed out", r"EOF"],
+              "権限エラー": [r"permission denied", r"unauthorized", r"forbidden",
+                           r"access denied"],
+              "パニック": [r"panic:", r"fatal error:", r"SIGTERM", r"SIGKILL"],
+              "起動失敗": [r"failed to start", r"failed to initialize", r"Error starting",
+                          r"exec format error"],
+          }
+
+          detected = []
+          log_lines = logs.splitlines()
+          for category, patterns in ERROR_PATTERNS.items():
+              matched_lines = []
+              for line in log_lines:
+                  if any(re.search(p, line, re.IGNORECASE) for p in patterns):
+                      matched_lines.append(line.strip()[:120])
+              if matched_lines:
+                  detected.append((category, matched_lines[:3]))
+
+          # レポート生成
+          lines = [
+              f"🔍 CrashLoopBackOff 分析: {namespace}/{pod_name}",
+              f"  コンテナ: {container_name}",
+              "",
+              "【検知されたエラーパターン】",
+          ]
+          if detected:
+              for category, examples in detected:
+                  lines.append(f"  ■ {category}")
+                  for ex in examples:
+                      lines.append(f"      {ex}")
+          else:
+              lines.append("  (既知パターン未検知 — ログを手動確認してください)")
+
+          lines.append("")
+          lines.append("【直近 k8s イベント】")
+          lines.extend(events_summary if events_summary else ["  (なし)"])
+
+          lines.append("")
+          lines.append("【ログ末尾 (最新 10 行)】")
+          for line in log_lines[-10:]:
+              lines.append(f"  {line.strip()[:120]}")
+
+          report = "\n".join(lines)
+          print(report)
+          print("---REPORT_END---")
+
+      imagePullSecrets:
+        - name: harbor-registry-secret
+
+    # ─── Step 2: Grafana アノテーション通知 ─────────────────────────────────
+    - name: notify
+      inputs:
+        parameters:
+          - name: report
+      script:
+        image: python:3.12-slim
+        command: [python3]
+        env:
+          - name: NAMESPACE
+            value: "{{workflow.parameters.namespace}}"
+          - name: POD
+            value: "{{workflow.parameters.pod}}"
+          - name: REPORT
+            value: "{{inputs.parameters.report}}"
+          - name: GRAFANA_URL
+            value: "http://monitoring-grafana.monitoring.svc.cluster.local"
+          - name: GRAFANA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: alert-summarizer-secret
+                key: GRAFANA_PASSWORD
+        source: |
+          import os
+          import json
+          import urllib.request
+          import base64
+
+          grafana_url = os.environ.get("GRAFANA_URL", "http://monitoring-grafana.monitoring.svc.cluster.local")
+          grafana_password = os.environ.get("GRAFANA_PASSWORD", "changeme")
+          namespace = os.environ.get("NAMESPACE", "?")
+          pod = os.environ.get("POD", "?")
+          report = os.environ.get("REPORT", "(レポートなし)")
+
+          credentials = base64.b64encode(f"admin:{grafana_password}".encode()).decode()
+          data = json.dumps({
+              "text": report[:1024],
+              "tags": ["auto-remediation", "crashloop", "aiops"],
+          }).encode()
+
+          req = urllib.request.Request(
+              f"{grafana_url}/api/annotations",
+              data=data,
+              headers={
+                  "Content-Type": "application/json",
+                  "Authorization": f"Basic {credentials}",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=10) as resp:
+                  result = json.loads(resp.read())
+                  print(f"Grafana アノテーション作成: id={result.get('id')}")
+          except Exception as e:
+              print(f"Grafana 通知失敗: {e}")

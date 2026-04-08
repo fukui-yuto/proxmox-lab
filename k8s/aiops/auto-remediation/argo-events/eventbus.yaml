@@ -1,0 +1,12 @@
+# EventBus: Argo Events のメッセージング基盤 (NATS native)
+# EventSource と Sensor の通信に使用する
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: argo-events
+spec:
+  nats:
+    native:
+      replicas: 1
+      auth: none

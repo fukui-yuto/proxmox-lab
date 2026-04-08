@@ -107,3 +107,54 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+---
+# auto-remediation: 自動修復 RBAC + WorkflowTemplates
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-auto-remediation
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "13"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/aiops/auto-remediation
+    directory:
+      recurse: true
+      exclude: "{kaniko-job.yaml,runner/**}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aiops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+# auto-remediation-events: Argo Events リソース (EventBus/EventSource/Sensor)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-auto-remediation-events
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "14"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/aiops/auto-remediation/argo-events
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-events
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

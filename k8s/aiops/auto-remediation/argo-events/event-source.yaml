@@ -1,0 +1,26 @@
+# EventSource: AlertManager からの webhook を受け取る HTTP エンドポイント
+# AlertManager は remediation ラベルを持つアラートをここに送信する
+#
+# 生成される Service: alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000
+# エンドポイント:
+#   POST /oomkilled   → OOMKilled アラート
+#   POST /crashloop   → CrashLoopBackOff アラート
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: alertmanager
+  namespace: argo-events
+spec:
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  webhook:
+    oomkilled:
+      port: "12000"
+      endpoint: /oomkilled
+      method: POST
+    crashloop:
+      port: "12000"
+      endpoint: /crashloop
+      method: POST

@@ -1,0 +1,192 @@
+# WorkflowTemplate: OOMKilled 自動修復
+#
+# 処理フロー:
+#   1. Pod のオーナー Deployment を特定
+#   2. 現在のメモリリミットを取得
+#   3. メモリリミットを 1.5 倍に増加してパッチ適用
+#   4. Grafana にアノテーションを追加して通知
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: remediate-oomkilled
+  namespace: aiops
+spec:
+  entrypoint: main
+  serviceAccountName: remediation-workflow
+  arguments:
+    parameters:
+      - name: namespace
+        value: "default"
+      - name: pod
+        value: "unknown"
+      - name: container
+        value: "unknown"
+  templates:
+    # ─── メインフロー ────────────────────────────────────────────────────────
+    - name: main
+      steps:
+        - - name: patch-memory
+            template: patch-memory
+        - - name: notify
+            template: notify
+            arguments:
+              parameters:
+                - name: result
+                  value: "{{steps.patch-memory.outputs.result}}"
+
+    # ─── Step 1: メモリリミット増加 ──────────────────────────────────────────
+    - name: patch-memory
+      script:
+        image: harbor.homelab.local/library/remediation-runner:latest
+        imagePullPolicy: Always
+        command: [python3]
+        env:
+          - name: NAMESPACE
+            value: "{{workflow.parameters.namespace}}"
+          - name: POD
+            value: "{{workflow.parameters.pod}}"
+          - name: CONTAINER
+            value: "{{workflow.parameters.container}}"
+        source: |
+          import os
+          import re
+          import sys
+          from kubernetes import client, config
+
+          config.load_incluster_config()
+          v1 = client.CoreV1Api()
+          apps_v1 = client.AppsV1Api()
+
+          namespace = os.environ["NAMESPACE"]
+          pod_name = os.environ["POD"]
+          container_name = os.environ["CONTAINER"]
+
+          print(f"[OOMKilled] {namespace}/{pod_name} (container: {container_name})")
+
+          # Pod のオーナー ReplicaSet を取得
+          try:
+              pod = v1.read_namespaced_pod(pod_name, namespace)
+          except Exception as e:
+              print(f"Pod が見つかりません: {e}")
+              print("SKIPPED: pod not found")
+              sys.exit(0)
+
+          rs_name = None
+          for ref in (pod.metadata.owner_references or []):
+              if ref.kind == "ReplicaSet":
+                  rs_name = ref.name
+                  break
+
+          if not rs_name:
+              msg = f"Pod {pod_name} は ReplicaSet に管理されていません (DaemonSet/StatefulSet 等)"
+              print(msg)
+              print(f"SKIPPED: {msg}")
+              sys.exit(0)
+
+          # ReplicaSet のオーナー Deployment を取得
+          try:
+              rs = apps_v1.read_namespaced_replica_set(rs_name, namespace)
+          except Exception as e:
+              print(f"ReplicaSet が見つかりません: {e}")
+              sys.exit(0)
+
+          deploy_name = None
+          for ref in (rs.metadata.owner_references or []):
+              if ref.kind == "Deployment":
+                  deploy_name = ref.name
+                  break
+
+          if not deploy_name:
+              msg = f"ReplicaSet {rs_name} は Deployment に管理されていません"
+              print(msg)
+              print(f"SKIPPED: {msg}")
+              sys.exit(0)
+
+          print(f"Deployment: {deploy_name}")
+
+          # 現在のメモリリミットを取得
+          deploy = apps_v1.read_namespaced_deployment(deploy_name, namespace)
+          target = next(
+              (c for c in deploy.spec.template.spec.containers if c.name == container_name),
+              None
+          )
+          if not target:
+              print(f"コンテナ {container_name} が Deployment に見つかりません")
+              sys.exit(0)
+
+          current_mem = (
+              (target.resources.limits or {}).get("memory", "")
+              if target.resources else ""
+          )
+
+          # メモリを 1.5 倍に計算 (単位: Mi)
+          def parse_mi(s):
+              if not s:
+                  return 256
+              m = re.match(r"(\d+)(Mi|Gi|M|G)?", s, re.IGNORECASE)
+              if not m:
+                  return 256
+              val = int(m.group(1))
+              unit = (m.group(2) or "").lower()
+              return val * 1024 if unit in ("gi", "g") else val
+
+          current_mi = parse_mi(current_mem)
+          new_mi = int(current_mi * 1.5)
+          new_mem = f"{new_mi}Mi"
+          print(f"メモリリミット変更: {current_mem or '未設定'} → {new_mem}")
+
+          # Deployment をパッチ
+          patch = {
+              "spec": {
+                  "template": {
+                      "spec": {
+                          "containers": [
+                              {
+                                  "name": container_name,
+                                  "resources": {"limits": {"memory": new_mem}},
+                              }
+                          ]
+                      }
+                  }
+              }
+          }
+          apps_v1.patch_namespaced_deployment(deploy_name, namespace, patch)
+          print(f"パッチ適用完了: {deploy_name}")
+          print(f"PATCHED: {deploy_name} memory {current_mem or 'none'} → {new_mem}")
+
+      imagePullSecrets:
+        - name: harbor-registry-secret
+
+    # ─── Step 2: Grafana アノテーション通知 ─────────────────────────────────
+    - name: notify
+      inputs:
+        parameters:
+          - name: result
+      script:
+        image: curlimages/curl:latest
+        command: [sh]
+        env:
+          - name: NAMESPACE
+            value: "{{workflow.parameters.namespace}}"
+          - name: POD
+            value: "{{workflow.parameters.pod}}"
+          - name: CONTAINER
+            value: "{{workflow.parameters.container}}"
+          - name: RESULT
+            value: "{{inputs.parameters.result}}"
+          - name: GRAFANA_URL
+            value: "http://monitoring-grafana.monitoring.svc.cluster.local"
+          - name: GRAFANA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: alert-summarizer-secret
+                key: GRAFANA_PASSWORD
+        source: |
+          TEXT="🔧 [Auto-Remediation] OOMKilled 自動修復\nPod: ${NAMESPACE}/${POD} (${CONTAINER})\n結果: ${RESULT}"
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -u "admin:${GRAFANA_PASSWORD}" \
+            "${GRAFANA_URL}/api/annotations" \
+            -d "{\"text\":\"${TEXT}\",\"tags\":[\"auto-remediation\",\"oomkilled\",\"aiops\"]}"
+          echo ""
+          echo "Grafana アノテーション送信完了"

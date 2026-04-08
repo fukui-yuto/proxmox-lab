@@ -1,0 +1,39 @@
+# Argo Workflows — homelab 向け最小構成
+# chart: argo-workflows (https://argoproj.github.io/argo-helm)
+# -------------------------------------------------------------------
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+server:
+  enabled: true
+  # auth-mode=server: ログイン不要 (homelab 用)
+  extraArgs:
+    - --auth-mode=server
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - argo-workflows.homelab.local
+    paths:
+      - /
+    pathType: Prefix
+
+workflow:
+  serviceAccount:
+    create: true
+  rbac:
+    create: true

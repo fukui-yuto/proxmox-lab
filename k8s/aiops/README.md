@@ -13,7 +13,7 @@
 | `alerting/` | 予測・トレンド型アラートルール (PrometheusRule / AlertManager 設定) | ✅ 完了 |
 | `anomaly-detection/` | ログ異常検知 CronJob + Grafana ダッシュボード | ✅ 完了 |
 | `alert-summarizer/` | LLM アラートサマリ (Claude API) | ✅ 完了 |
-| `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | 未着手 |
+| `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | ✅ 完了 |
 
 ---
 
@@ -273,3 +273,156 @@ kubectl port-forward svc/prometheus-pushgateway 9091:9091 -n monitoring
 | `LOOKBACK_HOURS` | `6` | 過去何時間分のログを集計するか |
 | `WINDOW_MINUTES` | `5` | 集計ウィンドウ (分) |
 | `ES_INDEX_PATTERN` | `fluent-bit-*` | ES インデックスパターン |
+
+---
+
+## Step 4: 自動修復 Runbook (auto-remediation)
+
+### 概要
+
+障害アラートを Argo Events が受信し、Argo Workflows で自動修復アクションを実行する。
+Claude API は使用せず、正規表現によるパターン分析で動作する。
+
+### アーキテクチャ
+
+```
+PrometheusRule
+  (PodOOMKilled / PodCrashLoopBackOff)
+       ↓
+  AlertManager (remediation ラベルでルーティング)
+       ├─→ argo-events-oom      → EventSource (:12000/oomkilled)
+       └─→ argo-events-crashloop → EventSource (:12000/crashloop)
+                ↓ EventBus (NATS)
+           Sensor (OOMKilled / CrashLoop)
+                ↓ Workflow submit
+    ┌──────────────────────────────────────┐
+    │ OOMKilled WorkflowTemplate           │
+    │  1. Pod → RS → Deployment 特定       │
+    │  2. メモリリミット 1.5 倍にパッチ      │
+    │  3. Grafana アノテーション通知         │
+    └──────────────────────────────────────┘
+    ┌──────────────────────────────────────┐
+    │ CrashLoopBackOff WorkflowTemplate    │
+    │  1. Pod ログ収集 (--previous)         │
+    │  2. エラーパターン分類 (正規表現)       │
+    │  3. Grafana アノテーション記録         │
+    └──────────────────────────────────────┘
+```
+
+### 自動修復シナリオ
+
+| トリガー | 実行アクション |
+|---------|--------------|
+| Pod OOMKilled | Deployment のメモリリミットを 1.5 倍に自動増加 |
+| Pod CrashLoopBackOff (2分継続) | ログ収集 + エラーパターン分析 → Grafana に記録 |
+
+### デプロイ手順
+
+#### 1. Argo Workflows / Argo Events をインストール
+
+```bash
+# Argo Workflows (argo namespace に作成)
+kubectl apply -f k8s/argocd/apps/argo-workflows.yaml
+
+# Argo Events (argo-events namespace に作成)
+kubectl apply -f k8s/argocd/apps/argo-events.yaml
+
+# Pod が Ready になるまで待機
+kubectl get pods -n argo -w
+kubectl get pods -n argo-events -w
+```
+
+#### 2. remediation-runner イメージをビルド・push
+
+```bash
+# kaniko Job でビルド
+kubectl apply -f k8s/aiops/auto-remediation/kaniko-job.yaml
+kubectl logs -f job/build-remediation-runner -n aiops
+```
+
+#### 3. auto-remediation リソースをデプロイ (ArgoCD)
+
+```bash
+# aiops.yaml を適用 (aiops-auto-remediation / aiops-auto-remediation-events アプリが追加)
+kubectl apply -f k8s/argocd/apps/aiops.yaml
+
+# RBAC + WorkflowTemplates が aiops namespace に作成されることを確認
+kubectl get workflowtemplate -n aiops
+
+# EventBus/EventSource/Sensor が argo-events namespace に作成されることを確認
+kubectl get eventbus,eventsource,sensor -n argo-events
+```
+
+#### 4. monitoring app を再 Sync (AlertManager 設定を反映)
+
+```bash
+# ArgoCD UI で monitoring app を Sync
+# または
+kubectl apply -f k8s/argocd/apps/monitoring.yaml
+```
+
+#### 5. 動作確認
+
+```bash
+# WorkflowTemplate の確認
+kubectl get workflowtemplate -n aiops
+
+# EventSource が Listen しているか確認
+kubectl get svc -n argo-events | grep eventsource
+
+# テスト: OOMKilled ワークフローを手動トリガー
+kubectl create -n aiops -f - << 'EOF'
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: test-oomkilled-
+spec:
+  workflowTemplateRef:
+    name: remediate-oomkilled
+  arguments:
+    parameters:
+      - name: namespace
+        value: "default"
+      - name: pod
+        value: "test-pod"
+      - name: container
+        value: "test-container"
+EOF
+
+# Workflow 実行状況の確認
+kubectl get workflows -n aiops
+kubectl logs -n aiops -l workflows.argoproj.io/workflow --tail=50
+
+# Argo Workflows UI
+# http://argo-workflows.homelab.local
+```
+
+### Argo Workflows UI アクセス
+
+| URL | 説明 |
+|---|---|
+| `http://argo-workflows.homelab.local` | Argo Workflows UI (認証不要) |
+
+hosts ファイルへの追記:
+```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argo-workflows.homelab.local"
+```
+
+### ファイル構成
+
+```
+auto-remediation/
+├── rbac.yaml                           # ServiceAccount / ClusterRole / RoleBinding
+├── kaniko-job.yaml                     # remediation-runner イメージビルド
+├── runner/                             # Python イメージ (kubernetes パッケージ)
+│   ├── Dockerfile
+│   └── requirements.txt
+├── argo-events/
+│   ├── eventbus.yaml                   # NATS native EventBus
+│   ├── event-source.yaml               # AlertManager webhook 受信 (:12000)
+│   ├── sensor-oomkilled.yaml           # OOMKilled → Workflow 起動
+│   └── sensor-crashloop.yaml           # CrashLoop → Workflow 起動
+└── argo-workflows/
+    ├── workflow-oomkilled.yaml          # OOMKilled 修復 WorkflowTemplate
+    └── workflow-crashloop.yaml          # CrashLoop 分析 WorkflowTemplate
+```

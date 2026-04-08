@@ -1,0 +1,64 @@
+# ─── ワークフロー実行用 ServiceAccount (aiops namespace) ─────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: remediation-workflow
+  namespace: aiops
+---
+# ワークフローが Pod/Deployment を操作するための ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: remediation-workflow
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: remediation-workflow
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: remediation-workflow
+subjects:
+  - kind: ServiceAccount
+    name: remediation-workflow
+    namespace: aiops
+---
+# ─── Argo Events Sensor 用 ServiceAccount (argo-events namespace) ────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-events-sensor
+  namespace: argo-events
+---
+# Sensor が aiops namespace に Workflow を作成するための Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-events-sensor-workflow-submit
+  namespace: aiops
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-events-sensor-workflow-submit
+  namespace: aiops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-events-sensor-workflow-submit
+subjects:
+  - kind: ServiceAccount
+    name: argo-events-sensor
+    namespace: argo-events
