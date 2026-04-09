@@ -68,6 +68,15 @@ grafana:
   enabled: false  # monitoring namespace の Grafana と連携する場合は true に変更
 
 # -------------------------------------------------------------------
+# policyReports Cleanup Hook Job (Docker Hub の bitnami/kubectl が pull 不可)
+# -------------------------------------------------------------------
+policyReportsCleanup:
+  image:
+    registry: registry.k8s.io
+    repository: kubectl
+    tag: 'v1.29.3'
+
+# -------------------------------------------------------------------
 # Cleanup Jobs (Docker Hub の bitnami/kubectl が pull 不可のため上書き)
 # -------------------------------------------------------------------
 cleanupJobs:
