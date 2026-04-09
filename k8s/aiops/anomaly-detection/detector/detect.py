@@ -235,9 +235,13 @@ def _to_series(buckets: list) -> pd.Series:
     return pd.Series(counts, index=timestamps)
 
 
-def detect_iqr_anomaly(buckets: list) -> tuple[bool, float]:
+def detect_iqr_anomaly(buckets: list, high_only: bool = False) -> tuple[bool, float]:
     """
     InterQuartileRangeAD で直近バケットが外れ値かどうかを判定する。
+
+    Args:
+        high_only: True の場合、最新値が中央値を超えるときのみ異常とする。
+                   ログ量の「急増」のみを検知し「急減」は無視したい場合に使う。
     Returns: (is_anomaly, latest_value)
     """
     series = _to_series(buckets)
@@ -250,6 +254,9 @@ def detect_iqr_anomaly(buckets: list) -> tuple[bool, float]:
         detector = InterQuartileRangeAD(c=3.0)
         anomalies = detector.fit_detect(series)
         is_anomaly = bool(anomalies.iloc[-1])
+        if high_only and is_anomaly:
+            # 急減は正常とみなす: 最新値が中央値を下回る場合は異常フラグをリセット
+            is_anomaly = float(series.iloc[-1]) > float(series.median())
         return is_anomaly, float(series.iloc[-1])
     except Exception as exc:
         logger.warning(f"IQR detection failed: {exc}")
@@ -258,8 +265,12 @@ def detect_iqr_anomaly(buckets: list) -> tuple[bool, float]:
 
 def detect_level_shift(buckets: list) -> bool:
     """
-    LevelShiftAD でレベルシフト (急増・急減) を検知する。
+    LevelShiftAD でレベルシフト (急増) を検知する。
     Returns: is_anomaly
+
+    Note: LevelShiftAD は前方ウィンドウが必要なため末尾 window 点の結果が NaN になる。
+    Python では bool(NaN) == True となり常に異常と判定されるバグが生じるため、
+    NaN を除いた最後の有効値を使用する。
     """
     series = _to_series(buckets)
     if len(series) < MIN_BUCKETS * 2:
@@ -269,7 +280,11 @@ def detect_level_shift(buckets: list) -> bool:
         series = validate_series(series)
         detector = LevelShiftAD(c=6.0, side="positive", window=6)
         anomalies = detector.fit_detect(series)
-        return bool(anomalies.iloc[-1])
+        # 末尾 window 点は NaN (前方ウィンドウ不足)。bool(NaN)==True になるため dropna する。
+        valid = anomalies.dropna()
+        if valid.empty:
+            return False
+        return bool(valid.iloc[-1])
     except Exception as exc:
         logger.warning(f"LevelShift detection failed: {exc}")
         return False
@@ -293,7 +308,8 @@ def main() -> None:
     error_buckets = data["errors"]
     logger.info(f"Fetched {len(total_buckets)} total buckets, {len(error_buckets)} error buckets")
 
-    total_anomaly, total_latest = detect_iqr_anomaly(total_buckets)
+    # 総ログ量は「急増」のみを異常とする (ES 再起動等によるログ減少は誤検知を避けるため無視)
+    total_anomaly, total_latest = detect_iqr_anomaly(total_buckets, high_only=True)
     error_anomaly, error_latest = detect_iqr_anomaly(error_buckets)
     error_shift = detect_level_shift(error_buckets)
     error_rate = error_latest / total_latest if total_latest > 0 else 0.0

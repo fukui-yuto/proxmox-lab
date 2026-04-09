@@ -15,7 +15,10 @@ esConfig:
     xpack.security.enrollment.enabled: false
     xpack.security.http.ssl.enabled: false
     xpack.security.transport.ssl.enabled: false
-    discovery.type: single-node
+    # NOTE: discovery.type: single-node はここに設定できない。
+    # Helm chart が StatefulSet の env var で cluster.initial_master_nodes を自動設定するため、
+    # discovery.type: single-node と共存できず ES が起動不能になる (IllegalArgumentException)。
+    # 代わりに detect.py 側で総ログ量の急減を無視する (high_only=True) ことで誤検知を防ぐ。
 
 resources:
   requests:
