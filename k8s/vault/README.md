@@ -67,7 +67,7 @@ Vault が認証・認可を確認
 3. Token: 初期化時に発行した Root Token (`hvs.` で始まる文字列) を入力
 4. **Sign In** をクリック
 
-> **注意:** vault-0 Pod が再起動するたびに Sealed 状態に戻る。その都度アンシールが必要 (下記参照)。
+> **注意:** vault-0 Pod が再起動するたびに Sealed 状態に戻るが、`vault-auto-unseal` CronJob が約 1 分以内に自動アンシールする。
 
 ### STEP 2: KV シークレットエンジンを有効化する
 
@@ -101,15 +101,41 @@ kubectl exec -n vault vault-0 -- vault kv put secret/myapp/config \
 kubectl exec -n vault vault-0 -- vault kv get secret/myapp/config
 ```
 
-### Pod 再起動後のアンシール手順
+### Pod 再起動後のアンシール (自動)
 
-vault-0 が再起動した場合は以下の 3 コマンドを実行する:
+vault-0 が再起動しても、`vault-auto-unseal` CronJob が毎分 sealed 状態を確認して自動的にアンシールする。
+通常は手動操作不要。約 1 分以内に `vault-0` が `1/1 Running` になる。
+
+```bash
+# CronJob の状態確認
+kubectl get cronjob -n vault
+
+# 最新 Job のログ確認
+kubectl logs -n vault -l job-name --tail=20
+```
+
+**手動でアンシールする場合 (CronJob が機能しない場合のみ):**
 
 ```bash
 kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 1>
 kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 2>
 kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 3>
 ```
+
+#### 自動アンシールの仕組み
+
+| リソース | 内容 |
+|----------|------|
+| `unseal-cronjob.yaml` | 毎分 sealed 状態を確認して unseal する CronJob |
+| `vault-unseal-keys` Secret | Unseal Key 1〜3 を保持 (git 管理外・クラスター直接適用) |
+
+> **注意:** `vault-unseal-keys` Secret は git に含まれない。クラスター再構築時は以下で再作成する:
+> ```bash
+> kubectl create secret generic vault-unseal-keys -n vault \
+>   --from-literal=unseal_key_1="<Key1>" \
+>   --from-literal=unseal_key_2="<Key2>" \
+>   --from-literal=unseal_key_3="<Key3>"
+> ```
 
 ---
 
@@ -155,7 +181,7 @@ kubectl exec -n vault vault-0 -- vault status
 
 `Sealed: false` になっていれば正常。
 
-> **注意:** k3s Pod が再起動するたびに Vault はシールされる。その都度アンシールが必要。
+> **注意:** k3s Pod が再起動するたびに Vault はシールされるが、`vault-auto-unseal` CronJob が約 1 分以内に自動アンシールする。
 
 ### STEP 4: Root Token でログイン
 

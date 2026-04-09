@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vault-auto-unseal
+  namespace: vault
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: unseal
+              image: hashicorp/vault:1.16.1
+              env:
+                - name: VAULT_ADDR
+                  value: "http://vault.vault.svc.cluster.local:8200"
+                - name: UNSEAL_KEY_1
+                  valueFrom:
+                    secretKeyRef:
+                      name: vault-unseal-keys
+                      key: unseal_key_1
+                - name: UNSEAL_KEY_2
+                  valueFrom:
+                    secretKeyRef:
+                      name: vault-unseal-keys
+                      key: unseal_key_2
+                - name: UNSEAL_KEY_3
+                  valueFrom:
+                    secretKeyRef:
+                      name: vault-unseal-keys
+                      key: unseal_key_3
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  SEALED=$(vault status -format=json 2>/dev/null | grep -o '"sealed":[^,}]*' | grep -o 'true\|false')
+                  if [ "$SEALED" = "true" ]; then
+                    echo "Vault is sealed. Unsealing..."
+                    vault operator unseal "$UNSEAL_KEY_1"
+                    vault operator unseal "$UNSEAL_KEY_2"
+                    vault operator unseal "$UNSEAL_KEY_3"
+                    echo "Unseal complete."
+                  else
+                    echo "Vault is already unsealed. Nothing to do."
+                  fi
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 50m
+                  memory: 64Mi

@@ -6,6 +6,7 @@
 *.tfvars.json
 .env
 secrets/
+k8s/vault/unseal-secret.yaml
 
 # Terraform ステート
 .terraform/
