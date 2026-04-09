@@ -1,4 +1,5 @@
 # Kyverno Helm values
+# cleanup jobs は bitnami/kubectl (Docker Hub) が pull 不可のため registry.k8s.io に変更
 # ラボ向けに軽量化した設定
 # Helm chart: kyverno/kyverno, version: 3.2.6
 
@@ -57,3 +58,33 @@ reportsController:
 # -------------------------------------------------------------------
 grafana:
   enabled: false  # monitoring namespace の Grafana と連携する場合は true に変更
+
+# -------------------------------------------------------------------
+# Cleanup Jobs (Docker Hub の bitnami/kubectl が pull 不可のため上書き)
+# -------------------------------------------------------------------
+cleanupJobs:
+  admissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: 'v1.29.3'
+  clusterAdmissionReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: 'v1.29.3'
+  updateRequests:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: 'v1.29.3'
+  ephemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: 'v1.29.3'
+  clusterEphemeralReports:
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: 'v1.29.3'
