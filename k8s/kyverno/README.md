@@ -95,6 +95,35 @@ kubectl apply -f policies/
 
 ---
 
+## トラブルシューティング
+
+### cleanup Jobs / policyReportsCleanup のイメージについて
+
+Kyverno の cleanup jobs と post-upgrade hook (`kyverno-clean-reports`) は `/bin/bash` を使うスクリプトを実行する。
+また、Kyverno の securityContext で `runAsNonRoot: true` が強制されている。
+
+| イメージ | 問題点 |
+|---------|--------|
+| `bitnami/kubectl` (Docker Hub) | Docker Hub から直接 pull 不可 (レート制限・認証問題) |
+| `registry.k8s.io/kubectl` | root で実行されるため `runAsNonRoot=true` に非対応 |
+| `cgr.dev/chainguard/kubectl` | 非 root だが `/bin/bash` がなく Helm chart のスクリプトが実行不可 |
+
+**解決策:** Harbor の Docker Hub プロキシキャッシュを経由して `bitnami/kubectl` を取得する。
+
+Harbor に Docker Hub プロキシを設定済み (Harbor UI → Registries → `docker-hub`、Projects → `dockerhub-proxy`)。
+`values-kyverno.yaml` で全 cleanup jobs のイメージを `harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:latest` に設定している。
+
+### ArgoCD Sync Failed — CRD annotations サイズ超過
+
+Kyverno CRD は ~560KB で Kubernetes の annotations サイズ上限 (262144 bytes) を超えるため、
+ArgoCD の ServerSideApply が失敗する。
+
+**解決策:**
+1. `values-kyverno.yaml` で `crds.install: false` を設定 (Helm による CRD 管理を無効化)
+2. 全 13 個の Kyverno CRD に `argocd.argoproj.io/sync-options=Prune=false` アノテーションを付与 (ArgoCD による削除を防止)
+
+---
+
 ## アンインストール
 
 ```bash
