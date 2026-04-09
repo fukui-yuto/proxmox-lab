@@ -28,7 +28,69 @@ Proxmox VE クラスターの構築から k3s クラスター上の AIOps まで
 
 ---
 
-## 構築の流れ
+## README を読む順番 — 一から構築する場合
+
+> **最小コマンド数で構築するために、この順番で README を読んで実行する。**
+
+### フェーズ 1: ハードウェアセットアップ
+
+| # | README | 実行コマンド (概要) |
+|---|--------|-------------------|
+| 1 | [scripts/README.md](scripts/README.md) | Raspberry Pi OS セットアップ → `bash raspi-setup.sh` → Proxmox USB インストール → SSH 鍵配布 |
+
+### フェーズ 2: Proxmox クラスター構築
+
+| # | README | 実行コマンド (概要) |
+|---|--------|-------------------|
+| 2 | [ansible/README.md](ansible/README.md) | `ansible-playbook playbooks/00-bootstrap.yml -k` → `ansible-playbook playbooks/site.yml` |
+
+### フェーズ 3: VM テンプレート・プロビジョニング
+
+| # | README | 実行コマンド (概要) |
+|---|--------|-------------------|
+| 3 | [packer/README.md](packer/README.md) | `packer build ubuntu-2404.pkr.hcl` |
+| 4 | [terraform/README.md](terraform/README.md) | `terraform init` → `terraform apply` |
+
+### フェーズ 4: k8s アプリデプロイ
+
+| # | README | 実行コマンド (概要) |
+|---|--------|-------------------|
+| 5 | [k8s/README.md](k8s/README.md) | Windows hosts ファイル設定 |
+| 6 | [k8s/argocd/README.md](k8s/argocd/README.md) | `bash install.sh` → `bash register-apps.sh` |
+
+`register-apps.sh` を実行すると以下のアプリが **Sync Wave 順に自動デプロイ** される:
+
+| 常時起動 (自動 Sync) | オンデマンド (手動 Sync) |
+|--------------------|-----------------------|
+| kyverno / kyverno-policies | vault |
+| monitoring (Prometheus + Grafana) | harbor |
+| logging (Elasticsearch + Fluent Bit + Kibana) | keycloak |
+| aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | tracing / argo-workflows / argo-events |
+
+各アプリの詳細は必要に応じて参照:
+
+| アプリ README | 読むタイミング |
+|---|---|
+| [k8s/kyverno/README.md](k8s/kyverno/README.md) | ポリシー確認・変更時 |
+| [k8s/monitoring/README.md](k8s/monitoring/README.md) | Grafana・Prometheus 設定時 |
+| [k8s/logging/README.md](k8s/logging/README.md) | Kibana・ログ確認時 |
+| [k8s/aiops/README.md](k8s/aiops/README.md) | AIOps 初期設定 (kaniko ビルド等) |
+| [k8s/vault/README.md](k8s/vault/README.md) | シークレット管理が必要な時 |
+| [k8s/harbor/README.md](k8s/harbor/README.md) | コンテナイメージ push 時 |
+| [k8s/keycloak/README.md](k8s/keycloak/README.md) | SSO 設定時 (`bash setup.sh`) |
+| [k8s/tracing/README.md](k8s/tracing/README.md) | 分散トレーシング調査時 |
+| [k8s/argo-workflows/README.md](k8s/argo-workflows/README.md) | 自動修復確認時 |
+| [k8s/argo-events/README.md](k8s/argo-events/README.md) | イベント駆動トリガー確認時 |
+
+### 日常運用
+
+| # | README | 内容 |
+|---|--------|------|
+| - | [power/README.md](power/README.md) | クラスター起動・シャットダウン・アイドル自動停止 |
+
+---
+
+## 構築の流れ (概要)
 
 | ステップ | 内容 | 手順 |
 |---------|------|------|

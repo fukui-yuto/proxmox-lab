@@ -163,25 +163,40 @@ ansible -i inventory/hosts.yml proxmox -m ping
 3. **Advanced → Boot → UEFI Boot** が有効になっていることを確認
 4. 設定を保存して再起動 (`F10`)
 
-### 6-3. インストール手順 (各 NUC で実施)
+### 6-3. インストール手順 (各ノードで実施)
 
 1. USB から起動すると Proxmox VE インストーラーが立ち上がる
 2. **Install Proxmox VE (Graphical)** を選択
 3. 使用許諾に同意して **Next**
-4. **Target Harddisk**: mSATA SSD を選択 (通常 `/dev/sda`)
+4. **Target Harddisk**: SSD を選択
+   - node01/02 (NUC5i3RYH): mSATA SSD → 通常 `/dev/sda`
+   - node03 (BOSGAME E2): NVMe SSD → 通常 `/dev/nvme0n1`
 5. **Country / Timezone / Keyboard**: Japan / Asia/Tokyo / Japanese
 6. **Password & Email**: root パスワードを設定、メールは適当でよい
 7. **Network Configuration**:
 
-   | 項目 | node01 | node02 |
-   |------|--------|--------|
-   | Management Interface | enp0s25 等 (有線 NIC) | 同左 |
-   | Hostname (FQDN) | `pve-node01.local` | `pve-node02.local` |
-   | IP Address | `192.168.210.11/24` | `192.168.210.12/24` |
-   | Gateway | `192.168.210.254` | `192.168.210.254` |
-   | DNS | `192.168.210.254` | `192.168.210.254` |
+   | 項目 | node01 (NUC) | node02 (NUC) | node03 (BOSGAME E2) |
+   |------|-------------|-------------|---------------------|
+   | Management Interface | `enp0s25` (有線 NIC) | 同左 | `enp1s0` または `eth0` |
+   | Hostname (FQDN) | `pve-node01.local` | `pve-node02.local` | `pve-node03.local` |
+   | IP Address | `192.168.210.11/24` | `192.168.210.12/24` | `192.168.210.13/24` |
+   | Gateway | `192.168.210.254` | `192.168.210.254` | `192.168.210.254` |
+   | DNS | `192.168.210.254` | `192.168.210.254` | `192.168.210.254` |
+
+   > **node03 注意:** BOSGAME E2 は NIC 名がインストーラーによって異なる場合がある。`ip link show` で確認する。
 
 8. 内容を確認して **Install** → インストール完了後、USB を抜いて再起動
+
+#### node03 (BOSGAME E2) の追加作業
+
+node03 は Proxmox のインストール時に LVM thin pool が作成されない場合がある。
+インストール後に Web UI で確認し、`local` (dir) ストレージに `images,rootdir` を追加する:
+
+```
+Datacenter → Storage → local → Edit → Content: Disk image, Container にチェック
+```
+
+> 詳細は [terraform/README.md](../terraform/README.md) の「node03 LVM 不足」を参照。
 
 ### 6-4. インストール完了確認
 

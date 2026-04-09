@@ -22,9 +22,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: tracing
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -51,8 +48,5 @@ spec:
     server: https://kubernetes.default.svc
     namespace: tracing
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

@@ -24,8 +24,15 @@ Raspberry Pi 上で実行する。
 ```bash
 cd ~/proxmox-lab/k8s/argocd
 
+# 1. ArgoCD をデプロイ
 bash install.sh
+
+# 2. 全 Application を一括登録 (初回のみ)
+bash register-apps.sh
 ```
+
+`register-apps.sh` が全アプリの ArgoCD Application を登録する。
+常時起動アプリは Sync Wave 順に自動デプロイされる。オンデマンドアプリは ArgoCD UI から手動 Sync する。
 
 ### 手動で実行する場合
 
@@ -246,21 +253,43 @@ argocd app delete vault --cascade
 全アプリを一斉起動すると pve-node01 の e1000e NIC がトラフィックバーストで
 Hardware Unit Hang を起こすため、sync wave で起動を段階的に分散している。
 
-| Wave | Application | 理由 |
+| Wave | Application | 備考 |
 |------|-------------|------|
 | 0 | kyverno | ポリシーエンジン。他リソース作成前に必要 |
 | 1 | kyverno-policies | kyverno が Ready になってから適用 |
-| 2 | vault | シークレット管理。他アプリが依存する可能性 |
-| 3 | monitoring | 可観測性。なるべく早期に起動 |
-| 4 | harbor | コンテナレジストリ |
-| 5 | keycloak | 認証基盤 |
+| 2 | vault | シークレット管理 (オンデマンド) |
+| 3 | monitoring / argo-workflows / argo-events | 可観測性・自動修復基盤 |
+| 4 | harbor | コンテナレジストリ (オンデマンド) |
+| 5 | keycloak | 認証基盤 (オンデマンド) |
 | 6 | logging-elasticsearch | 重い StatefulSet。後半に配置 |
 | 7 | logging-fluent-bit | elasticsearch が起動してから |
 | 8 | logging-kibana | elasticsearch が起動してから |
-| 9 | tracing-tempo | トレーシングバックエンド |
-| 10 | tracing-otel-collector | tempo が起動してから |
+| 9 | tracing-tempo | トレーシングバックエンド (オンデマンド) |
+| 10 | tracing-otel-collector | tempo が起動してから (オンデマンド) |
+| 11 | aiops-alerting / aiops-pushgateway | AIOps 基盤 |
+| 12 | aiops-alert-summarizer / aiops-anomaly-detection | LLM サマリ・異常検知 |
+| 13 | aiops-auto-remediation | 自動修復 WorkflowTemplate |
+| 14 | aiops-auto-remediation-events | Argo Events トリガー |
 
 ArgoCD は各 wave の全 Application が Healthy になるまで次の wave に進まない。
+
+## Application 定義ファイル
+
+全 Application の定義は `apps/` ディレクトリに YAML で管理している。
+
+```
+apps/
+├── kyverno.yaml          # Wave 0-1: kyverno + kyverno-policies
+├── monitoring.yaml       # Wave 3:  kube-prometheus-stack + dashboards
+├── vault.yaml            # Wave 2:  HashiCorp Vault (オンデマンド)
+├── harbor.yaml           # Wave 4:  Harbor (オンデマンド)
+├── keycloak.yaml         # Wave 5:  Keycloak (オンデマンド)
+├── logging.yaml          # Wave 6-8: elasticsearch + fluent-bit + kibana
+├── tracing.yaml          # Wave 9-10: tempo + otel-collector (オンデマンド)
+├── argo-workflows.yaml   # Wave 3:  Argo Workflows (オンデマンド)
+├── argo-events.yaml      # Wave 3:  Argo Events (オンデマンド)
+└── aiops.yaml            # Wave 11-14: AIOps 全コンポーネント
+```
 
 ## 次のステップ
 
