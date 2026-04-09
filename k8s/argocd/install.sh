@@ -7,7 +7,7 @@ set -euo pipefail
 
 NAMESPACE="argocd"
 RELEASE_NAME="argocd"
-CHART_VERSION="7.3.4"
+CHART_VERSION="9.4.17"
 
 echo "=== Helm リポジトリ追加 ==="
 helm repo add argo https://argoproj.github.io/argo-helm

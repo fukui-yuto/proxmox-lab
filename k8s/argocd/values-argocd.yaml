@@ -1,6 +1,6 @@
 # ArgoCD Helm values
 # ラボ向けに軽量化した設定
-# Helm chart: argo/argo-cd, version: 7.3.4
+# Helm chart: argo/argo-cd, version: 9.4.17 (ArgoCD v3.3.6)
 
 # -------------------------------------------------------------------
 # グローバル設定
@@ -59,8 +59,9 @@ server:
     hostname: argocd.homelab.local
     # insecure モードのため TLS 設定は不要
     tls: false
-    # 注意: chart v7.3.4 は tls: false でも ingress backend を port 443 で生成する。
+    # 注意: chart 9.4.17 は tls: false でも ingress backend を port 443 で生成する。
     # install.sh の "Ingress port patch" ステップで port 80 に自動修正済み。
+    # helm upgrade 後は必ず install.sh のパッチを再適用すること。
 
 # -------------------------------------------------------------------
 # ApplicationSet コントローラー
