@@ -1,6 +1,7 @@
 # Kyverno Helm values
-# cleanup jobs は bitnami/kubectl (Docker Hub) が pull 不可のため cgr.dev/chainguard/kubectl に変更
-# registry.k8s.io/kubectl は root 実行のため runAsNonRoot=true に非対応
+# cleanup jobs は Docker Hub への直接アクセス不可のため Harbor プロキシ経由で bitnami/kubectl を使用
+# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり → runAsNonRoot=true 対応
+# cgr.dev/chainguard/kubectl は /bin/bash がないため使用不可 (Helm chart が /bin/bash -c をハードコード)
 # crds.install=false: Kyverno CRD は大きすぎて ArgoCD の annotations サイズ上限(262144 bytes)を超えるため
 #   Helm による CRD 管理を無効化し既存 CRD をそのまま使用する
 # ラボ向けに軽量化した設定
@@ -69,41 +70,44 @@ grafana:
   enabled: false  # monitoring namespace の Grafana と連携する場合は true に変更
 
 # -------------------------------------------------------------------
-# policyReports Cleanup Hook Job (Docker Hub の bitnami/kubectl が pull 不可)
+# policyReports Cleanup Hook Job
+# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり → runAsNonRoot=true 対応
+# Docker Hub は直接 pull 不可のため Harbor プロキシ経由で取得
 # -------------------------------------------------------------------
 policyReportsCleanup:
   image:
-    registry: cgr.dev
-    repository: chainguard/kubectl
+    registry: harbor.homelab.local
+    repository: dockerhub-proxy/bitnami/kubectl
     tag: 'latest'
 
 # -------------------------------------------------------------------
-# Cleanup Jobs (Docker Hub の bitnami/kubectl が pull 不可のため上書き)
-# cgr.dev/chainguard/kubectl は非 root で動作するため runAsNonRoot=true に対応
+# Cleanup Jobs (Harbor プロキシ経由で bitnami/kubectl を使用)
+# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり
+# cgr.dev/chainguard/kubectl は /bin/bash がないため使用不可
 # -------------------------------------------------------------------
 cleanupJobs:
   admissionReports:
     image:
-      registry: cgr.dev
-      repository: chainguard/kubectl
+      registry: harbor.homelab.local
+      repository: dockerhub-proxy/bitnami/kubectl
       tag: 'latest'
   clusterAdmissionReports:
     image:
-      registry: cgr.dev
-      repository: chainguard/kubectl
+      registry: harbor.homelab.local
+      repository: dockerhub-proxy/bitnami/kubectl
       tag: 'latest'
   updateRequests:
     image:
-      registry: cgr.dev
-      repository: chainguard/kubectl
+      registry: harbor.homelab.local
+      repository: dockerhub-proxy/bitnami/kubectl
       tag: 'latest'
   ephemeralReports:
     image:
-      registry: cgr.dev
-      repository: chainguard/kubectl
+      registry: harbor.homelab.local
+      repository: dockerhub-proxy/bitnami/kubectl
       tag: 'latest'
   clusterEphemeralReports:
     image:
-      registry: cgr.dev
-      repository: chainguard/kubectl
+      registry: harbor.homelab.local
+      repository: dockerhub-proxy/bitnami/kubectl
       tag: 'latest'
