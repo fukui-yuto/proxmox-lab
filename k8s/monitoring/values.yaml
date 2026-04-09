@@ -44,6 +44,17 @@ grafana:
     server:
       domain: grafana.homelab.local
       root_url: "http://grafana.homelab.local"
+    auth.generic_oauth:
+      enabled: true
+      name: Keycloak
+      allow_sign_up: true
+      client_id: grafana
+      client_secret: grafana-keycloak-secret-2026
+      scopes: openid profile email groups
+      auth_url: http://keycloak.homelab.local/realms/homelab/protocol/openid-connect/auth
+      token_url: http://keycloak.keycloak.svc.cluster.local/realms/homelab/protocol/openid-connect/token
+      api_url: http://keycloak.keycloak.svc.cluster.local/realms/homelab/protocol/openid-connect/userinfo
+      role_attribute_path: contains(groups[*], 'homelab-admins') && 'Admin' || 'Viewer'
 
   ingress:
     enabled: true

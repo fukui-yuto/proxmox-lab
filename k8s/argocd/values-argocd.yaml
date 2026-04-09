@@ -16,6 +16,27 @@ configs:
   secret:
     argocdServerAdminPassword: "$2a$10$1n/U6oGHF0IbhbQZoBeQtu1IwUB7QYgfMV7p/jmHHgznOWi0d3xP6"
 
+  cm:
+    # Keycloak OIDC SSO
+    oidc.config: |
+      name: Keycloak
+      issuer: http://keycloak.homelab.local/realms/homelab
+      clientID: argocd
+      clientSecret: argocd-keycloak-secret-2026
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        - groups
+      requestedIDTokenClaims:
+        groups:
+          essential: true
+
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, homelab-admins, role:admin
+
 # -------------------------------------------------------------------
 # ArgoCD サーバー
 # -------------------------------------------------------------------
