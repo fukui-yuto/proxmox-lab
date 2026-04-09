@@ -1,7 +1,15 @@
 # Kyverno Helm values
 # cleanup jobs は bitnami/kubectl (Docker Hub) が pull 不可のため registry.k8s.io に変更
+# crds.install=false: Kyverno CRD は大きすぎて ArgoCD の annotations サイズ上限(262144 bytes)を超えるため
+#   Helm による CRD 管理を無効化し既存 CRD をそのまま使用する
 # ラボ向けに軽量化した設定
 # Helm chart: kyverno/kyverno, version: 3.2.6
+
+# -------------------------------------------------------------------
+# CRD 管理を無効化 (annotations サイズ超過を回避)
+# -------------------------------------------------------------------
+crds:
+  install: false
 
 # -------------------------------------------------------------------
 # Admission Controller (ポリシー評価の中核)
