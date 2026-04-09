@@ -23,10 +23,13 @@ helm version
 | `monitoring/` | Prometheus + Grafana | メトリクス監視・可視化 | 常時起動 (automated sync) |
 | `logging/` | Elasticsearch + Fluent Bit + Kibana | ログ収集・可視化 | 常時起動 (automated sync) |
 | `kyverno/` | Kyverno | ポリシーエンジン | 常時起動 (automated sync) |
+| `aiops/` | AIOps (alerting / anomaly-detection / alert-summarizer / auto-remediation) | 予測アラート・ログ異常検知・自動修復 | 常時起動 (automated sync) |
 | `vault/` | Vault | シークレット管理 | オンデマンド (手動 sync) |
 | `harbor/` | Harbor | プライベートコンテナレジストリ | オンデマンド (手動 sync) |
 | `keycloak/` | Keycloak | SSO / 認証基盤 | オンデマンド (手動 sync) |
 | `tracing/` | OpenTelemetry + Tempo | 分散トレーシング | オンデマンド (手動 sync) |
+| `argo-workflows/` | Argo Workflows | 自動修復ワークフローエンジン | オンデマンド (手動 sync) |
+| `argo-events/` | Argo Events | イベント駆動トリガー (AlertManager → Workflow) | オンデマンド (手動 sync) |
 
 各ツールの概念・仕組みは各ディレクトリの `GUIDE.md` を参照。
 
@@ -49,6 +52,8 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argo-workflows.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  alert-summarizer.homelab.local"
 ```
 
 ### URL 一覧
@@ -62,5 +67,7 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 | Harbor | http://harbor.homelab.local | `admin` | `Harbor12345` |
 | Keycloak | http://keycloak.homelab.local | `admin` | `Keycloak12345` |
 | Vault | http://vault.homelab.local | - | 初期化時の Root Token (要 unseal) |
+| Argo Workflows | http://argo-workflows.homelab.local | - | 認証不要 |
+| alert-summarizer | http://alert-summarizer.homelab.local | - | - |
 
 > **注意:** 初回ログイン後に各サービスのパスワードを必ず変更すること。

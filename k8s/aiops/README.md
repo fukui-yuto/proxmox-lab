@@ -2,8 +2,6 @@
 
 既存の監視・ログスタックを活用して IT 運用を AI で知能化するコンポーネント群。
 
-詳細な実施計画は [PLAN.md](./PLAN.md) を参照。
-
 ---
 
 ## ディレクトリ構成
@@ -99,6 +97,65 @@ Fluent-bit → Elasticsearch (fluent-bit-* インデックス)
 
 ダッシュボードは `k8s/monitoring/dashboards/log-anomaly-cm.yaml` の ConfigMap (label: `grafana_dashboard=1`) として管理。
 ArgoCD monitoring app の sync で自動適用される。
+
+### デプロイ手順
+
+#### 1. Harbor を起動
+
+```bash
+kubectl apply -f k8s/argocd/apps/harbor.yaml
+# Harbor が Ready になるまで待機 (5〜10分)
+kubectl get pods -n harbor -w
+```
+
+#### 2. ArgoCD App を適用 (Pushgateway + CronJob namespace)
+
+```bash
+kubectl apply -f k8s/argocd/apps/aiops.yaml
+```
+
+#### 3. Harbor に anomaly-detector イメージをビルド・push (kaniko)
+
+```bash
+# aiops namespace と Harbor 認証 Secret を作成
+kubectl apply -f k8s/aiops/anomaly-detection/namespace.yaml
+kubectl create secret docker-registry harbor-registry-secret \
+  --docker-server=harbor.homelab.local \
+  --docker-username=admin \
+  --docker-password=Harbor12345 \
+  -n aiops
+
+# kaniko Job でイメージをビルド・push
+kubectl apply -f k8s/aiops/anomaly-detection/kaniko-job.yaml
+
+# ビルドログを確認
+kubectl logs -f job/build-anomaly-detector -n aiops
+```
+
+#### 4. CronJob を確認
+
+```bash
+# CronJob の状態確認
+kubectl get cronjob -n aiops
+
+# 手動実行でテスト
+kubectl create job --from=cronjob/log-anomaly-detector test-run -n aiops
+kubectl logs -f job/test-run -n aiops
+
+# Pushgateway でメトリクス確認
+kubectl port-forward svc/prometheus-pushgateway 9091:9091 -n monitoring
+# → http://localhost:9091 でメトリクス確認
+```
+
+### 設定値
+
+| 環境変数 | デフォルト | 説明 |
+|---|---|---|
+| `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
+| `PUSHGATEWAY_URL` | `http://aiops-pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091` | Pushgateway エンドポイント |
+| `LOOKBACK_HOURS` | `6` | 過去何時間分のログを集計するか |
+| `WINDOW_MINUTES` | `5` | 集計ウィンドウ (分) |
+| `ES_INDEX_PATTERN` | `fluent-bit-*` | ES インデックスパターン |
 
 ---
 
@@ -214,65 +271,6 @@ kubectl exec -n aiops deploy/alert-summarizer -- \
 | `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | 使用する Claude モデル |
 | `LOG_LOOKBACK_MINUTES` | `15` | ES から取得するログの遡り時間 |
 | `MAX_LOG_SAMPLES` | `20` | ES から取得するログサンプル数上限 |
-
-### デプロイ手順
-
-#### 1. Harbor を起動
-
-```bash
-kubectl apply -f k8s/argocd/apps/harbor.yaml
-# Harbor が Ready になるまで待機 (5〜10分)
-kubectl get pods -n harbor -w
-```
-
-#### 2. ArgoCD App を適用 (Pushgateway + CronJob namespace)
-
-```bash
-kubectl apply -f k8s/argocd/apps/aiops.yaml
-```
-
-#### 3. Harbor に anomaly-detector イメージをビルド・push (kaniko)
-
-```bash
-# aiops namespace と Harbor 認証 Secret を作成
-kubectl apply -f k8s/aiops/anomaly-detection/namespace.yaml
-kubectl create secret docker-registry harbor-registry-secret \
-  --docker-server=harbor.homelab.local \
-  --docker-username=admin \
-  --docker-password=Harbor12345 \
-  -n aiops
-
-# kaniko Job でイメージをビルド・push
-kubectl apply -f k8s/aiops/anomaly-detection/kaniko-job.yaml
-
-# ビルドログを確認
-kubectl logs -f job/build-anomaly-detector -n aiops
-```
-
-#### 4. CronJob を確認
-
-```bash
-# CronJob の状態確認
-kubectl get cronjob -n aiops
-
-# 手動実行でテスト
-kubectl create job --from=cronjob/log-anomaly-detector test-run -n aiops
-kubectl logs -f job/test-run -n aiops
-
-# Pushgateway でメトリクス確認
-kubectl port-forward svc/prometheus-pushgateway 9091:9091 -n monitoring
-# → http://localhost:9091 でメトリクス確認
-```
-
-### 設定値
-
-| 環境変数 | デフォルト | 説明 |
-|---|---|---|
-| `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
-| `PUSHGATEWAY_URL` | `http://aiops-pushgateway-prometheus-pushgateway.monitoring.svc.cluster.local:9091` | Pushgateway エンドポイント |
-| `LOOKBACK_HOURS` | `6` | 過去何時間分のログを集計するか |
-| `WINDOW_MINUTES` | `5` | 集計ウィンドウ (分) |
-| `ES_INDEX_PATTERN` | `fluent-bit-*` | ES インデックスパターン |
 
 ---
 

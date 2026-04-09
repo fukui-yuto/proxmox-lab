@@ -102,10 +102,13 @@
 | **常時起動** (automated sync) | kyverno, kyverno-policies | Webhook が落ちるとクラスター操作不能になるため必須 |
 | **常時起動** (automated sync) | monitoring (kube-prometheus-stack) | クラスター監視 |
 | **常時起動** (automated sync) | logging (elasticsearch / fluent-bit / kibana) | ログ収集・閲覧 |
+| **常時起動** (automated sync) | aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | 予測アラート・ログ異常検知・自動修復 |
 | **オンデマンド** (手動 sync) | vault | シークレット管理が必要な時 |
 | **オンデマンド** (手動 sync) | harbor | イメージビルド・push 時 |
 | **オンデマンド** (手動 sync) | keycloak | SSO が必要な時 |
 | **オンデマンド** (手動 sync) | tracing (tempo / otel-collector) | トレース調査時 |
+| **オンデマンド** (手動 sync) | argo-workflows | auto-remediation が必要な時 |
+| **オンデマンド** (手動 sync) | argo-events | auto-remediation が必要な時 |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -116,7 +119,7 @@
 | 0 | kyverno |
 | 1 | kyverno-policies |
 | 2 | vault |
-| 3 | monitoring |
+| 3 | monitoring / argo-workflows / argo-events |
 | 4 | harbor |
 | 5 | keycloak |
 | 6 | logging-elasticsearch |
@@ -124,6 +127,10 @@
 | 8 | logging-kibana |
 | 9 | tracing-tempo |
 | 10 | tracing-otel-collector |
+| 11 | aiops-alerting / aiops-pushgateway |
+| 12 | aiops-alert-summarizer / aiops-anomaly-detection |
+| 13 | aiops-auto-remediation |
+| 14 | aiops-auto-remediation-events |
 
 ---
 
@@ -165,6 +172,8 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argo-workflows.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  alert-summarizer.homelab.local"
 ```
 
 ### URL 一覧
@@ -178,3 +187,5 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 | Harbor | http://harbor.homelab.local | `admin` | `Harbor12345` |
 | Keycloak | http://keycloak.homelab.local | `admin` | `Keycloak12345` |
 | Vault | http://vault.homelab.local | - | 初期化時の Root Token (要 unseal) |
+| Argo Workflows | http://argo-workflows.homelab.local | - | 認証不要 |
+| alert-summarizer | http://alert-summarizer.homelab.local | - | - |
