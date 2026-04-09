@@ -37,115 +37,43 @@ PostgreSQL        ← ユーザー・設定の永続化 (内蔵)
 
 ---
 
+## 前提条件
+
+- kubectl が k3s クラスターに接続できること
+- Harbor が起動済みであること (`setup.sh` の STEP 7 で Harbor API を呼ぶため)
+- `k8s/coredns-custom.yaml` が存在すること
+
+---
+
 ## デプロイ手順
 
 Raspberry Pi 上で実行する。
+
+### 1. Keycloak デプロイ
 
 ```bash
 cd ~/proxmox-lab/k8s/keycloak
 bash install.sh
 ```
 
-デプロイ後、下記「初期セットアップ」を実施する。
-
----
-
-## 初期セットアップ (初回デプロイ時のみ)
-
-### STEP 1: realm・クライアント・ユーザーを一括作成
-
-kcadm.sh を使って Keycloak に設定を投入する。
+### 2. 初期セットアップ (初回デプロイ時のみ)
 
 ```bash
-KCADM="/opt/keycloak/bin/kcadm.sh"
-POD=$(kubectl get pod -n keycloak -l app.kubernetes.io/name=keycloak -o jsonpath='{.items[0].metadata.name}')
-
-# ログイン
-kubectl exec -n keycloak $POD -- $KCADM config credentials \
-  --server http://localhost:8080 --realm master \
-  --user admin --password Keycloak12345
-
-# realm 作成
-kubectl exec -n keycloak $POD -- $KCADM create realms \
-  -s realm=homelab -s enabled=true -s displayName="Homelab"
-
-# クライアント作成
-kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
-  -s clientId=argocd -s enabled=true -s protocol=openid-connect \
-  -s publicClient=false -s secret=argocd-keycloak-secret-2026 \
-  -s 'redirectUris=["http://argocd.homelab.local/auth/callback"]' \
-  -s 'webOrigins=["http://argocd.homelab.local"]' -s standardFlowEnabled=true
-
-kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
-  -s clientId=grafana -s enabled=true -s protocol=openid-connect \
-  -s publicClient=false -s secret=grafana-keycloak-secret-2026 \
-  -s 'redirectUris=["http://grafana.homelab.local/login/generic_oauth"]' \
-  -s 'webOrigins=["http://grafana.homelab.local"]' -s standardFlowEnabled=true
-
-kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
-  -s clientId=harbor -s enabled=true -s protocol=openid-connect \
-  -s publicClient=false -s secret=harbor-keycloak-secret-2026 \
-  -s 'redirectUris=["http://harbor.homelab.local/c/oidc/callback"]' \
-  -s 'webOrigins=["http://harbor.homelab.local"]' -s standardFlowEnabled=true
-
-# グループ作成
-kubectl exec -n keycloak $POD -- $KCADM create groups -r homelab -s name=homelab-admins
-
-# 管理ユーザー作成
-kubectl exec -n keycloak $POD -- $KCADM create users -r homelab \
-  -s username=admin -s enabled=true -s email=admin@homelab.local
-kubectl exec -n keycloak $POD -- $KCADM set-password -r homelab \
-  --username admin --new-password Keycloak12345
+bash setup.sh
 ```
 
-### STEP 2: groups mapper を各クライアントに追加
+`setup.sh` が以下を自動実行する:
 
-クライアント ID は `kcadm.sh get clients -r homelab` で確認する。
-
-```bash
-# argocd クライアントの ID を取得
-CLIENT_ID=$(kubectl exec -n keycloak $POD -- $KCADM get clients -r homelab \
-  --fields id,clientId | grep -A1 '"argocd"' | grep id | grep -o '"[a-z0-9-]*"' | tail -1 | tr -d '"')
-
-kubectl exec -n keycloak $POD -- /bin/sh -c \
-  "$KCADM create clients/$CLIENT_ID/protocol-mappers/models -r homelab \
-  -s name=groups -s protocol=openid-connect \
-  -s protocolMapper=oidc-group-membership-mapper \
-  -s 'config={\"full.path\":\"false\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"groups\",\"userinfo.token.claim\":\"true\"}'"
-# grafana・harbor も同様に実施
-```
-
-### STEP 3: Harbor OIDC 設定
-
-```bash
-HARBOR_POD=$(kubectl get pod -n harbor -l component=core -o jsonpath='{.items[0].metadata.name}')
-
-kubectl exec -n harbor $HARBOR_POD -- curl -s -X PUT \
-  -u admin:Harbor12345 http://localhost:8080/api/v2.0/configurations \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "auth_mode":"oidc_auth",
-    "oidc_name":"Keycloak",
-    "oidc_endpoint":"http://keycloak.homelab.local/realms/homelab",
-    "oidc_client_id":"harbor",
-    "oidc_client_secret":"harbor-keycloak-secret-2026",
-    "oidc_scope":"openid,profile,email,groups",
-    "oidc_verify_cert":false,
-    "oidc_auto_onboard":true,
-    "oidc_user_claim":"preferred_username",
-    "oidc_groups_claim":"groups",
-    "oidc_admin_group":"homelab-admins"
-  }'
-```
-
-### STEP 4: CoreDNS カスタム設定 (クラスター内 DNS)
-
-Pod から `homelab.local` ドメインを解決できるよう CoreDNS に設定する。
-
-```bash
-kubectl apply -f k8s/coredns-custom.yaml
-kubectl rollout restart deployment/coredns -n kube-system
-```
+| STEP | 内容 |
+|------|------|
+| 1 | CoreDNS カスタム設定を適用 (Pod 間で `homelab.local` を解決可能にする) |
+| 2 | Keycloak Pod 起動待ち |
+| 3 | kcadm ログイン |
+| 4 | `homelab` realm 作成 |
+| 5 | OIDC クライアント作成 (argocd / grafana / harbor) |
+| 6 | `homelab-admins` グループ・管理ユーザー作成 |
+| 7 | groups mapper 追加 (argocd / grafana / harbor 全クライアント) |
+| 8 | Harbor OIDC 設定 |
 
 ---
 
