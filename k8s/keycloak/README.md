@@ -9,11 +9,33 @@ Keycloak Server   ← IAM / OIDC プロバイダー (http://keycloak.homelab.loc
 PostgreSQL        ← ユーザー・設定の永続化 (内蔵)
 ```
 
-## 前提条件
+## SSO 連携状況
 
-- k3s クラスターが稼働していること
-- `kubectl` が k3s クラスターに接続できること
-- `helm` v3 がインストールされていること
+| サービス | 状態 | 認証方式 |
+|---------|------|---------|
+| ArgoCD | 設定済み | OIDC (Keycloak homelab realm) |
+| Grafana | 設定済み | Generic OAuth (Keycloak homelab realm) |
+| Harbor | 設定済み | OIDC (Keycloak homelab realm) |
+
+### Keycloak 設定内容
+
+| 項目 | 値 |
+|------|-----|
+| Realm | `homelab` |
+| 管理グループ | `homelab-admins` |
+| 管理ユーザー | `admin` / `Keycloak12345` |
+
+### OIDC クライアント一覧
+
+| クライアント ID | Redirect URI | Client Secret (Vault: `homelab/keycloak-oidc`) |
+|--------------|-------------|------|
+| `argocd` | `http://argocd.homelab.local/auth/callback` | `argocd_client_secret` |
+| `grafana` | `http://grafana.homelab.local/login/generic_oauth` | `grafana_client_secret` |
+| `harbor` | `http://harbor.homelab.local/c/oidc/callback` | `harbor_client_secret` |
+
+> クライアントシークレットは Vault の `homelab/keycloak-oidc` に保存済み。
+
+---
 
 ## デプロイ手順
 
@@ -21,183 +43,147 @@ Raspberry Pi 上で実行する。
 
 ```bash
 cd ~/proxmox-lab/k8s/keycloak
-
 bash install.sh
 ```
 
-### 手動で実行する場合
+デプロイ後、下記「初期セットアップ」を実施する。
+
+---
+
+## 初期セットアップ (初回デプロイ時のみ)
+
+### STEP 1: realm・クライアント・ユーザーを一括作成
+
+kcadm.sh を使って Keycloak に設定を投入する。
 
 ```bash
-# Namespace 作成
-kubectl apply -f namespace.yaml
+KCADM="/opt/keycloak/bin/kcadm.sh"
+POD=$(kubectl get pod -n keycloak -l app.kubernetes.io/name=keycloak -o jsonpath='{.items[0].metadata.name}')
 
-# デプロイ (PostgreSQL + Keycloak)
-kubectl apply -f keycloak.yaml
+# ログイン
+kubectl exec -n keycloak $POD -- $KCADM config credentials \
+  --server http://localhost:8080 --realm master \
+  --user admin --password Keycloak12345
+
+# realm 作成
+kubectl exec -n keycloak $POD -- $KCADM create realms \
+  -s realm=homelab -s enabled=true -s displayName="Homelab"
+
+# クライアント作成
+kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
+  -s clientId=argocd -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=argocd-keycloak-secret-2026 \
+  -s 'redirectUris=["http://argocd.homelab.local/auth/callback"]' \
+  -s 'webOrigins=["http://argocd.homelab.local"]' -s standardFlowEnabled=true
+
+kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
+  -s clientId=grafana -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=grafana-keycloak-secret-2026 \
+  -s 'redirectUris=["http://grafana.homelab.local/login/generic_oauth"]' \
+  -s 'webOrigins=["http://grafana.homelab.local"]' -s standardFlowEnabled=true
+
+kubectl exec -n keycloak $POD -- $KCADM create clients -r homelab \
+  -s clientId=harbor -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=harbor-keycloak-secret-2026 \
+  -s 'redirectUris=["http://harbor.homelab.local/c/oidc/callback"]' \
+  -s 'webOrigins=["http://harbor.homelab.local"]' -s standardFlowEnabled=true
+
+# グループ作成
+kubectl exec -n keycloak $POD -- $KCADM create groups -r homelab -s name=homelab-admins
+
+# 管理ユーザー作成
+kubectl exec -n keycloak $POD -- $KCADM create users -r homelab \
+  -s username=admin -s enabled=true -s email=admin@homelab.local
+kubectl exec -n keycloak $POD -- $KCADM set-password -r homelab \
+  --username admin --new-password Keycloak12345
 ```
 
-> **注意:** bitnami/keycloak chart は 2025年8月以降イメージが有料化のため、
-> 公式イメージ (`quay.io/keycloak/keycloak`) を使った manifest 方式に変更。
+### STEP 2: groups mapper を各クライアントに追加
 
-## アクセス
+クライアント ID は `kcadm.sh get clients -r homelab` で確認する。
 
-### Keycloak UI
+```bash
+# argocd クライアントの ID を取得
+CLIENT_ID=$(kubectl exec -n keycloak $POD -- $KCADM get clients -r homelab \
+  --fields id,clientId | grep -A1 '"argocd"' | grep id | grep -o '"[a-z0-9-]*"' | tail -1 | tr -d '"')
+
+kubectl exec -n keycloak $POD -- /bin/sh -c \
+  "$KCADM create clients/$CLIENT_ID/protocol-mappers/models -r homelab \
+  -s name=groups -s protocol=openid-connect \
+  -s protocolMapper=oidc-group-membership-mapper \
+  -s 'config={\"full.path\":\"false\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"groups\",\"userinfo.token.claim\":\"true\"}'"
+# grafana・harbor も同様に実施
+```
+
+### STEP 3: Harbor OIDC 設定
+
+```bash
+HARBOR_POD=$(kubectl get pod -n harbor -l component=core -o jsonpath='{.items[0].metadata.name}')
+
+kubectl exec -n harbor $HARBOR_POD -- curl -s -X PUT \
+  -u admin:Harbor12345 http://localhost:8080/api/v2.0/configurations \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "auth_mode":"oidc_auth",
+    "oidc_name":"Keycloak",
+    "oidc_endpoint":"http://keycloak.homelab.local/realms/homelab",
+    "oidc_client_id":"harbor",
+    "oidc_client_secret":"harbor-keycloak-secret-2026",
+    "oidc_scope":"openid,profile,email,groups",
+    "oidc_verify_cert":false,
+    "oidc_auto_onboard":true,
+    "oidc_user_claim":"preferred_username",
+    "oidc_groups_claim":"groups",
+    "oidc_admin_group":"homelab-admins"
+  }'
+```
+
+### STEP 4: CoreDNS カスタム設定 (クラスター内 DNS)
+
+Pod から `homelab.local` ドメインを解決できるよう CoreDNS に設定する。
+
+```bash
+kubectl apply -f k8s/coredns-custom.yaml
+kubectl rollout restart deployment/coredns -n kube-system
+```
+
+---
+
+## ログイン方法
+
+### ArgoCD SSO
+
+1. `http://argocd.homelab.local` を開く
+2. **Log in via Keycloak** をクリック
+3. `admin` / `Keycloak12345` でログイン
+
+> ローカル admin ログインは引き続き利用可能。
+
+### Grafana SSO
+
+1. `http://grafana.homelab.local` を開く
+2. **Sign in with Keycloak** をクリック
+3. `admin` / `Keycloak12345` でログイン
+
+### Harbor SSO
+
+1. `http://harbor.homelab.local` を開く
+2. **Login via OIDC Provider** をクリック
+3. `admin` / `Keycloak12345` でログイン
+
+> Harbor のローカル admin は引き続き使用可能 (auth_mode が oidc_auth でも admin は local 認証)。
+
+---
+
+## アクセス情報
 
 | 項目 | 値 |
 |------|-----|
 | URL | http://keycloak.homelab.local |
-| ユーザー | `admin` |
-| 初期パスワード | `Keycloak12345` |
-
-> **注意:** 初回ログイン後に必ずパスワードを変更すること。
-
-#### Windows PC からのアクセス設定
-
-管理者権限の PowerShell で以下を実行する。
-
-```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
-```
-
-## 基本的な使い方
-
-### Keycloak とは
-
-複数のアプリに対して「1つのログインで全部使える」SSO (Single Sign-On) を提供するツール。
-Grafana・ArgoCD・Harbor などのログインを Keycloak に統一できる。
-
-```
-ユーザーが Grafana にアクセス
-    ↓
-「Keycloak でログイン」にリダイレクト
-    ↓
-Keycloak で1回ログイン → Grafana・ArgoCD など全てにアクセス可能
-```
-
-### STEP 1: ログイン
-
-1. `http://keycloak.homelab.local` を開く
-2. **Administration Console** をクリック
-3. `admin` / `Keycloak12345` でログイン
-4. 右上ユーザーアイコン → **Manage account → Password** でパスワードを変更する
-
-> **注意:** 初回起動時は設定ビルドが走るため 3〜5 分かかる。
-
-### STEP 2: homelab Realm を作成する
-
-Realm はアプリ群を管理する「テナント」のようなもの。ラボ用に1つ作成する。
-
-1. 左上の **Keycloak** (master realm) をクリック
-2. **Create Realm** をクリック
-3. Realm name: `homelab` → **Create**
-
-以降の操作は `homelab` realm で行う。
-
-### STEP 3: ユーザーを作成する
-
-1. 左メニュー → **Users → Create new user**
-2. 入力:
-   - Username: 任意 (例: `yuto`)
-   - Email: 任意
-3. **Create** をクリック
-4. **Credentials タブ → Set password** でパスワードを設定
-   - Temporary: **OFF** にする (OFF にしないとログイン時にパスワード変更を求められる)
-
-### STEP 4: 動作確認
-
-左メニュー → **Sessions** でアクティブなセッションが確認できる。
-ユーザーが各アプリ (Grafana など) と OIDC 連携すると、ここにセッションが表示される。
+| ユーザー (master realm) | `admin` / `Keycloak12345` |
+| ユーザー (homelab realm) | `admin` / `Keycloak12345` |
 
 ---
-
-## Realm の作成 (再掲)
-
-各サービスと連携するための Realm を作成する。
-
-1. Keycloak UI にログイン
-2. 左上の "master" をクリック → "Create Realm"
-3. Realm name: `homelab` → "Create"
-
-## OIDC クライアントの登録
-
-### Grafana との OIDC 統合
-
-1. Keycloak UI → `homelab` realm → Clients → "Create client"
-2. 設定:
-   - Client ID: `grafana`
-   - Client type: OpenID Connect
-   - Root URL: `http://grafana.homelab.local`
-   - Valid redirect URIs: `http://grafana.homelab.local/login/generic_oauth`
-3. Credentials タブで Client secret をメモする
-
-#### Grafana の values.yaml に追記
-
-```yaml
-grafana:
-  grafana.ini:
-    auth.generic_oauth:
-      enabled: true
-      name: Keycloak
-      allow_sign_up: true
-      client_id: grafana
-      client_secret: <your-client-secret>
-      scopes: openid email profile
-      auth_url: http://keycloak.homelab.local/realms/homelab/protocol/openid-connect/auth
-      token_url: http://keycloak.homelab.local/realms/homelab/protocol/openid-connect/token
-      api_url: http://keycloak.homelab.local/realms/homelab/protocol/openid-connect/userinfo
-      role_attribute_path: contains(roles[*], 'admin') && 'Admin' || 'Viewer'
-```
-
-### ArgoCD との OIDC 統合
-
-1. Keycloak UI → `homelab` realm → Clients → "Create client"
-2. 設定:
-   - Client ID: `argocd`
-   - Client type: OpenID Connect
-   - Root URL: `http://argocd.homelab.local`
-   - Valid redirect URIs: `http://argocd.homelab.local/auth/callback`
-3. Credentials タブで Client secret をメモする
-
-#### ArgoCD の values-argocd.yaml に追記
-
-```yaml
-server:
-  config:
-    oidc.config: |
-      name: Keycloak
-      issuer: http://keycloak.homelab.local/realms/homelab
-      clientID: argocd
-      clientSecret: <your-client-secret>
-      requestedScopes: ["openid", "profile", "email", "groups"]
-```
-
-### Kibana との OIDC 統合
-
-1. Keycloak UI → `homelab` realm → Clients → "Create client"
-2. 設定:
-   - Client ID: `kibana`
-   - Client type: OpenID Connect
-   - Root URL: `http://kibana.homelab.local`
-   - Valid redirect URIs: `http://kibana.homelab.local/api/security/oidc/callback`
-3. Credentials タブで Client secret をメモする
-
-#### Kibana の設定に追記 (kibana.yaml)
-
-```yaml
-xpack.security.authc.providers:
-  oidc.oidc1:
-    order: 0
-    realm: keycloak
-    description: "Log in with Keycloak"
-```
-
-## ユーザーの作成
-
-```
-Keycloak UI → homelab realm → Users → "Create new user"
-  Username: <ユーザー名>
-  Email: <メールアドレス>
-  → "Create" → Credentials タブ → パスワード設定
-```
 
 ## 動作確認
 
@@ -205,26 +191,17 @@ Keycloak UI → homelab realm → Users → "Create new user"
 # Pod の状態確認
 kubectl get pods -n keycloak
 
-# NAME                        READY   STATUS    RESTARTS
-# keycloak-xxx                1/1     Running   0
-# keycloak-postgresql-0       1/1     Running   0
-
-# OIDC エンドポイントの確認
-curl http://keycloak.homelab.local/realms/homelab/.well-known/openid-configuration
+# OIDC エンドポイントの確認 (クラスター内 Pod から)
+kubectl run -it --rm test --image=alpine --restart=Never -- \
+  wget -qO- http://keycloak.homelab.local/realms/homelab/.well-known/openid-configuration
 ```
+
+---
 
 ## アンインストール
 
 ```bash
 helm uninstall keycloak -n keycloak
 kubectl delete namespace keycloak
-# PVC は自動削除されないため手動で削除
 kubectl delete pvc -n keycloak --all
 ```
-
-## 次のステップ
-
-- Grafana (Phase 1) と OIDC 連携
-- ArgoCD (Phase 3-1) と OIDC 連携
-- Kibana (Phase 2-1) と OIDC 連携
-- Vault (Phase 4-1) と LDAP/OIDC 連携

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  homelab.server: |
+    homelab.local:53 {
+        hosts {
+            192.168.210.24 keycloak.homelab.local
+            192.168.210.24 argocd.homelab.local
+            192.168.210.24 grafana.homelab.local
+            192.168.210.24 harbor.homelab.local
+            192.168.210.24 vault.homelab.local
+            192.168.210.24 kibana.homelab.local
+            192.168.210.24 argo-workflows.homelab.local
+            fallthrough
+        }
+    }
