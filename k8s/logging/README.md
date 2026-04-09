@@ -107,6 +107,8 @@ kubectl exec -n logging elasticsearch-master-0 -- \
 
 > **注意1:** Elasticsearch 8.x はデフォルトで TLS が有効。`values-elasticsearch.yaml` で `createCert: false` および `xpack.security.http.ssl.enabled: false` を設定することで HTTP を使用する。設定変更後は PVC を削除してクリーンインストールが必要。
 
+> **注意3:** シングルノード構成では `elasticsearch.yml` に `discovery.type: single-node` を必ず設定する。未設定の場合、Helm chart が `discovery.seed_hosts=[elasticsearch-master-headless]` を自動付与し、30秒ごとに WARN ログが出力される。Fluent Bit がこれを収集するため Kibana ML ジョブ (Log Anomaly Detection) が誤検知する原因となる。
+
 > **注意2:** シングルノード構成では replica を配置できないため、クラスター状態が `yellow` になり readiness probe が失敗する。以下のコマンドで全インデックスの replica を 0 に設定する。
 
 ```bash

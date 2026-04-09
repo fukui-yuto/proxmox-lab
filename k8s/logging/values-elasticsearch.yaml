@@ -15,6 +15,7 @@ esConfig:
     xpack.security.enrollment.enabled: false
     xpack.security.http.ssl.enabled: false
     xpack.security.transport.ssl.enabled: false
+    discovery.type: single-node
 
 resources:
   requests:
