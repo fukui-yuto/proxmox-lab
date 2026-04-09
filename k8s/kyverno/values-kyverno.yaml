@@ -1,5 +1,6 @@
 # Kyverno Helm values
-# cleanup jobs は bitnami/kubectl (Docker Hub) が pull 不可のため registry.k8s.io に変更
+# cleanup jobs は bitnami/kubectl (Docker Hub) が pull 不可のため cgr.dev/chainguard/kubectl に変更
+# registry.k8s.io/kubectl は root 実行のため runAsNonRoot=true に非対応
 # crds.install=false: Kyverno CRD は大きすぎて ArgoCD の annotations サイズ上限(262144 bytes)を超えるため
 #   Helm による CRD 管理を無効化し既存 CRD をそのまま使用する
 # ラボ向けに軽量化した設定
@@ -72,36 +73,37 @@ grafana:
 # -------------------------------------------------------------------
 policyReportsCleanup:
   image:
-    registry: registry.k8s.io
-    repository: kubectl
-    tag: 'v1.29.3'
+    registry: cgr.dev
+    repository: chainguard/kubectl
+    tag: 'latest'
 
 # -------------------------------------------------------------------
 # Cleanup Jobs (Docker Hub の bitnami/kubectl が pull 不可のため上書き)
+# cgr.dev/chainguard/kubectl は非 root で動作するため runAsNonRoot=true に対応
 # -------------------------------------------------------------------
 cleanupJobs:
   admissionReports:
     image:
-      registry: registry.k8s.io
-      repository: kubectl
-      tag: 'v1.29.3'
+      registry: cgr.dev
+      repository: chainguard/kubectl
+      tag: 'latest'
   clusterAdmissionReports:
     image:
-      registry: registry.k8s.io
-      repository: kubectl
-      tag: 'v1.29.3'
+      registry: cgr.dev
+      repository: chainguard/kubectl
+      tag: 'latest'
   updateRequests:
     image:
-      registry: registry.k8s.io
-      repository: kubectl
-      tag: 'v1.29.3'
+      registry: cgr.dev
+      repository: chainguard/kubectl
+      tag: 'latest'
   ephemeralReports:
     image:
-      registry: registry.k8s.io
-      repository: kubectl
-      tag: 'v1.29.3'
+      registry: cgr.dev
+      repository: chainguard/kubectl
+      tag: 'latest'
   clusterEphemeralReports:
     image:
-      registry: registry.k8s.io
-      repository: kubectl
-      tag: 'v1.29.3'
+      registry: cgr.dev
+      repository: chainguard/kubectl
+      tag: 'latest'
