@@ -21,7 +21,7 @@ spec:
       hostPID: true
       initContainers:
         - name: install-iscsi
-          image: ubuntu:22.04
+          image: harbor.homelab.local/proxy/library/ubuntu:22.04
           command:
             - nsenter
             - --mount=/proc/1/ns/mnt
@@ -39,7 +39,7 @@ spec:
             privileged: true
       containers:
         - name: pause
-          image: busybox:1.36
+          image: harbor.homelab.local/proxy/library/busybox:1.36
           command: ["sh", "-c", "sleep infinity"]
           resources:
             requests:
