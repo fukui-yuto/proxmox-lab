@@ -18,6 +18,7 @@ prometheus:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
+          storageClassName: longhorn
           resources:
             requests:
               storage: 10Gi
@@ -39,6 +40,7 @@ grafana:
   persistence:
     enabled: true
     size: 2Gi
+    storageClassName: longhorn
 
   grafana.ini:
     server:
