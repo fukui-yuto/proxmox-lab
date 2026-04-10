@@ -33,6 +33,9 @@ spec:
           image: postgres:16-alpine
           ports:
             - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           envFrom:
             - secretRef:
                 name: keycloak-postgresql
