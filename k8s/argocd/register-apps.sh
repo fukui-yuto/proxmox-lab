@@ -44,43 +44,51 @@ wait_app kyverno-policies 180
 sleep 10
 
 echo ""
-echo "=== Wave 3: monitoring ==="
+echo "=== Wave 4: monitoring ==="
 kubectl apply -f "${APPS_DIR}/monitoring.yaml"
 sleep 30
 
 echo ""
-echo "=== Wave 2 (オンデマンド): vault ==="
+echo "=== Wave 2: longhorn (分散ストレージ) ==="
+kubectl apply -f "${APPS_DIR}/longhorn.yaml"
+echo "  → longhorn-prereqs (open-iscsi DaemonSet) の起動待ち..."
+sleep 30
+wait_app longhorn 600
+sleep 30
+
+echo ""
+echo "=== Wave 3 (オンデマンド): vault ==="
 kubectl apply -f "${APPS_DIR}/vault.yaml"
 sleep 10
 
 echo ""
-echo "=== Wave 4 (オンデマンド): harbor ==="
+echo "=== Wave 5 (オンデマンド): harbor ==="
 kubectl apply -f "${APPS_DIR}/harbor.yaml"
 sleep 10
 
 echo ""
-echo "=== Wave 5 (オンデマンド): keycloak ==="
+echo "=== Wave 6 (オンデマンド): keycloak ==="
 kubectl apply -f "${APPS_DIR}/keycloak.yaml"
 sleep 10
 
 echo ""
-echo "=== Wave 6-8: logging ==="
+echo "=== Wave 7-9: logging ==="
 kubectl apply -f "${APPS_DIR}/logging.yaml"
 sleep 30
 
 echo ""
-echo "=== Wave 3 (オンデマンド): argo-workflows / argo-events ==="
+echo "=== Wave 4 (オンデマンド): argo-workflows / argo-events ==="
 kubectl apply -f "${APPS_DIR}/argo-workflows.yaml"
 kubectl apply -f "${APPS_DIR}/argo-events.yaml"
 sleep 10
 
 echo ""
-echo "=== Wave 9-10 (オンデマンド): tracing ==="
+echo "=== Wave 10-11 (オンデマンド): tracing ==="
 kubectl apply -f "${APPS_DIR}/tracing.yaml"
 sleep 10
 
 echo ""
-echo "=== Wave 11-14: aiops ==="
+echo "=== Wave 12-15: aiops ==="
 kubectl apply -f "${APPS_DIR}/aiops.yaml"
 
 echo ""
@@ -91,8 +99,6 @@ echo ""
 echo "=== 完了 ==="
 echo "ArgoCD UI: http://argocd.homelab.local"
 echo ""
-echo "常時起動アプリ (Sync Wave 0→14 で自動デプロイ中):"
-echo "  kyverno → kyverno-policies → monitoring → logging → aiops"
-echo ""
-echo "オンデマンドアプリは ArgoCD UI から手動 Sync してください:"
-echo "  vault / harbor / keycloak / tracing / argo-workflows / argo-events"
+echo "全アプリ (Sync Wave 0→15 で自動デプロイ中):"
+echo "  kyverno → kyverno-policies → longhorn → vault → monitoring/argo-workflows/argo-events"
+echo "  → harbor → keycloak → logging → tracing → aiops"

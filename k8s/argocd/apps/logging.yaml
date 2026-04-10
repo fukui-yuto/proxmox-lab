@@ -5,7 +5,7 @@ metadata:
   name: logging-elasticsearch
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/sync-wave: "7"
 spec:
   project: default
   sources:
@@ -39,7 +39,7 @@ metadata:
   name: logging-fluent-bit
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "7"
+    argocd.argoproj.io/sync-wave: "8"
 spec:
   project: default
   sources:
@@ -68,7 +68,7 @@ metadata:
   name: logging-kibana
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "8"
+    argocd.argoproj.io/sync-wave: "9"
 spec:
   project: default
   source:

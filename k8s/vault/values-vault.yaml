@@ -45,6 +45,7 @@ server:
     enabled: true
     size: 10Gi
     accessMode: ReadWriteOnce
+    storageClass: longhorn
 
   # 監査ログ保存 (任意)
   auditStorage:

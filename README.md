@@ -58,28 +58,24 @@ Proxmox VE クラスターの構築から k3s クラスター上の AIOps まで
 | 5 | [k8s/README.md](k8s/README.md) | Windows hosts ファイル設定・helm インストール確認 |
 | 6 | [k8s/argocd/README.md](k8s/argocd/README.md) | `bash install.sh` → `bash register-apps.sh` |
 
-`register-apps.sh` で全アプリの ArgoCD Application を一括登録。Sync Wave 0→14 の順に自動デプロイされる。
+`register-apps.sh` で全アプリの ArgoCD Application を一括登録。Sync Wave 0→15 の順に自動デプロイされる。
 
-#### 常時起動アプリ (ArgoCD 自動 Sync)
+#### 全アプリ (ArgoCD 自動 Sync)
 
 | Wave | アプリ | README |
 |------|--------|--------|
 | 0 | kyverno | [k8s/kyverno/README.md](k8s/kyverno/README.md) |
 | 1 | kyverno-policies | ↑ 同上 |
-| 3 | monitoring (Prometheus + Grafana + Alertmanager) | [k8s/monitoring/README.md](k8s/monitoring/README.md) |
-| 6-8 | logging (Elasticsearch + Fluent Bit + Kibana) | [k8s/logging/README.md](k8s/logging/README.md) |
-| 11-14 | aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | [k8s/aiops/README.md](k8s/aiops/README.md) |
-
-#### オンデマンドアプリ (ArgoCD 手動 Sync)
-
-| Wave | アプリ | README | 用途 |
-|------|--------|--------|------|
-| 2 | vault | [k8s/vault/README.md](k8s/vault/README.md) | シークレット管理が必要な時 |
-| 3 | argo-workflows | [k8s/argo-workflows/README.md](k8s/argo-workflows/README.md) | 自動修復が必要な時 |
-| 3 | argo-events | [k8s/argo-events/README.md](k8s/argo-events/README.md) | 自動修復が必要な時 |
-| 4 | harbor | [k8s/harbor/README.md](k8s/harbor/README.md) | イメージビルド・push 時 |
-| 5 | keycloak | [k8s/keycloak/README.md](k8s/keycloak/README.md) | SSO が必要な時 (`bash setup.sh`) |
-| 9-10 | tracing (Tempo + OpenTelemetry) | [k8s/tracing/README.md](k8s/tracing/README.md) | トレース調査時 |
+| 2 | longhorn (分散永続ストレージ) | [k8s/longhorn/README.md](k8s/longhorn/README.md) |
+| 3 | vault | [k8s/vault/README.md](k8s/vault/README.md) |
+| 4 | monitoring (Prometheus + Grafana + Alertmanager) | [k8s/monitoring/README.md](k8s/monitoring/README.md) |
+| 4 | argo-workflows | [k8s/argo-workflows/README.md](k8s/argo-workflows/README.md) |
+| 4 | argo-events | [k8s/argo-events/README.md](k8s/argo-events/README.md) |
+| 5 | harbor | [k8s/harbor/README.md](k8s/harbor/README.md) |
+| 6 | keycloak | [k8s/keycloak/README.md](k8s/keycloak/README.md) |
+| 7-9 | logging (Elasticsearch + Fluent Bit + Kibana) | [k8s/logging/README.md](k8s/logging/README.md) |
+| 10-11 | tracing (Tempo + OpenTelemetry) | [k8s/tracing/README.md](k8s/tracing/README.md) |
+| 12-15 | aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | [k8s/aiops/README.md](k8s/aiops/README.md) |
 
 ### 日常運用
 
@@ -92,20 +88,16 @@ Proxmox VE クラスターの構築から k3s クラスター上の AIOps まで
 
 ## k8s アプリ一覧
 
-### 常時起動
+### アプリ一覧
 
 | アプリ | URL | 説明 |
 |--------|-----|------|
 | ArgoCD | http://argocd.homelab.local | GitOps 管理コンソール |
+| Longhorn | http://longhorn.homelab.local | 分散永続ストレージ管理UI |
 | Grafana | http://grafana.homelab.local | メトリクス・AIOps ダッシュボード |
 | Elasticsearch | http://elasticsearch.homelab.local | ログストレージ |
 | Kibana | http://kibana.homelab.local | ログ閲覧・検索 |
 | alert-summarizer | http://alert-summarizer.homelab.local | AlertManager → LLM サマリ → Grafana アノテーション |
-
-### オンデマンド
-
-| アプリ | URL | 説明 |
-|--------|-----|------|
 | Vault | http://vault.homelab.local | シークレット管理 |
 | Harbor | http://harbor.homelab.local | コンテナイメージレジストリ |
 | Keycloak | http://keycloak.homelab.local | SSO / 認証基盤 (ArgoCD・Grafana・Harbor 連携済み) |
@@ -197,3 +189,32 @@ proxmox-lab/
 | LLM サマリ | Claude API (claude-haiku-4-5) |
 | イベント駆動 | Argo Events + Argo Workflows |
 | テスト | Playwright (E2E / API) |
+
+構築手順 (最小コマンド数)
+
+# 1. Raspi
+```
+bash raspi-setup.sh
+```
+
+# 2. Ansible
+```
+ansible-playbook playbooks/00-bootstrap.yml -k
+ansible-playbook playbooks/site.yml
+```
+
+# 3. Packer
+```
+packer build ubuntu-2404.pkr.hcl
+```
+
+# 4. Terraform
+```
+terraform apply
+```
+
+# 5. k8s (ArgoCD + 全アプリ)
+```
+bash k8s/argocd/install.sh
+bash k8s/argocd/register-apps.sh
+```

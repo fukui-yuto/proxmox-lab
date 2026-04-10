@@ -1,0 +1,71 @@
+# Longhorn Helm values
+# ラボ向け分散ブロックストレージ設定
+# Helm chart: longhorn/longhorn, version: 1.6.2
+
+# -------------------------------------------------------------------
+# デフォルト設定
+# -------------------------------------------------------------------
+defaultSettings:
+  # デフォルトレプリカ数 (2: 2ノードに分散して耐障害性を確保)
+  defaultReplicaCount: 2
+
+  # ストレージデータパス
+  defaultDataPath: /var/lib/longhorn
+
+  # ノードのディスクの最小利用可能割合 (25% 以下になったら新規ボリューム割り当て停止)
+  storageMinimalAvailablePercentage: 25
+
+  # レプリカの自動再構築を有効化
+  replicaAutoBalance: best-effort
+
+# -------------------------------------------------------------------
+# デフォルト StorageClass 設定
+# -------------------------------------------------------------------
+persistence:
+  # Longhorn をデフォルト StorageClass にする
+  defaultClass: true
+  defaultClassReplicaCount: 2
+  defaultFsType: ext4
+  reclaimPolicy: Retain
+
+# -------------------------------------------------------------------
+# Longhorn UI Ingress
+# -------------------------------------------------------------------
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  host: longhorn.homelab.local
+  tls: false
+
+# -------------------------------------------------------------------
+# リソース制限 (ラボ向けに軽量化)
+# -------------------------------------------------------------------
+longhornManager:
+  tolerations: []
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+longhornDriver:
+  tolerations: []
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+longhornUI:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

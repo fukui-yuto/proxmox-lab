@@ -6,7 +6,7 @@ metadata:
   name: aiops-alerting
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "11"
+    argocd.argoproj.io/sync-wave: "12"
 spec:
   project: default
   source:
@@ -33,7 +33,7 @@ metadata:
   name: aiops-pushgateway
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "11"
+    argocd.argoproj.io/sync-wave: "12"
 spec:
   project: default
   sources:
@@ -63,7 +63,7 @@ metadata:
   name: aiops-alert-summarizer
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "12"
+    argocd.argoproj.io/sync-wave: "13"
 spec:
   project: default
   source:
@@ -89,7 +89,7 @@ metadata:
   name: aiops-anomaly-detection
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "12"
+    argocd.argoproj.io/sync-wave: "13"
 spec:
   project: default
   source:
@@ -115,7 +115,7 @@ metadata:
   name: aiops-auto-remediation
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "13"
+    argocd.argoproj.io/sync-wave: "14"
 spec:
   project: default
   source:
@@ -142,7 +142,7 @@ metadata:
   name: aiops-auto-remediation-events
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "14"
+    argocd.argoproj.io/sync-wave: "15"
 spec:
   project: default
   source:

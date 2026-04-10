@@ -38,19 +38,24 @@ persistence:
     registry:
       size: 10Gi
       accessMode: ReadWriteOnce
+      storageClass: longhorn
     jobservice:
       jobLog:
         size: 5Gi
         accessMode: ReadWriteOnce
+        storageClass: longhorn
     database:
       size: 5Gi
       accessMode: ReadWriteOnce
+      storageClass: longhorn
     redis:
       size: 5Gi
       accessMode: ReadWriteOnce
+      storageClass: longhorn
     trivy:
       size: 5Gi
       accessMode: ReadWriteOnce
+      storageClass: longhorn
 
 # -------------------------------------------------------------------
 # Core サービス

@@ -1,0 +1,51 @@
+# open-iscsi インストール DaemonSet
+# Longhorn の前提条件として全 k3s ノードに open-iscsi をインストールする
+# 参考: https://longhorn.io/docs/1.6.2/deploy/install/#installing-open-iscsi
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: longhorn-iscsi-installation
+  namespace: longhorn-system
+  labels:
+    app: longhorn-iscsi-installation
+spec:
+  selector:
+    matchLabels:
+      app: longhorn-iscsi-installation
+  template:
+    metadata:
+      labels:
+        app: longhorn-iscsi-installation
+    spec:
+      hostNetwork: true
+      hostPID: true
+      initContainers:
+        - name: install-iscsi
+          image: ubuntu:22.04
+          command:
+            - nsenter
+            - --mount=/proc/1/ns/mnt
+            - --
+            - bash
+            - -c
+            - |
+              if ! dpkg -l open-iscsi &>/dev/null; then
+                apt-get update -qq
+                apt-get install -y open-iscsi
+              fi
+              systemctl enable iscsid || true
+              systemctl start iscsid || true
+          securityContext:
+            privileged: true
+      containers:
+        - name: pause
+          image: gcr.io/google-containers/pause:3.9
+          resources:
+            requests:
+              cpu: 1m
+              memory: 4Mi
+            limits:
+              cpu: 10m
+              memory: 8Mi
+      tolerations:
+        - operator: Exists

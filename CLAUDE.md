@@ -100,15 +100,15 @@
 | 種別 | アプリ | 理由 |
 |------|--------|------|
 | **常時起動** (automated sync) | kyverno, kyverno-policies | Webhook が落ちるとクラスター操作不能になるため必須 |
+| **常時起動** (automated sync) | longhorn | 分散永続ストレージ (他アプリの PVC の前提) |
+| **常時起動** (automated sync) | vault | シークレット管理 |
 | **常時起動** (automated sync) | monitoring (kube-prometheus-stack) | クラスター監視 |
+| **常時起動** (automated sync) | harbor | コンテナイメージレジストリ |
+| **常時起動** (automated sync) | keycloak | SSO / 認証基盤 |
 | **常時起動** (automated sync) | logging (elasticsearch / fluent-bit / kibana) | ログ収集・閲覧 |
+| **常時起動** (automated sync) | tracing (tempo / otel-collector) | 分散トレーシング |
+| **常時起動** (automated sync) | argo-workflows / argo-events | 自動修復ワークフロー |
 | **常時起動** (automated sync) | aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | 予測アラート・ログ異常検知・自動修復 |
-| **オンデマンド** (手動 sync) | vault | シークレット管理が必要な時 |
-| **オンデマンド** (手動 sync) | harbor | イメージビルド・push 時 |
-| **オンデマンド** (手動 sync) | keycloak | SSO が必要な時 |
-| **オンデマンド** (手動 sync) | tracing (tempo / otel-collector) | トレース調査時 |
-| **オンデマンド** (手動 sync) | argo-workflows | auto-remediation が必要な時 |
-| **オンデマンド** (手動 sync) | argo-events | auto-remediation が必要な時 |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -118,19 +118,20 @@
 |------|--------|
 | 0 | kyverno |
 | 1 | kyverno-policies |
-| 2 | vault |
-| 3 | monitoring / argo-workflows / argo-events |
-| 4 | harbor |
-| 5 | keycloak |
-| 6 | logging-elasticsearch |
-| 7 | logging-fluent-bit |
-| 8 | logging-kibana |
-| 9 | tracing-tempo |
-| 10 | tracing-otel-collector |
-| 11 | aiops-alerting / aiops-pushgateway |
-| 12 | aiops-alert-summarizer / aiops-anomaly-detection |
-| 13 | aiops-auto-remediation |
-| 14 | aiops-auto-remediation-events |
+| 2 | longhorn-prereqs / longhorn |
+| 3 | vault |
+| 4 | monitoring / argo-workflows / argo-events |
+| 5 | harbor |
+| 6 | keycloak |
+| 7 | logging-elasticsearch |
+| 8 | logging-fluent-bit |
+| 9 | logging-kibana |
+| 10 | tracing-tempo |
+| 11 | tracing-otel-collector |
+| 12 | aiops-alerting / aiops-pushgateway |
+| 13 | aiops-alert-summarizer / aiops-anomaly-detection |
+| 14 | aiops-auto-remediation |
+| 15 | aiops-auto-remediation-events |
 
 ---
 
@@ -169,6 +170,7 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argocd.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  longhorn.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"

@@ -33,6 +33,7 @@ esJavaOpts: "-Xmx512m -Xms512m"
 
 volumeClaimTemplate:
   accessModes: ["ReadWriteOnce"]
+  storageClassName: longhorn
   resources:
     requests:
       storage: 10Gi
