@@ -27,6 +27,7 @@ prometheus:
 # Grafana
 # -------------------------------------------------------------------
 grafana:
+  assertNoLeakedSecrets: false  # client_secret を values に直接記述するため無効化
   adminPassword: "changeme"   # 初回ログイン後に必ず変更すること
 
   resources:
