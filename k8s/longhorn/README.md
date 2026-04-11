@@ -74,36 +74,100 @@ Longhorn 導入後は `local-path` に代わり `longhorn` がデフォルトに
 
 ---
 
-## 既存 PVC の移行手順
+## 既存 PVC の移行手順 (実施済み: 2026-04-11)
 
-既に local-path で作成された PVC を Longhorn に移行する場合、データを再作成する必要がある。
+local-path から Longhorn への全 PVC 移行を完了。以下に実施した手順を記録する。
 
-> **注意**: 以下の手順を実行するとそのアプリのデータは失われる。
-> 必要に応じて事前にバックアップを取ること。
+### 前提: multipathd の干渉を防ぐ
 
-### 例: Elasticsearch の PVC 移行
+Longhorn は iSCSI (IET VIRTUAL-DISK) を使ってボリュームをアタッチする。
+multipathd がこれらを掴んでしまうと `mount failed: exit status 32` となり Pod がスタックする。
 
-```bash
-# 1. ArgoCD で elasticsearch を一時的に停止 (suspend)
-kubectl scale statefulset elasticsearch-master -n logging --replicas=0
+**k3s-master での対処 (`/etc/multipath.conf`):**
 
-# 2. 古い PVC を削除
-kubectl delete pvc elasticsearch-master-elasticsearch-master-0 -n logging
+```
+defaults {
+    user_friendly_names yes
+}
 
-# 3. ArgoCD で再 Sync → 新しい Longhorn PVC が自動作成される
+blacklist {
+    device {
+        vendor "IET"
+        product "VIRTUAL-DISK"
+    }
+}
 ```
 
-### 例: Harbor の PVC 移行
+適用コマンド:
+```bash
+sudo multipath -f <mpathX>     # 掴んでいるデバイスをリリース
+sudo multipathd reconfigure    # 設定再読み込み
+```
+
+> **注意**: 他のノードでも同様の問題が発生する可能性がある。新規ノード追加時は `/etc/multipath.conf` に同様のブラックリストを追加すること。
+
+### 移行手順 (StatefulSet の場合)
+
+StatefulSet の PVC は volumeClaimTemplates で自動作成されるため、古い PVC を削除してから再作成する。
+
+**ただし PVC 削除は詰まりやすい** — `kubectl delete pvc` が Terminating のままハングする場合がある。
+代わりに **PGDATA サブディレクトリ** の活用 (PostgreSQL) など、データ損失なしに移行できる方法を優先すること。
+
+#### PostgreSQL (keycloak-postgresql) の移行例
+
+Longhorn ボリュームルートに `lost+found` が存在するため、initdb がエラーになる問題への対処:
+
+```yaml
+# keycloak.yaml の PostgreSQL コンテナに PGDATA env var を追加
+env:
+  - name: PGDATA
+    value: /var/lib/postgresql/data/pgdata  # サブディレクトリを使用
+```
+
+これにより PVC 削除なしで initdb エラーを回避できる。
+
+#### Harbor Database の権限修正
+
+Harbor の postgres コンテナが `/var/lib/postgresql/data/pgdata` のパーミッション不正で起動しない場合:
+
+```yaml
+# 一時 Job でパーミッション修正
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fix-harbor-db-permissions
+  namespace: harbor
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: k3s-master  # PVC がアタッチされているノードに固定
+      containers:
+        - name: fix-perms
+          image: postgres:16-alpine
+          command: ["sh", "-c", "chmod -R 700 /data/pgdata && ls -la /data/pgdata/"]
+          volumeMounts:
+            - name: db-data
+              mountPath: /data
+          securityContext:
+            runAsUser: 0
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: database-data-harbor-database-0
+```
+
+### デフォルト StorageClass の変更
+
+k3s は起動時に `local-path` をデフォルト StorageClass に設定するため、Longhorn 導入後は手動で変更が必要:
 
 ```bash
-# 1. Harbor を停止
-kubectl scale deployment harbor-core harbor-registry harbor-jobservice -n harbor --replicas=0
-
-# 2. 古い PVC を削除
-kubectl delete pvc -n harbor -l app=harbor
-
-# 3. ArgoCD で再 Sync
+kubectl patch storageclass local-path \
+  -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 ```
+
+> **注意**: k3s 再起動のたびにリセットされる可能性がある。恒久的に無効化するには k3s のインストール時に `--disable=local-storage` オプションを追加する (`terraform/main.tf` の remote-exec で管理)。
 
 ---
 
