@@ -52,3 +52,35 @@
   handlers:
     - name: update initramfs
       command: update-initramfs -u
+
+- name: r8169 NIC チューニング (pve-node03)
+  hosts: pve-node03
+  gather_facts: false
+  # pve-node03: BOSGAME E2 / Ryzen 5 3550H / Realtek r8169 NIC
+  # e1000e と異なり InterruptThrottleRate は不要だが、
+  # TSO/GSO/GRO 無効化と txqueuelen 拡大はネットワーク安定化に有効
+  tasks:
+    - name: NIC チューニングスクリプトを配置 (/etc/network/if-up.d)
+      copy:
+        dest: /etc/network/if-up.d/disable-nic-offload
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # r8169 NIC 安定化チューニング
+          [ "$IFACE" = "nic0" ] || exit 0
+          # TSO/GSO/GRO 無効化
+          ethtool -K nic0 tso off gso off gro off
+          # RX/TX リングバッファ拡大
+          ethtool -G nic0 rx 4096 tx 4096 || true
+          # 送信キュー長拡大 (デフォルト 1000 → 10000)
+          ip link set nic0 txqueuelen 10000
+
+    - name: NIC オフロードを即時無効化
+      command: ethtool -K nic0 tso off gso off gro off
+
+    - name: RX/TX リングバッファを即時拡大
+      command: ethtool -G nic0 rx 4096 tx 4096
+      ignore_errors: true
+
+    - name: txqueuelen を即時拡大
+      command: ip link set nic0 txqueuelen 10000
