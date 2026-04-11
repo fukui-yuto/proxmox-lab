@@ -15,7 +15,7 @@ ansible/
     ├── 05-raspi-network.yml      # Raspberry Pi 静的ルート設定
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
-    ├── 08-nic-tuning.yml         # pve-node01 e1000e NIC チューニング
+    ├── 08-nic-tuning.yml         # 全 Proxmox ノード NIC チューニング (pve-node01/02: e1000e, pve-node03: r8169)
     └── site.yml                  # 01〜08 を一括実行
 ```
 
@@ -62,7 +62,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 | `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
-| `08-nic-tuning.yml` | pve-node01 e1000e NIC チューニング (TSO/GSO/GRO 無効化・リングバッファ拡大・割り込みコアレシング・txqueuelen 拡大) |
+| `08-nic-tuning.yml` | 全 Proxmox ノード NIC チューニング (pve-node01/02: e1000e TSO/GSO/GRO 無効化・リングバッファ 4096・コアレシング・txqueuelen 10000 / pve-node03: r8169 TSO/GSO/GRO 無効化・txqueuelen 10000) |
 
 ### クラスター確認
 
@@ -157,15 +157,15 @@ ansible-playbook -i inventory/hosts.yml playbooks/04-network.yml
 
 ## トラブルシューティング
 
-### pve-node01 起動後の NIC チューニング適用手順
+### NIC チューニング適用手順 (全 Proxmox ノード)
 
-k8s を起動する前に必ず適用すること。未適用のまま k8s を立ち上げると NIC ハングが再発する。
+k8s を起動する前に全ノードへ適用すること。未適用のまま k8s を立ち上げると NIC ハングが再発する。
 
 ```bash
-# 1. NIC チューニングを適用
+# 1. 全ノードへ NIC チューニングを適用
 ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
 
-# 2. 適用確認
+# 2. 適用確認 (e1000e ノード: pve-node01 / pve-node02)
 ssh root@192.168.210.11 ethtool -k nic0 | grep -E "tcp-segmentation|generic-segmentation|generic-receive"
 # tcp-segmentation-offload: off
 # generic-segmentation-offload: off
@@ -185,11 +185,11 @@ ssh root@192.168.210.11 ip link show nic0 | grep qlen
 
 ---
 
-### pve-node01 が k8s デプロイ時に落ちる場合
+### pve-node01 / pve-node02 が k8s デプロイ時に落ちる場合
 
-**症状:** k8s アプリをデプロイするとネットワークが切断され pve-node01 がクラッシュする。
+**症状:** k8s アプリをデプロイするとネットワークが切断され pve-node01 または pve-node02 がクラッシュする。
 
-**原因:** pve-node01 の e1000e NIC (Intel Gigabit) が高負荷時に Hardware Unit Hang を起こし、
+**原因:** pve-node01/02 (NUC5i3RYH / i3-5010U) の e1000e NIC (Intel Gigabit) が高負荷時に Hardware Unit Hang を起こし、
 Corosync がクォーラム喪失 → VM 強制停止 → ノードリブートという連鎖が発生する。
 
 ```
@@ -198,7 +198,7 @@ journalctl -b -1 -p err | grep e1000e
 # → e1000e 0000:00:19.0 nic0: Detected Hardware Unit Hang
 ```
 
-**対策:** `08-nic-tuning.yml` で以下を適用する。
+**対策:** `08-nic-tuning.yml` で以下を適用する (pve-node01/02 の e1000e 向け)。
 
 | 設定 | 内容 | 効果 |
 |------|------|------|
@@ -206,6 +206,10 @@ journalctl -b -1 -p err | grep e1000e
 | RX/TX リングバッファ 4096 | デフォルト 256 → 4096 | バースト時のパケットドロップ防止 |
 | 割り込みコアレシング 50μs | rx-usecs/tx-usecs=50 | 割り込みストーム抑制 |
 | txqueuelen 10000 | デフォルト 1000 → 10000 | 送信キュー詰まり防止 |
+| InterruptThrottleRate=1 | modprobe オプション | 割り込み頻度低減 |
+
+pve-node03 (BOSGAME E2 / Ryzen 5 3550H / r8169 NIC) には TSO/GSO/GRO 無効化と txqueuelen 拡大を適用。
+リングバッファ変更は r8169 が非対応のため skip する。
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
@@ -214,17 +218,17 @@ ansible-playbook -i inventory/hosts.yml playbooks/08-nic-tuning.yml
 適用後の確認:
 
 ```bash
-# オフロード確認
+# オフロード確認 (pve-node01)
 ssh root@192.168.210.11 ethtool -k nic0 | grep -E "tcp-segmentation|generic-segmentation|generic-receive"
 # tcp-segmentation-offload: off
 # generic-segmentation-offload: off
 # generic-receive-offload: off
 
-# リングバッファ確認
+# リングバッファ確認 (pve-node01/02: e1000e)
 ssh root@192.168.210.11 ethtool -g nic0
 # RX: 4096, TX: 4096
 
-# txqueuelen 確認
+# txqueuelen 確認 (全ノード)
 ssh root@192.168.210.11 ip link show nic0 | grep qlen
 # qlen 10000
 ```
