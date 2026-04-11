@@ -26,6 +26,8 @@
 | k3s-worker05 | 206 | 192.168.210.26 | pve-node02 | k3s ワーカー |
 | k3s-worker06 | 207 | 192.168.210.27 | pve-node03 | k3s ワーカー |
 | k3s-worker07 | 208 | 192.168.210.28 | pve-node03 | k3s ワーカー |
+| k3s-worker08 | 209 | 192.168.210.29 | pve-node03 | k3s ワーカー |
+| k3s-worker09 | 210 | 192.168.210.30 | pve-node03 | k3s ワーカー |
 | dns-ct | 101 | 192.168.210.53 | pve-node01 | Pi-hole DNS (LXC) |
 
 > worker02 (VM 203) は削除済み。

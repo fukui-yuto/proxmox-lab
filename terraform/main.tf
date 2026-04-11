@@ -17,7 +17,7 @@ locals {
   dns_servers = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
   master_ip   = "192.168.210.21"
   ssh_key     = "~/.ssh/id_ed25519"
-  # worker01〜07 の IP (インデックス順)
+  # worker01〜09 の IP (インデックス順)
   worker_ips = [
     "192.168.210.22", # worker01 (node01)
     "192.168.210.23", # worker02 (node01) — VM 203 は削除済み。インデックスを維持するため残す
@@ -26,6 +26,8 @@ locals {
     "192.168.210.26", # worker05 (node02)
     "192.168.210.27", # worker06 (node03)
     "192.168.210.28", # worker07 (node03)
+    "192.168.210.29", # worker08 (node03)
+    "192.168.210.30", # worker09 (node03)
   ]
 }
 
@@ -275,10 +277,10 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node03 × 2: worker06/07) ※ local (dir) ストレージを使用
+# k3s ワーカー (node03 × 4: worker06/07/08/09) ※ local (dir) ストレージを使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
-  count     = 2
+  count     = 4
   name      = "k3s-worker0${count.index + 6}"
   node_name = "pve-node03"
   vm_id     = 207 + count.index
@@ -373,15 +375,15 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker01,03〜07 インストール (全ワーカー共通、worker02 は削除済み)
-# worker01: k3s_worker[0]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06/07: k3s_worker_node03[0/1]
+# k3s worker01,03〜09 インストール (全ワーカー共通、worker02 は削除済み)
+# worker01: k3s_worker[0]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06〜09: k3s_worker_node03[0/1/2/3]
 # count インデックスと worker_ips のマッピング (index 1 = worker02 はスキップ):
 #   count 0 → worker_ips[0] (worker01)
 #   count 1 → worker_ips[2] (worker03)  ※ worker02(index 1) をスキップするため +1
 #   count 2 → worker_ips[3] (worker04)
 #   ...
 resource "null_resource" "k3s_workers_install" {
-  count = 6
+  count = 8
   triggers = {
     vm_id = count.index < 1 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : count.index < 4 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 1].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 4].id
   }
@@ -518,7 +520,7 @@ resource "null_resource" "k3s_registry_config" {
       }
 
       apply_registry 192.168.210.21 k3s
-      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28; do
+      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30; do
         apply_registry "$ip" k3s-agent
       done
       echo "Registry config applied to all nodes."
