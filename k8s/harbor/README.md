@@ -231,3 +231,75 @@ kubectl delete pvc -n harbor --all
 - ArgoCD (Phase 3-1) のレジストリとして Harbor を設定
 - Keycloak (Phase 4-2) と OIDC 連携で SSO を設定
 - Kyverno (Phase 6) のポリシーで Harbor のイメージのみ許可する設定を追加
+
+---
+
+## トラブルシューティング
+
+### Harbor DB 再起動後にプロキシプロジェクトが消える
+
+Harbor の PostgreSQL が再起動・再作成されるとプロジェクト設定が失われる。
+以下の 2 つのプロキシプロジェクトを Harbor API で再作成する。
+
+**まず Docker Hub レジストリエンドポイントを確認:**
+
+```bash
+curl -s http://harbor.homelab.local/api/v2.0/registries \
+  -H "Authorization: Basic $(echo -n 'admin:Harbor12345' | base64)"
+# registry_id=1 の "docker-hub" エンドポイントが必要
+```
+
+**`dockerhub-proxy` プロジェクトの再作成:**
+
+```bash
+curl -s -X POST http://harbor.homelab.local/api/v2.0/projects \
+  -H "Authorization: Basic $(echo -n 'admin:Harbor12345' | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{"project_name":"dockerhub-proxy","registry_id":1,"public":true,"metadata":{"public":"true"}}'
+```
+
+kyverno cleanup jobs / longhorn-iscsi-installation 等が `harbor.homelab.local/dockerhub-proxy/...` を参照するため、
+このプロジェクトがないとイメージ pull が失敗する。
+
+### Longhorn ボリュームが "not ready for workloads" で Pod が Pending のまま
+
+Longhorn ボリュームは healthy だが Kubernetes VolumeAttachment が `attached: false` の場合に発生する。
+k3s-master 再起動など CSI attacher が再起動した際に古い VolumeAttachment が残ることがある。
+
+```bash
+# stuck している VolumeAttachment を確認
+kubectl get volumeattachment -o json | \
+  jq '.items[] | select(.status.attached == false) | {name: .metadata.name, pv: .spec.source.persistentVolumeName}'
+
+# VolumeAttachment を削除して再 attach させる
+kubectl delete volumeattachment <name>
+```
+
+削除後、Longhorn が自動で再 attach し `robustness: healthy` になれば Pod が起動する。
+
+### rolling update で RWO ボリュームが競合する
+
+RWO (ReadWriteOnce) PVC を持つ Deployment の rolling update 中に、
+旧 ReplicaSet が削除されずにボリュームを保持し続けると新 Pod が起動できない。
+
+```bash
+# 旧 ReplicaSet を確認 (replicas > 0 かつ古いもの)
+kubectl get replicaset -n harbor
+
+# 旧 ReplicaSet を手動でスケールダウン
+kubectl patch replicaset <old-rs-name> -n harbor --patch '{"spec": {"replicas": 0}}'
+```
+
+### k3s ノードで `harbor.homelab.local` の名前解決が失敗する
+
+cloud-init の `manage_etc_hosts: true` により、再起動時に `/etc/hosts` がリセットされる。
+dns-ct コンテナ (192.168.210.53) の dnsmasq が正解で、以下のファイルを管理する:
+
+```bash
+# dns-ct に SSH して確認・更新
+cat /etc/dnsmasq.d/homelab-local.conf
+systemctl restart dnsmasq
+```
+
+homelab-local.conf のエントリが `192.168.210.24` (k3s-worker03) を向いているか確認する。
+pve-node01 の NIC 負荷軽減のため、Ingress アクセスは `192.168.210.24` 経由を推奨。
