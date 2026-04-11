@@ -1,14 +1,15 @@
 ---
-# pve-node01 の e1000e NIC チューニング
+# pve-node01 / pve-node02 の e1000e NIC チューニング
+# 対象: NUC5i3RYH (i3-5010U) の e1000e NIC を持つノード (node01, node02)
 # 症状: k8s デプロイ時のネットワーク負荷増加で e1000e Hardware Unit Hang が発生し
-#       Corosync quorum 喪失 → pve-node01 がクラッシュする
+#       Corosync quorum 喪失 → ノードがクラッシュ / ネットワーク断絶が頻発する
 # 対策:
 #   1. TCP オフロード機能 (TSO/GSO/GRO) を無効化
 #   2. RX/TX リングバッファを拡大してバースト時のパケットドロップを防止
 #   3. 割り込みコアレシングで割り込みストームを抑制
 #   4. txqueuelen を拡大して送信キュー詰まりを防止
-- name: pve-node01 e1000e NIC チューニング
-  hosts: pve-node01
+- name: e1000e NIC チューニング (pve-node01, pve-node02)
+  hosts: pve-node01,pve-node02
   gather_facts: false
   tasks:
     - name: e1000e modprobe オプション設定 (InterruptThrottleRate 低減)
