@@ -25,16 +25,6 @@ spec:
                     secretKeyRef:
                       name: vault-unseal-keys
                       key: unseal_key_1
-                - name: UNSEAL_KEY_2
-                  valueFrom:
-                    secretKeyRef:
-                      name: vault-unseal-keys
-                      key: unseal_key_2
-                - name: UNSEAL_KEY_3
-                  valueFrom:
-                    secretKeyRef:
-                      name: vault-unseal-keys
-                      key: unseal_key_3
               command:
                 - /bin/sh
                 - -c
@@ -43,8 +33,6 @@ spec:
                   if [ "$SEALED" = "true" ]; then
                     echo "Vault is sealed. Unsealing..."
                     vault operator unseal "$UNSEAL_KEY_1"
-                    vault operator unseal "$UNSEAL_KEY_2"
-                    vault operator unseal "$UNSEAL_KEY_3"
                     echo "Unseal complete."
                   else
                     echo "Vault is already unsealed. Nothing to do."

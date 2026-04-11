@@ -118,8 +118,6 @@ kubectl logs -n vault -l job-name --tail=20
 
 ```bash
 kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 1>
-kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 2>
-kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 3>
 ```
 
 #### 自動アンシールの仕組み
@@ -127,53 +125,59 @@ kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 3>
 | リソース | 内容 |
 |----------|------|
 | `unseal-cronjob.yaml` | 毎分 sealed 状態を確認して unseal する CronJob |
-| `vault-unseal-keys` Secret | Unseal Key 1〜3 を保持 (git 管理外・クラスター直接適用) |
+| `vault-unseal-keys` Secret | Unseal Key 1 を保持 (git 管理外・クラスター直接適用) |
 
 > **注意:** `vault-unseal-keys` Secret は git に含まれない。クラスター再構築時は以下で再作成する:
 > ```bash
 > kubectl create secret generic vault-unseal-keys -n vault \
->   --from-literal=unseal_key_1="<Key1>" \
->   --from-literal=unseal_key_2="<Key2>" \
->   --from-literal=unseal_key_3="<Key3>"
+>   --from-literal=unseal_key_1="<Key1>"
 > ```
 
 ---
 
 ## 初期化 (初回デプロイ時のみ)
 
+> **現在の状態 (2026-04-11 実施済み):** key-shares=1, key-threshold=1 で初期化済み。
+> Root Token は Vault UI または `kubectl exec -n vault vault-0 -- vault token lookup` で確認する (git には記録しない)。
+> vault-unseal-keys Secret の `unseal_key_1` に Unseal Key を設定済み。
+
 ### STEP 1: Vault の初期化
+
+ラボ環境では key-shares=1, key-threshold=1 で初期化する (シンプル構成):
 
 ```bash
 kubectl exec -n vault vault-0 -- vault operator init \
-  -key-shares=5 \
-  -key-threshold=3
+  -key-shares=1 \
+  -key-threshold=1 \
+  -format=json
 ```
 
 **出力例:**
 
-```
-Unseal Key 1: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Unseal Key 2: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Unseal Key 3: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Unseal Key 4: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Unseal Key 5: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-Initial Root Token: hvs.xxxxxxxxxxxxxxxxxxxxxxxxxx
+```json
+{
+  "unseal_keys_b64": ["<Unseal Key (base64)>"],
+  "root_token": "hvs.xxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
 ```
 
 > **重要:** Unseal Key と Root Token は必ず安全な場所に保管すること。再表示は不可能。
 
-### STEP 2: Vault のアンシール
+### STEP 2: vault-unseal-keys Secret の更新
 
-Vault を使用可能にするために 3 つ以上の Unseal Key でアンシールする。
+```bash
+kubectl create secret generic vault-unseal-keys -n vault \
+  --from-literal=unseal_key_1="<Unseal Key>" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### STEP 3: Vault のアンシール
 
 ```bash
 kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 1>
-kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 2>
-kubectl exec -n vault vault-0 -- vault operator unseal <Unseal Key 3>
 ```
 
-### STEP 3: ステータス確認
+### STEP 4: ステータス確認
 
 ```bash
 kubectl exec -n vault vault-0 -- vault status
@@ -183,7 +187,7 @@ kubectl exec -n vault vault-0 -- vault status
 
 > **注意:** k3s Pod が再起動するたびに Vault はシールされるが、`vault-auto-unseal` CronJob が約 1 分以内に自動アンシールする。
 
-### STEP 4: Root Token でログイン
+### STEP 5: Root Token でログイン
 
 ```bash
 kubectl exec -n vault vault-0 -- vault login <Initial Root Token>
