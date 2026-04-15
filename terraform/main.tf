@@ -13,10 +13,11 @@ terraform {
 }
 
 locals {
-  gateway     = "192.168.210.254"
-  dns_servers = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
-  master_ip   = "192.168.210.21"
-  ssh_key     = "~/.ssh/id_ed25519"
+  gateway                  = "192.168.210.254"
+  dns_servers              = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
+  master_ip                = "192.168.210.21"
+  ssh_key                  = "~/.ssh/id_ed25519"
+  worker_node03_disk_size  = 50  # worker06〜09 のディスクサイズ (GB)
   # worker01〜09 の IP (インデックス順)
   worker_ips = [
     "192.168.210.22", # worker01 (node01)
@@ -307,7 +308,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
 
   disk {
     datastore_id = "local"
-    size         = 20
+    size         = local.worker_node03_disk_size
     interface    = "virtio0"
     file_format  = "qcow2"
   }
@@ -332,6 +333,41 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   provisioner "local-exec" {
     when    = destroy
     command = "ssh -o StrictHostKeyChecking=no root@192.168.210.13 'qm stop ${self.vm_id} --skiplock 2>/dev/null; qm destroy ${self.vm_id} --skiplock --purge 2>/dev/null'; exit 0"
+  }
+}
+
+# -------------------------------------------------------------------
+# node03 ワーカーのディスク拡張 (サイズ変更時に自動実行)
+# -------------------------------------------------------------------
+resource "null_resource" "expand_disk_node03" {
+  count = 4
+
+  triggers = {
+    disk_size = local.worker_node03_disk_size
+  }
+
+  depends_on = [proxmox_virtual_environment_vm.k3s_worker_node03]
+
+  # Step 1: Proxmox 側でディスクサイズを拡張 (qm resize)
+  provisioner "local-exec" {
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.13 'qm resize ${207 + count.index} virtio0 ${local.worker_node03_disk_size}G'"
+  }
+
+  # Step 2: VM 内でパーティション・ファイルシステムを拡張
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = local.worker_ips[count.index + 5]
+    private_key = file(local.ssh_key)
+    timeout     = "5m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get install -y cloud-guest-utils",
+      "sudo growpart /dev/vda 2 || true",
+      "sudo resize2fs /dev/vda2",
+    ]
   }
 }
 
