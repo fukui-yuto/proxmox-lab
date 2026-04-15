@@ -60,10 +60,56 @@
 
 - **手動コマンドは確認のみ許容**。設定変更は必ず以下のツールで実装する:
   - Proxmox ホスト OS の設定 → **Ansible**
-  - VM / LXC のプロビジョニング → **Terraform**
+  - VM / LXC のプロビジョニング・設定 → **Terraform** (OS 内操作も含む)
   - k8s アプリの設定 → **Helm values** または **マニフェスト**
 - `ip addr add` や `sysctl` の直接実行などを提案しない。必ず Ansible playbook / Terraform remote-exec で実装する
 - k3s ノードの設定は `terraform/main.tf` の `remote-exec` で管理する。Ansible には書かない
+
+### Ansible のスコープ (重要)
+
+Ansible の対象は **Proxmox ホスト OS (pve-node01/02/03) と Raspberry Pi のみ**。
+
+- `ansible/inventory/hosts.yml` に k3s ワーカー VM を追加しない
+- k3s ワーカー VM 内での操作 (パッケージインストール・ディスク拡張・設定変更) は Terraform の `remote-exec` / `local-exec` で実装する
+- 間違いやすい例: ディスク拡張のために VM に Ansible playbook を書く → **NG**。Terraform `null_resource` + `remote-exec` で実装する
+
+### Terraform のスコープと実装パターン
+
+**実行環境:** Terraform は Raspberry Pi (192.168.210.55) 上の `~/proxmox-lab/terraform` で実行される。
+
+- **git push 必須**: Windows でのファイル編集は `git commit && git push` → Raspberry Pi で `git pull` しないと `terraform plan/apply` に反映されない。編集後に plan が期待通りでない場合はまず git の同期を確認する
+- **`local-exec` の実行場所**: Raspberry Pi 上で実行される。`ssh root@192.168.210.13 'qm resize ...'` のように Proxmox ホストへの SSH が可能
+- **`remote-exec` はリソース作成時のみ実行**: 既存リソースに再実行させるには `null_resource` + `triggers` パターンを使う
+
+**既存 VM への変更パターン (例: ディスク拡張):**
+```hcl
+# 1. local 変数でサイズを管理 (triggers のトリガー値として使う)
+locals {
+  worker_node03_disk_size = 50
+}
+
+# 2. VM リソースのディスクに local 参照
+disk {
+  size = local.worker_node03_disk_size
+}
+
+# 3. null_resource でサイズ変更時に自動実行
+resource "null_resource" "expand_disk_node03" {
+  count = 4
+  triggers = {
+    disk_size = local.worker_node03_disk_size  # 値が変わると再実行
+  }
+  depends_on = [proxmox_virtual_environment_vm.k3s_worker_node03]
+
+  provisioner "local-exec" {
+    command = "ssh root@192.168.210.13 'qm resize ${207 + count.index} virtio0 ${local.worker_node03_disk_size}G'"
+  }
+  connection { ... }
+  provisioner "remote-exec" {
+    inline = ["sudo growpart /dev/vda 2 || true", "sudo resize2fs /dev/vda2"]
+  }
+}
+```
 
 ### ドキュメント
 
