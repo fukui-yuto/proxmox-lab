@@ -176,7 +176,7 @@ resource "null_resource" "expand_disk_node03" {
 | 9 | logging-kibana |
 | 10 | tracing-tempo |
 | 11 | tracing-otel-collector |
-| 12 | aiops-alerting / aiops-pushgateway |
+| 12 | aiops-alerting / aiops-pushgateway / aiops-image-build |
 | 13 | aiops-alert-summarizer / aiops-anomaly-detection |
 | 14 | aiops-auto-remediation |
 | 15 | aiops-auto-remediation-events |

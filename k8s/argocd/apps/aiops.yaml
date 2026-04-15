@@ -1,4 +1,28 @@
 ---
+# image-build: aiops イメージ自動ビルド CI (CronWorkflow + WorkflowTemplate)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiops-image-build
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "12"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/aiops/image-build
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aiops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+---
 # alerting: PrometheusRule (予測・トレンドアラート)
 apiVersion: argoproj.io/v1alpha1
 kind: Application

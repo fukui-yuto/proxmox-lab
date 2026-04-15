@@ -1,0 +1,45 @@
+# WorkflowTemplate: kaniko イメージビルダー (再利用可能)
+#
+# 使い方 (手動トリガー例):
+#   argo submit --from workflowtemplate/kaniko-build \
+#     -p context-sub-path=k8s/aiops/anomaly-detection/detector \
+#     -p destination=harbor.homelab.local/library/anomaly-detector:latest \
+#     -n aiops
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: kaniko-build
+  namespace: aiops
+spec:
+  templates:
+    - name: build-and-push
+      inputs:
+        parameters:
+          - name: context-sub-path
+          - name: destination
+      volumes:
+        - name: kaniko-secret
+          secret:
+            secretName: harbor-registry-secret
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+      container:
+        image: gcr.io/kaniko-project/executor:v1.23.0
+        args:
+          - "--context=git://github.com/fukui-yuto/proxmox-lab.git#main"
+          - "--context-sub-path={{inputs.parameters.context-sub-path}}"
+          - "--dockerfile=Dockerfile"
+          - "--destination={{inputs.parameters.destination}}"
+          - "--insecure"
+          - "--skip-tls-verify"
+        volumeMounts:
+          - name: kaniko-secret
+            mountPath: /kaniko/.docker
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi

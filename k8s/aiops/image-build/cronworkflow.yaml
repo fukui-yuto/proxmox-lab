@@ -1,0 +1,62 @@
+# CronWorkflow: aiops イメージ自動ビルド CI
+#
+# 毎日 03:00 JST に全 aiops イメージを Harbor へ並列ビルド・push する。
+# Harbor が再起動/データ消失しても翌朝には自動復旧する。
+#
+# 手動トリガー:
+#   argo cron trigger build-aiops-images -n aiops
+#
+# ビルド対象:
+#   - anomaly-detector   : k8s/aiops/anomaly-detection/detector/
+#   - alert-summarizer   : k8s/aiops/alert-summarizer/app/
+#   - remediation-runner : k8s/aiops/auto-remediation/runner/
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: build-aiops-images
+  namespace: aiops
+spec:
+  schedule: "0 3 * * *"
+  timezone: "Asia/Tokyo"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  workflowSpec:
+    serviceAccountName: remediation-workflow
+    entrypoint: build-all
+    templates:
+      - name: build-all
+        dag:
+          tasks:
+            - name: anomaly-detector
+              templateRef:
+                name: kaniko-build
+                template: build-and-push
+              arguments:
+                parameters:
+                  - name: context-sub-path
+                    value: k8s/aiops/anomaly-detection/detector
+                  - name: destination
+                    value: harbor.homelab.local/library/anomaly-detector:latest
+
+            - name: alert-summarizer
+              templateRef:
+                name: kaniko-build
+                template: build-and-push
+              arguments:
+                parameters:
+                  - name: context-sub-path
+                    value: k8s/aiops/alert-summarizer/app
+                  - name: destination
+                    value: harbor.homelab.local/library/alert-summarizer:latest
+
+            - name: remediation-runner
+              templateRef:
+                name: kaniko-build
+                template: build-and-push
+              arguments:
+                parameters:
+                  - name: context-sub-path
+                    value: k8s/aiops/auto-remediation/runner
+                  - name: destination
+                    value: harbor.homelab.local/library/remediation-runner:latest

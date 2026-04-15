@@ -12,6 +12,7 @@
 | `anomaly-detection/` | ログ異常検知 CronJob + Grafana ダッシュボード | ✅ 完了 |
 | `alert-summarizer/` | LLM アラートサマリ (Claude API) | ✅ 完了 |
 | `auto-remediation/` | 自動修復 Runbook (Argo Events/Workflows) | ✅ 完了 |
+| `image-build/` | aiops イメージ自動ビルド CI (Argo Workflows CronWorkflow) | ✅ 完了 |
 
 ---
 
@@ -48,6 +49,45 @@ kubectl apply -f k8s/argocd/apps/aiops.yaml
 | `PodRestartRateHigh` | Pod が1時間で3回以上再起動 | warning |
 | `PodRestartRateCritical` | Pod が30分で5回以上再起動 | critical |
 | `PrometheusStorageHigh` | Prometheus PVC 使用率が80%超 | warning |
+
+---
+
+## イメージビルド自動化
+
+### 概要
+
+aiops の各コンポーネントは Harbor の内部イメージを使用する。
+これらのイメージは **Argo Workflows CronWorkflow** (`build-aiops-images`) によって毎日 03:00 JST に自動ビルド・push される。
+
+| イメージ | ソース |
+|---------|--------|
+| `harbor.homelab.local/library/anomaly-detector:latest` | `k8s/aiops/anomaly-detection/detector/` |
+| `harbor.homelab.local/library/alert-summarizer:latest` | `k8s/aiops/alert-summarizer/app/` |
+| `harbor.homelab.local/library/remediation-runner:latest` | `k8s/aiops/auto-remediation/runner/` |
+
+### 自動ビルドの効果
+
+- **Harbor データ消失時の自動復旧**: Harbor が再起動してイメージが消えても、翌朝 03:00 に自動再ビルドされる
+- **コード変更の自動反映**: `main` ブランチへの push 後、翌朝のビルドで Harbor に反映される
+- **ArgoCD で宣言的管理**: `aiops-image-build` ArgoCD App が `k8s/aiops/image-build/` を管理
+
+### 手動トリガー (即時ビルドが必要な場合)
+
+```bash
+# CronWorkflow を即時実行
+argo cron trigger build-aiops-images -n aiops
+
+# または個別イメージだけビルド
+argo submit --from workflowtemplate/kaniko-build \
+  -p context-sub-path=k8s/aiops/anomaly-detection/detector \
+  -p destination=harbor.homelab.local/library/anomaly-detector:latest \
+  -n aiops
+
+# ビルド進捗確認 (Argo Workflows UI)
+# http://argo-workflows.homelab.local
+```
+
+> 緊急時の手動ビルド方法は各サブディレクトリの `kaniko-job.yaml` を参照。
 
 ---
 
