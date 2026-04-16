@@ -1,0 +1,36 @@
+# cert-manager Helm values
+# Helm chart: jetstack/cert-manager
+# TLS 証明書の自動発行・更新。homelab 内部 CA を使用。
+
+# CRD を Helm で管理する
+crds:
+  enabled: true
+
+# -------------------------------------------------------------------
+# リソース制限
+# -------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+cainjector:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi

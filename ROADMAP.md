@@ -6,18 +6,18 @@
 
 ## 優先度: 高 (基盤安定化)
 
-- [ ] **cert-manager** — TLS 証明書の自動発行・更新
-  - Let's Encrypt or 自己署名 CA で `*.homelab.local` を HTTPS 化
+- [x] **cert-manager** — TLS 証明書の自動発行・更新
+  - homelab 内部 CA (selfsigned → homelab-ca-issuer) を構築
   - Vault との統合 (PKI Secrets Engine) も検討
-  - Wave: 3 (vault の直後)
+  - Wave: 3 / issuers: Wave 4
 
-- [ ] **Velero** — k8s リソースと PVC のバックアップ・DR
-  - バックアップ先は MinIO (下記) を使用
-  - 定期バックアップ (CronJob) + ArgoCD 連携
-  - Wave: 4 (longhorn の後)
+- [x] **Velero** — k8s リソースと PVC のバックアップ・DR
+  - MinIO を S3 バックエンドとして使用
+  - 毎日 02:00 JST にスケジュールバックアップ (7日間保持)
+  - Wave: 4
 
-- [ ] **MinIO** — S3 互換オブジェクトストレージ
-  - Velero のバックアップ先
+- [x] **MinIO** — S3 互換オブジェクトストレージ
+  - Velero のバックアップ先 (`velero-backups` バケット自動作成)
   - Harbor の外部ストレージとしても利用可能
   - ML データレイク用途 (aiops との連携)
   - Wave: 3

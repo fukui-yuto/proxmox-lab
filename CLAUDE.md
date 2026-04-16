@@ -157,6 +157,9 @@ resource "null_resource" "expand_disk_node03" {
 | **常時起動** (automated sync) | tracing (tempo / otel-collector) | 分散トレーシング |
 | **常時起動** (automated sync) | argo-workflows / argo-events | 自動修復ワークフロー |
 | **常時起動** (automated sync) | aiops (alerting / anomaly-detection / alert-summarizer / auto-remediation) | 予測アラート・ログ異常検知・自動修復 |
+| **常時起動** (automated sync) | minio | S3 互換オブジェクトストレージ (Velero バックアップ先) |
+| **常時起動** (automated sync) | cert-manager / cert-manager-issuers | TLS 証明書の自動発行・更新 (homelab 内部 CA) |
+| **常時起動** (automated sync) | velero | k8s リソース・PVC の定期バックアップ・DR |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -167,8 +170,8 @@ resource "null_resource" "expand_disk_node03" {
 | 0 | kyverno |
 | 1 | kyverno-policies |
 | 2 | longhorn-prereqs / longhorn |
-| 3 | vault |
-| 4 | monitoring / argo-workflows / argo-events |
+| 3 | vault / minio / cert-manager |
+| 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero |
 | 5 | harbor |
 | 6 | keycloak |
 | 7 | logging-elasticsearch |
@@ -224,6 +227,8 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argo-workflows.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  alert-summarizer.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio-api.homelab.local"
 ```
 
 ### URL 一覧
@@ -239,3 +244,4 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 | Vault | http://vault.homelab.local | - | 初期化時の Root Token (要 unseal) |
 | Argo Workflows | http://argo-workflows.homelab.local | - | 認証不要 |
 | alert-summarizer | http://alert-summarizer.homelab.local | - | - |
+| MinIO Console | http://minio.homelab.local | `admin` | `Minio12345` |

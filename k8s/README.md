@@ -24,12 +24,15 @@ helm version
 | `logging/` | Elasticsearch + Fluent Bit + Kibana | ログ収集・可視化 | 常時起動 (automated sync) |
 | `kyverno/` | Kyverno | ポリシーエンジン | 常時起動 (automated sync) |
 | `aiops/` | AIOps (alerting / anomaly-detection / alert-summarizer / auto-remediation) | 予測アラート・ログ異常検知・自動修復 | 常時起動 (automated sync) |
-| `vault/` | Vault | シークレット管理 | オンデマンド (手動 sync) |
-| `harbor/` | Harbor | プライベートコンテナレジストリ | オンデマンド (手動 sync) |
-| `keycloak/` | Keycloak | SSO / 認証基盤 | オンデマンド (手動 sync) |
-| `tracing/` | OpenTelemetry + Tempo | 分散トレーシング | オンデマンド (手動 sync) |
-| `argo-workflows/` | Argo Workflows | 自動修復ワークフローエンジン | オンデマンド (手動 sync) |
-| `argo-events/` | Argo Events | イベント駆動トリガー (AlertManager → Workflow) | オンデマンド (手動 sync) |
+| `vault/` | Vault | シークレット管理 | 常時起動 (automated sync) |
+| `harbor/` | Harbor | プライベートコンテナレジストリ | 常時起動 (automated sync) |
+| `keycloak/` | Keycloak | SSO / 認証基盤 | 常時起動 (automated sync) |
+| `tracing/` | OpenTelemetry + Tempo | 分散トレーシング | 常時起動 (automated sync) |
+| `argo-workflows/` | Argo Workflows | 自動修復ワークフローエンジン | 常時起動 (automated sync) |
+| `argo-events/` | Argo Events | イベント駆動トリガー (AlertManager → Workflow) | 常時起動 (automated sync) |
+| `minio/` | MinIO | S3 互換オブジェクトストレージ (Velero バックアップ先) | 常時起動 (automated sync) |
+| `cert-manager/` | cert-manager | TLS 証明書の自動発行・更新 (homelab 内部 CA) | 常時起動 (automated sync) |
+| `velero/` | Velero | k8s リソース・PVC の定期バックアップ・DR | 常時起動 (automated sync) |
 
 各ツールの概念・仕組みは各ディレクトリの `GUIDE.md` を参照。
 
@@ -45,6 +48,8 @@ helm version
 管理者権限の PowerShell で実行:
 
 ```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio-api.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  grafana.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
@@ -60,6 +65,7 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 
 | アプリ | URL | ユーザー | 初期パスワード |
 |---|---|---|---|
+| MinIO Console | http://minio.homelab.local | `admin` | `Minio12345` |
 | Grafana | http://grafana.homelab.local | `admin` | `values.yaml` の `grafana.adminPassword` |
 | Kibana | http://kibana.homelab.local | - | - |
 | Elasticsearch | http://elasticsearch.homelab.local | - | - |
