@@ -26,6 +26,14 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
+  ignoreDifferences:
+    # Elasticsearch Helm chart がランダムパスワードを自動生成するため
+    # Secret の data フィールドは ArgoCD の diff 対象から除外する
+    - kind: Secret
+      name: elasticsearch-master-credentials
+      namespace: logging
+      jsonPointers:
+        - /data
   syncPolicy:
     automated:
       prune: true
