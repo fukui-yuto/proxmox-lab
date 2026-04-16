@@ -20,6 +20,37 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: harbor
+  ignoreDifferences:
+    # Harbor Helm chart が初回インストール時にランダム値で生成する Secret は
+    # Harbor 自身が更新するため ArgoCD の diff 対象から除外する
+    - kind: Secret
+      name: harbor-core
+      namespace: harbor
+      jsonPointers:
+        - /data
+    - kind: Secret
+      name: harbor-jobservice
+      namespace: harbor
+      jsonPointers:
+        - /data
+    - kind: Secret
+      name: harbor-registry
+      namespace: harbor
+      jsonPointers:
+        - /data
+    - kind: Secret
+      name: harbor-registry-htpasswd
+      namespace: harbor
+      jsonPointers:
+        - /data
+    # harbor-registry Deployment は Recreate 戦略で管理されるため
+    # spec.strategy フィールドの差分を無視する
+    - group: apps
+      kind: Deployment
+      name: harbor-registry
+      namespace: harbor
+      jsonPointers:
+        - /spec/strategy
   syncPolicy:
     automated:
       prune: true
