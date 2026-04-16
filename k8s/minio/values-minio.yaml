@@ -1,38 +1,44 @@
 # MinIO Helm values
-# Helm chart: bitnami/minio
+# Helm chart: minio/minio (公式チャート)
 # S3 互換オブジェクトストレージ。Velero バックアップ先として使用。
 
 # -------------------------------------------------------------------
 # 認証情報
 # -------------------------------------------------------------------
-auth:
-  rootUser: admin
-  rootPassword: "Minio12345"
+rootUser: admin
+rootPassword: "Minio12345"
 
 # -------------------------------------------------------------------
-# 動作モード (スタンドアロン)
+# 動作モード
 # -------------------------------------------------------------------
 mode: standalone
+replicas: 1
 
 # -------------------------------------------------------------------
 # デフォルトバケット (起動時に自動作成)
 # -------------------------------------------------------------------
-defaultBuckets: "velero-backups"
+buckets:
+  - name: velero-backups
+    policy: none
+    purge: false
 
 # -------------------------------------------------------------------
-# Ingress (コンソール UI)
+# Ingress (API エンドポイント)
 # -------------------------------------------------------------------
 ingress:
   enabled: true
   ingressClassName: traefik
-  hostname: minio.homelab.local
-  annotations: {}
+  hosts:
+    - minio-api.homelab.local
 
-apiIngress:
+# -------------------------------------------------------------------
+# Ingress (コンソール UI)
+# -------------------------------------------------------------------
+consoleIngress:
   enabled: true
   ingressClassName: traefik
-  hostname: minio-api.homelab.local
-  annotations: {}
+  hosts:
+    - minio.homelab.local
 
 # -------------------------------------------------------------------
 # 永続化 (Longhorn)
@@ -41,8 +47,6 @@ persistence:
   enabled: true
   storageClass: longhorn
   size: 20Gi
-  accessModes:
-    - ReadWriteOnce
 
 # -------------------------------------------------------------------
 # リソース制限
@@ -54,12 +58,3 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
-
-# -------------------------------------------------------------------
-# サービス設定
-# -------------------------------------------------------------------
-service:
-  type: ClusterIP
-  ports:
-    api: 9000
-    console: 9001
