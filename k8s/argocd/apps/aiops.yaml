@@ -148,7 +148,7 @@ spec:
     path: k8s/aiops/auto-remediation
     directory:
       recurse: true
-      exclude: "{kaniko-job.yaml,runner/**}"
+      exclude: "{kaniko-job.yaml,runner/**,argo-events/**}"
   destination:
     server: https://kubernetes.default.svc
     namespace: aiops
