@@ -26,22 +26,22 @@
 
 ## 優先度: 中 (機能拡張)
 
-- [ ] **Argo Rollouts** — プログレッシブデリバリー
+- [x] **Argo Rollouts** — プログレッシブデリバリー
   - ArgoCD と統合してカナリア / Blue-Green デプロイを実現
   - 現状の ArgoCD は全量切り替えのみ → 段階的リリースが可能になる
   - Wave: 4 (argo-workflows と同列)
 
-- [ ] **KEDA** — イベント駆動オートスケーリング
+- [x] **KEDA** — イベント駆動オートスケーリング
   - Prometheus メトリクス / Kafka / カスタムメトリクスで Pod をスケール
   - aiops-auto-remediation と組み合わせて動的スケーリングを自動修復に活用
   - Wave: 4
 
-- [ ] **Falco** — ランタイム脅威検知
+- [x] **Falco** — ランタイム脅威検知
   - syscall レベルの異常検知 (Kyverno は admission 時のみ → 補完関係)
   - アラートを Alertmanager / aiops-alerting に連携
   - Wave: 4
 
-- [ ] **Trivy Operator** — コンテナイメージ脆弱性スキャン
+- [x] **Trivy Operator** — コンテナイメージ脆弱性スキャン
   - CRD で継続的にスキャン結果を k8s リソースとして管理
   - Harbor との統合でプッシュ時スキャンも設定
   - Wave: 5

@@ -160,6 +160,10 @@ resource "null_resource" "expand_disk_node03" {
 | **常時起動** (automated sync) | minio | S3 互換オブジェクトストレージ (Velero バックアップ先) |
 | **常時起動** (automated sync) | cert-manager / cert-manager-issuers | TLS 証明書の自動発行・更新 (homelab 内部 CA) |
 | **常時起動** (automated sync) | velero | k8s リソース・PVC の定期バックアップ・DR |
+| **常時起動** (automated sync) | argo-rollouts | カナリア / Blue-Green プログレッシブデリバリー |
+| **常時起動** (automated sync) | keda | イベント駆動オートスケーリング (Prometheus / Kafka 等) |
+| **常時起動** (automated sync) | falco | syscall レベルのランタイム脅威検知 |
+| **常時起動** (automated sync) | trivy-operator | コンテナイメージ・設定の継続的脆弱性スキャン |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -171,8 +175,8 @@ resource "null_resource" "expand_disk_node03" {
 | 1 | kyverno-policies |
 | 2 | longhorn-prereqs / longhorn |
 | 3 | vault / minio / cert-manager |
-| 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero |
-| 5 | harbor |
+| 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero / argo-rollouts / keda / falco |
+| 5 | harbor / trivy-operator |
 | 6 | keycloak |
 | 7 | logging-elasticsearch |
 | 8 | logging-fluent-bit |

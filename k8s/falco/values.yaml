@@ -1,0 +1,73 @@
+## Falco Helm values
+## Chart: falcosecurity/falco
+
+# eBPF ドライバーを使用 (kmod より安全でカーネルモジュール不要)
+driver:
+  kind: modern_ebpf
+
+# Falco ルールセット
+falco:
+  grpc:
+    enabled: true
+    bind_address: "0.0.0.0:5060"
+  grpc_output:
+    enabled: true
+  json_output: true
+  json_include_output_property: true
+
+# Falcosidekick — アラートの転送 (Alertmanager 連携)
+falcosidekick:
+  enabled: true
+  replicaCount: 1
+  config:
+    alertmanager:
+      hostport: "http://kube-prometheus-stack-alertmanager.monitoring:9093"
+      endpoint: "/api/v2/alerts"
+      minimumpriority: "warning"
+  webui:
+    enabled: true
+    replicaCount: 1
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: traefik
+      hosts:
+        - host: falco.homelab.local
+          paths:
+            - path: /
+              pathType: Prefix
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+
+collectors:
+  enabled: true
+  docker:
+    enabled: false
+  containerd:
+    enabled: true
+    socket: /run/containerd/containerd.sock

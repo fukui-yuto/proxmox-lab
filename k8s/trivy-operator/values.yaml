@@ -1,0 +1,37 @@
+## Trivy Operator Helm values
+## Chart: aquasecurity/trivy-operator
+
+operator:
+  # スキャン間隔 (デフォルト: 24h)
+  scanJobTTL: "24h"
+  # 脆弱性スキャンを有効化
+  vulnerabilityScannerEnabled: true
+  # 設定監査を有効化
+  configAuditScannerEnabled: true
+  # Infra評価 (node/cluster の設定確認)
+  infraAssessmentScannerEnabled: true
+  # RBAC評価
+  rbacAssessmentScannerEnabled: true
+  # 露出シークレット検出
+  exposedSecretScannerEnabled: true
+  # SBOM生成
+  sbomGenerationEnabled: false
+  # 並列スキャン数 (homelab のリソースに合わせて制限)
+  concurrentScanJobsLimit: "3"
+
+trivy:
+  # Harbor から pull できるよう insecure レジストリを許可
+  ignoreUnfixed: true
+  severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+  timeout: "5m0s"
+
+serviceMonitor:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
