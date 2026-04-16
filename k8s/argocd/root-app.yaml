@@ -1,0 +1,33 @@
+# App of Apps — ルートアプリケーション
+#
+# k8s/argocd/apps/ ディレクトリ内の全 ArgoCD Application を自動管理する。
+# このファイルだけを手動で一度 apply すれば、以後は git push だけで
+# 全アプリが自動作成・更新・削除される。
+#
+# ブートストラップ手順 (初回のみ):
+#   kubectl apply -f k8s/argocd/root-app.yaml
+#
+# 以降の運用:
+#   k8s/argocd/apps/ に yaml を追加/変更して git push するだけでよい。
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  # root app 自身は削除しない (finalizer なし)
+  finalizers: []
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/fukui-yuto/proxmox-lab
+    targetRevision: HEAD
+    path: k8s/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

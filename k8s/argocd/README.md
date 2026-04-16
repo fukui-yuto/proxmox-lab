@@ -27,12 +27,34 @@ cd ~/proxmox-lab/k8s/argocd
 # 1. ArgoCD をデプロイ
 bash install.sh
 
-# 2. 全 Application を一括登録 (初回のみ)
+# 2. Root App (App of Apps) を登録 (初回のみ・一度だけ)
 bash register-apps.sh
 ```
 
-`register-apps.sh` が全アプリの ArgoCD Application を登録する。
-常時起動アプリは Sync Wave 順に自動デプロイされる。オンデマンドアプリは ArgoCD UI から手動 Sync する。
+`register-apps.sh` が `root-app.yaml` を apply し、ArgoCD が `k8s/argocd/apps/` 以下の全 Application を自動管理する。
+以降は **git push するだけ**で App の追加・変更・削除が反映される。
+
+### App of Apps 構成
+
+```
+root (ArgoCD Application)
+└── k8s/argocd/apps/ を監視
+    ├── kyverno.yaml        → kyverno / kyverno-policies
+    ├── longhorn.yaml       → longhorn-prereqs / longhorn
+    ├── vault.yaml          → vault
+    ├── monitoring.yaml     → monitoring
+    ├── harbor.yaml         → harbor
+    ├── keycloak.yaml       → keycloak
+    ├── logging.yaml        → logging-elasticsearch / fluent-bit / kibana
+    ├── tracing.yaml        → tracing-tempo / otel-collector
+    ├── argo-workflows.yaml → argo-workflows
+    ├── argo-events.yaml    → argo-events
+    └── aiops.yaml          → aiops-* (alerting / pushgateway / image-build /
+                               alert-summarizer / anomaly-detection /
+                               auto-remediation / auto-remediation-events)
+```
+
+Sync Wave (0→15) により、依存関係の順序を保って自動デプロイされる。
 
 ### 手動で実行する場合
 
