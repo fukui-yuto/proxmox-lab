@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: litmus
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "16"
+spec:
+  project: default
+  sources:
+    - repoURL: https://litmuschaos.github.io/litmus-helm/
+      chart: litmus
+      targetRevision: "3.14.0"
+      helm:
+        valueFiles:
+          - $values/k8s/litmus/values.yaml
+    - repoURL: https://github.com/fukui-yuto/proxmox-lab
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: litmus
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -50,21 +50,21 @@
 
 ## 優先度: 低 (発展・学習)
 
-- [ ] **Cilium + Hubble** — eBPF ベース CNI + ネットワーク可観測性
+- [x] **Cilium + Hubble** — eBPF ベース CNI + ネットワーク可観測性
   - 現行 CNI からの移行コストは高いが学習価値は最大
   - Hubble UI でネットワークフローを可視化
   - L7 ポリシー (HTTP/gRPC レベル) の制御が可能になる
   - ※ CNI 移行は全 Pod 再起動が必要。メンテナンスウィンドウを確保
 
-- [ ] **LitmusChaos** — カオスエンジニアリング
+- [x] **LitmusChaos** — カオスエンジニアリング
   - Pod/Node 障害を意図的に注入して自動修復 (aiops-auto-remediation) の動作を検証
   - 環境が安定してから導入
 
-- [ ] **Backstage** — 開発者ポータル / サービスカタログ
+- [x] **Backstage** — 開発者ポータル / サービスカタログ
   - 全サービスのドキュメント・CI/CD・ログへのワンストップアクセス
   - チームが増えた際に価値が出る
 
-- [ ] **Crossplane** — Kubernetes CRD でインフラを管理
+- [x] **Crossplane** — Kubernetes CRD でインフラを管理
   - Terraform の代替として Proxmox VM を k8s リソースとして宣言的管理
   - 長期的な方向性として検討
 

@@ -1,0 +1,85 @@
+## Cilium Helm values
+## Chart: cilium/cilium
+##
+## 注意: k3s はデフォルトで flannel を使用するため、
+## Cilium を CNI として利用するには事前に flannel を無効化した上で
+## k3s を再起動する必要がある。README.md の移行手順を参照。
+
+# k3s との統合
+k8sServiceHost: "192.168.210.21"  # k3s-master IP
+k8sServicePort: "6443"
+
+# kubeProxyReplacement を有効化 (kube-proxy を Cilium で置き換え)
+kubeProxyReplacement: true
+
+# IPAM (k3s のデフォルト Pod CIDR に合わせる)
+ipam:
+  mode: "cluster-pool"
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - "10.42.0.0/16"
+
+# Hubble (可観測性)
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: traefik
+      hosts:
+        - hubble.homelab.local
+      paths:
+        - /
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction
+    serviceMonitor:
+      enabled: true
+
+# Prometheus メトリクス
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+operator:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# L7 ポリシー (HTTP/gRPC レベルの制御)
+l7Proxy: true
+
+# BPF マスカレード
+bpf:
+  masquerade: true
+
+# ノード間通信
+autoDirectNodeRoutes: true

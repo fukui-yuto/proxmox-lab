@@ -1,0 +1,85 @@
+## Backstage Helm values
+## Chart: backstage/backstage
+
+backstage:
+  image:
+    registry: ghcr.io
+    repository: backstage/backstage
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  appConfig:
+    app:
+      title: Homelab Developer Portal
+      baseUrl: http://backstage.homelab.local
+
+    backend:
+      baseUrl: http://backstage.homelab.local
+      listen:
+        port: 7007
+      cors:
+        origin: http://backstage.homelab.local
+      database:
+        client: pg
+        connection:
+          host: ${POSTGRES_HOST}
+          port: ${POSTGRES_PORT}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+
+    catalog:
+      rules:
+        - allow:
+            - Component
+            - API
+            - Resource
+            - System
+            - Domain
+            - Location
+      locations:
+        # homelab の GitOps リポジトリを登録
+        - type: url
+          target: https://github.com/fukui-yuto/proxmox-lab/blob/main/backstage-catalog/catalog-info.yaml
+
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - url: https://kubernetes.default.svc
+              name: homelab-k3s
+              authProvider: serviceAccount
+              skipTLSVerify: true
+              serviceAccountToken: ${K8S_SERVICE_ACCOUNT_TOKEN}
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+ingress:
+  enabled: true
+  className: traefik
+  host: backstage.homelab.local
+
+postgresql:
+  enabled: true
+  auth:
+    username: backstage
+    password: Backstage12345
+    database: backstage
+  primary:
+    persistence:
+      storageClass: longhorn
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi

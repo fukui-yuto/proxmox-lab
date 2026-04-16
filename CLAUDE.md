@@ -164,6 +164,10 @@ resource "null_resource" "expand_disk_node03" {
 | **常時起動** (automated sync) | keda | イベント駆動オートスケーリング (Prometheus / Kafka 等) |
 | **常時起動** (automated sync) | falco | syscall レベルのランタイム脅威検知 |
 | **常時起動** (automated sync) | trivy-operator | コンテナイメージ・設定の継続的脆弱性スキャン |
+| **常時起動** (automated sync) | litmus | カオスエンジニアリング (aiops-auto-remediation の動作検証) |
+| **常時起動** (automated sync) | backstage | 開発者ポータル / サービスカタログ |
+| **常時起動** (automated sync) | crossplane | k8s CRD によるインフラ宣言的管理 (Terraform 代替候補) |
+| **条件付き** (CNI 移行後) | cilium | eBPF CNI + Hubble ネットワーク可観測性 (flannel 移行後に有効化) |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -177,6 +181,8 @@ resource "null_resource" "expand_disk_node03" {
 | 3 | vault / minio / cert-manager |
 | 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero / argo-rollouts / keda / falco |
 | 5 | harbor / trivy-operator |
+| 16 | litmus / backstage / crossplane |
+| CNI 移行後 | cilium (Wave 0 に再配置、flannel 置き換え) |
 | 6 | keycloak |
 | 7 | logging-elasticsearch |
 | 8 | logging-fluent-bit |

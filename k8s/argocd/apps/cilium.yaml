@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  annotations:
+    # CNI は最初に起動する必要があるため Wave 0 に配置
+    # ただし flannel からの移行後にのみ有効化すること (README.md 参照)
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://helm.cilium.io/
+      chart: cilium
+      targetRevision: "1.16.4"
+      helm:
+        valueFiles:
+          - $values/k8s/cilium/values.yaml
+    - repoURL: https://github.com/fukui-yuto/proxmox-lab
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    # CNI 移行完了後に automated を有効化する
+    # automated:
+    #   prune: true
+    #   selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
