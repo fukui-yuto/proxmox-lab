@@ -20,6 +20,20 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: velero
+  # upgradeCRDs=false にしても Helm が ClusterRole/ClusterRoleBinding/ServiceAccount を
+  # upgrade-crds 用に残す場合がある。prune: true で自動削除されるが、
+  # 削除タイミングのズレで diff が出ることがあるため ignoreDifferences で除外する。
+  ignoreDifferences:
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: velero-upgrade-crds
+      jsonPointers:
+        - /rules
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      name: velero-upgrade-crds
+      jsonPointers:
+        - /subjects
   syncPolicy:
     automated:
       prune: true
@@ -27,3 +41,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
