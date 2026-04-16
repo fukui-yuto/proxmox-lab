@@ -2,9 +2,8 @@
 # Helm chart: jetstack/cert-manager
 # TLS 証明書の自動発行・更新。homelab 内部 CA を使用。
 
-# CRD を Helm で管理する
-crds:
-  enabled: true
+# CRD を Helm で管理する (v1.14.x では installCRDs を使用)
+installCRDs: true
 
 # -------------------------------------------------------------------
 # リソース制限
