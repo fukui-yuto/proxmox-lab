@@ -573,7 +573,7 @@ resource "null_resource" "k3s_registry_config" {
 # -------------------------------------------------------------------
 resource "null_resource" "k3s_sysctl_falco" {
   triggers = {
-    sysctl_falco_version = "1"
+    sysctl_falco_version = "2"
   }
 
   depends_on = [null_resource.k3s_workers_install]
@@ -587,7 +587,7 @@ resource "null_resource" "k3s_sysctl_falco" {
         local ip="$1"
         echo "==> Applying Falco sysctl on $ip"
         ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
-          "echo 'kernel.perf_event_paranoid=1' | sudo tee /etc/sysctl.d/99-falco.conf && sudo sysctl --system && sysctl kernel.perf_event_paranoid && echo 'sysctl done'"
+          "printf 'kernel.perf_event_paranoid=1\nkernel.unprivileged_bpf_disabled=1\n' | sudo tee /etc/sysctl.d/99-falco.conf && sudo sysctl --system && sysctl kernel.perf_event_paranoid kernel.unprivileged_bpf_disabled && echo 'sysctl done'"
       }
 
       apply_sysctl 192.168.210.21
