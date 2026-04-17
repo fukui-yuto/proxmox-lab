@@ -1,12 +1,13 @@
 ## Falco Helm values
 ## Chart: falcosecurity/falco
 
-# kmod ドライバーを使用。
-# modern_ebpf: KVM VM 環境で perf_event_paranoid=4 の制約により scap_init が失敗するため NG
-# ebpf: 事前ビルド済みプローブが kernel 6.8.0-107-generic 向けに存在せずダウンロード失敗するため NG
-# kmod: カーネルモジュールをソースからコンパイル。kernel-headers が /usr/src に存在するため動作可。
+# modern_ebpf ドライバーを使用 (CO-RE/BTF、カーネルヘッダー不要)。
+# ebpf: kernel 6.8.0-107 向けプローブが download.falco.org に存在しない → NG
+# kmod: class_create() API が kernel 6.4+ で変更され falco 7.3.0+driver がビルド失敗 → NG
+# modern_ebpf: BTF 対応 (Ubuntu 24.04 ✓)。perf_event_paranoid=1 が必要 →
+#   Terraform null_resource.k3s_sysctl_falco で /etc/sysctl.d/99-falco.conf を配置済み。
 driver:
-  kind: kmod
+  kind: modern_ebpf
 
 # Falco ルールセット
 falco:

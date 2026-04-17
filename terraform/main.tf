@@ -563,3 +563,38 @@ resource "null_resource" "k3s_registry_config" {
     EOT
   }
 }
+
+# -------------------------------------------------------------------
+# Falco 用 sysctl チューニング
+# modern_ebpf ドライバーは perf_event_open() を使用するため
+# perf_event_paranoid を 1 に下げる必要がある。
+# Ubuntu 24.04 のデフォルト (4) では scap_init が失敗する。
+# sysctl_falco_version を上げると全ノードで再適用される。
+# -------------------------------------------------------------------
+resource "null_resource" "k3s_sysctl_falco" {
+  triggers = {
+    sysctl_falco_version = "1"
+  }
+
+  depends_on = [null_resource.k3s_workers_install]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -e
+
+      apply_sysctl() {
+        local ip="$1"
+        echo "==> Applying Falco sysctl on $ip"
+        ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
+          "echo 'kernel.perf_event_paranoid=1' | sudo tee /etc/sysctl.d/99-falco.conf && sudo sysctl --system && sysctl kernel.perf_event_paranoid && echo 'sysctl done'"
+      }
+
+      apply_sysctl 192.168.210.21
+      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30; do
+        apply_sysctl "$ip"
+      done
+      echo "Falco sysctl applied to all k3s nodes."
+    EOT
+  }
+}
