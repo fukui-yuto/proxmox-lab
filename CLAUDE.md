@@ -167,7 +167,7 @@ resource "null_resource" "expand_disk_node03" {
 | **常時起動** (automated sync) | litmus | カオスエンジニアリング (aiops-auto-remediation の動作検証) |
 | **常時起動** (automated sync) | backstage | 開発者ポータル / サービスカタログ |
 | **常時起動** (automated sync) | crossplane | k8s CRD によるインフラ宣言的管理 (Terraform 代替候補) |
-| **条件付き** (CNI 移行後) | cilium | eBPF CNI + Hubble ネットワーク可観測性 (flannel 移行後に有効化) |
+| **常時起動** (automated sync) | cilium | eBPF CNI + Hubble ネットワーク可観測性 (flannel 移行完了・全ノード稼働中) |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -182,7 +182,7 @@ resource "null_resource" "expand_disk_node03" {
 | 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero / argo-rollouts / keda / falco |
 | 5 | harbor / trivy-operator |
 | 16 | litmus / backstage / crossplane |
-| CNI 移行後 | cilium (Wave 0 に再配置、flannel 置き換え) |
+| 0 | cilium (Wave 0、flannel 置き換え完了) |
 | 6 | keycloak |
 | 7 | logging-elasticsearch |
 | 8 | logging-fluent-bit |

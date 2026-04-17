@@ -23,6 +23,18 @@ k8s/argocd/apps/
 └── cilium.yaml      # ArgoCD Application (automated sync は移行後に有効化)
 ```
 
+## ✅ 移行ステータス (2026-04-17 完了)
+
+flannel → Cilium の CNI 移行が完了。全 9 ノードで cilium Pod が 1/1 Ready で稼働中。
+
+**移行時に判明したトラブルシューティング事項:**
+
+| 問題 | 原因 | 対処 |
+|------|------|------|
+| cilium pod CrashLoop (`auto-direct-node-routes cannot be used with tunneling`) | `values.yaml` に `autoDirectNodeRoutes: true` が残存 | `values.yaml` から削除し、`cilium-config` ConfigMap の `auto-direct-node-routes` を `false` に patch |
+| `cilium_vxlan: address already in use` | `flannel.1` インターフェースが各ノードに残留し UDP 8472 ポートを占有 | 全ノードで `ip link delete flannel.1` を実行 |
+| `init:Error` (`Agent should not be running when cleaning up`) | force delete した Pod の `/var/run/cilium/cilium.pid` が残留 | 各ノードで `sudo rm -f /var/run/cilium/cilium.pid` を実行 |
+
 ## ⚠️ CNI 移行手順 (破壊的操作・メンテナンスウィンドウ必須)
 
 > **全 Pod が再起動される。事前にバックアップ (Velero) を取得すること。**
@@ -44,32 +56,43 @@ kubectl wait backup/pre-cilium-migration -n velero --for=condition=Completed --t
 
 ### 2. k3s を flannel 無効化で再設定 (Terraform)
 
-`terraform/main.tf` の k3s-master / worker の `k3s_install_args` に以下を追加して `terraform apply`:
+`terraform/main.tf` に `null_resource.k3s_disable_flannel` を追加して `terraform apply`:
 
 ```hcl
-# k3s-master
-"--flannel-backend=none",
-"--disable-network-policy",
-
-# worker (server URL に接続するだけなので変更不要)
+resource "null_resource" "k3s_disable_flannel" {
+  triggers = { flannel_disable_version = "1" }
+  depends_on = [null_resource.k3s_master_install]
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command = <<-EOT
+      ssh ubuntu@192.168.210.21 \
+        "sudo mkdir -p /etc/rancher/k3s/config.yaml.d && \
+         printf 'flannel-backend: none\ndisable-network-policy: true\n' | \
+         sudo tee /etc/rancher/k3s/config.yaml.d/00-cilium.yaml && \
+         sudo systemctl restart k3s"
+    EOT
+  }
+}
 ```
-
-> Terraform apply 時に `remote-exec` で `/etc/systemd/system/k3s.service` が更新され k3s が再起動される。
 
 ### 3. 既存 flannel リソースの削除
 
+> **重要:** `flannel.1` インターフェースが残ると Cilium が UDP 8472 ポートの競合で起動できない。
+
 ```bash
 # Raspberry Pi 上で実行
-kubectl delete daemonset -n kube-system kube-flannel || true
-kubectl delete configmap -n kube-system kube-flannel-cfg || true
-# flannel の残留 iptables ルールを各ノードでクリア (Ansible で実施)
 ansible-playbook -i inventory/hosts.yml playbooks/09-flannel-cleanup.yml
 ```
+
+`09-flannel-cleanup.yml` は以下を実行する:
+- kube-flannel DaemonSet / ConfigMap を削除 (存在する場合)
+- 各ノードで `ip link delete flannel.1` を実行 ← **Cilium 起動の前提条件**
+- 古い `/var/run/cilium/cilium.pid` を削除
 
 ### 4. Cilium のインストール
 
 ```bash
-# ArgoCD Application を apply (automated は無効のまま手動 sync)
+# ArgoCD Application を apply (automated sync は既に有効化済み)
 kubectl apply -f k8s/argocd/apps/cilium.yaml
 kubectl -n argocd app sync cilium
 ```
@@ -77,14 +100,13 @@ kubectl -n argocd app sync cilium
 ### 5. 動作確認
 
 ```bash
-cilium status
-cilium connectivity test
-kubectl get nodes  # Ready になっていることを確認
+kubectl get pods -n kube-system -l k8s-app=cilium  # 全ノード 1/1 Ready を確認
+kubectl get nodes  # 全ノード Ready を確認
 ```
 
-### 6. argocd/apps/cilium.yaml の automated sync を有効化
+### 6. argocd/apps/cilium.yaml の automated sync (移行完了後は不要)
 
-`cilium.yaml` の `syncPolicy.automated` のコメントアウトを外して commit & push。
+`cilium.yaml` の `syncPolicy.automated` は移行時に有効化済み。追加作業不要。
 
 ## セットアップ後
 

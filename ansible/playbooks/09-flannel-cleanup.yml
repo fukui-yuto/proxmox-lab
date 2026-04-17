@@ -1,0 +1,62 @@
+---
+# flannel から Cilium への CNI 移行時に flannel の残留リソースを削除する
+# 実行前提: k3s が --flannel-backend=none で再起動済みであること
+- name: Cleanup flannel resources for Cilium migration
+  hosts: rasberrypi5
+  gather_facts: false
+  vars:
+    k3s_nodes:
+      - 192.168.210.21
+      - 192.168.210.22
+      - 192.168.210.24
+      - 192.168.210.25
+      - 192.168.210.26
+      - 192.168.210.27
+      - 192.168.210.28
+      - 192.168.210.29
+      - 192.168.210.30
+  tasks:
+    - name: Delete kube-flannel DaemonSet (if exists)
+      command: kubectl delete daemonset kube-flannel -n kube-system
+      register: del_ds
+      ignore_errors: true
+      changed_when: "'deleted' in del_ds.stdout"
+
+    - name: Delete kube-flannel ConfigMap (if exists)
+      command: kubectl delete configmap kube-flannel-cfg -n kube-system
+      register: del_cm
+      ignore_errors: true
+      changed_when: "'deleted' in del_cm.stdout"
+
+    - name: Delete flannel.1 interface on each k3s node
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo ip link delete flannel.1 2>/dev/null; echo 'done'"
+      loop: "{{ k3s_nodes }}"
+      register: del_flannel
+      ignore_errors: true
+
+    - name: Show flannel.1 deletion results
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
+      loop: "{{ del_flannel.results }}"
+
+    - name: Delete cilium.pid files (stale from force-deleted pods)
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo rm -f /var/run/cilium/cilium.pid; echo 'done'"
+      loop: "{{ k3s_nodes }}"
+      ignore_errors: true
+
+    - name: Wait for cilium pods to recover after flannel cleanup
+      command: kubectl wait pods -n kube-system -l k8s-app=cilium --for=condition=Ready --timeout=180s
+      register: wait_result
+      ignore_errors: true
+
+    - name: Show cilium pod status
+      command: kubectl get pods -n kube-system -l k8s-app=cilium
+      register: cilium_status
+
+    - name: Display cilium status
+      debug:
+        var: cilium_status.stdout
