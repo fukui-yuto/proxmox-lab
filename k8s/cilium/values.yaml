@@ -84,5 +84,5 @@ l7Proxy: true
 bpf:
   masquerade: true
 
-# ノード間通信
-autoDirectNodeRoutes: true
+# ノード間通信: tunnel モードと autoDirectNodeRoutes は共存不可のため tunnel のみ使用
+# autoDirectNodeRoutes: true  # native routing モード時のみ有効
