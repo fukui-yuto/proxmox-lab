@@ -6,7 +6,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| Helm chart | litmuschaos/litmus 3.14.0 |
+| Helm chart | litmuschaos/litmus 3.28.0 |
 | Namespace | litmus |
 | ArgoCD Sync Wave | 16 |
 | Chaos Center | http://litmus.homelab.local |
@@ -75,6 +75,23 @@ EOF
 ```bash
 kubectl get chaosresult -A
 kubectl describe chaosresult pod-delete-test -n default
+```
+
+## トラブルシューティング
+
+### Chart 3.28.0 へのアップグレード (2026-04-17 実施)
+
+旧 chart 3.14.0 が依存する `bitnami/mongodb:5.0.8-debian-10-r24` が Docker Hub から削除されたため 3.28.0 にアップグレード。
+
+**変更点:**
+- `k8s/argocd/apps/litmus.yaml`: `targetRevision: "3.14.0"` → `"3.28.0"`
+- `k8s/litmus/values.yaml`: `mongodb.replicaCount: 1` を明示 (デフォルトが 3 に変わったため)
+- chart 3.28.0 が使用する MongoDB イメージ: `bitnamilegacy/mongodb:8.0.13-debian-12-r0`
+
+アップグレード後に既存の MongoDB Pod (`litmus-mongodb-0`, `litmus-mongodb-arbiter-0`) を削除して新イメージで再作成:
+
+```bash
+kubectl delete pod litmus-mongodb-0 litmus-mongodb-arbiter-0 -n litmus
 ```
 
 ## 詳細

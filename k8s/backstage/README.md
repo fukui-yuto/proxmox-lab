@@ -69,6 +69,22 @@ EOF
 kubectl create token backstage -n backstage --duration=8760h
 ```
 
+## トラブルシューティング
+
+### postgresql の ImagePullBackOff (bitnami/postgresql:15.4.0-debian-11-r10: not found)
+
+**原因:** bitnami が Docker Hub から古い debian-11 イメージを削除。chart が依存する bitnami/postgresql サブチャートのデフォルトイメージが取得できなくなる。
+
+**対処:** `values.yaml` で postgresql イメージを `bitnamilegacy` namespace の最新版に上書き (2026-04-17 実施):
+
+```yaml
+postgresql:
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: "17.6.0-debian-12-r4"
+```
+
 ## カタログへのサービス登録
 
 各サービスのリポジトリに `catalog-info.yaml` を追加して `values.yaml` の `catalog.locations` に URL を追記する。

@@ -237,6 +237,28 @@ argocd-notifications-controller-xxx                1/1     Running   0
 argocd-redis-xxx                                   1/1     Running   0
 ```
 
+## トラブルシューティング
+
+### application-controller が OOMKilled (CrashLoopBackOff) になる
+
+**症状:** `argocd-application-controller-0` が Exit Code 137 (OOMKilled) で繰り返しクラッシュする。
+
+**原因:** 30 以上のアプリを管理する場合、デフォルトの memory limit 1Gi では不足する。
+
+**対処:** `values-argocd.yaml` の `controller.resources.limits.memory` を 2Gi 以上に増やして ArgoCD を再デプロイ:
+
+```yaml
+controller:
+  resources:
+    limits:
+      memory: 2Gi  # 1Gi → 2Gi に変更 (2026-04-17)
+```
+
+```bash
+cd ~/proxmox-lab/k8s/argocd
+bash install.sh
+```
+
 ## アンインストール
 
 ```bash
