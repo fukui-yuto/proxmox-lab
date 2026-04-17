@@ -7,11 +7,12 @@ driver:
 
 # Falco ルールセット
 falco:
+  # gRPC は TCP モードで TLS 証明書が必要なため無効化。
+  # Falcosidekick は HTTP 経由でアラートを受信するため gRPC 不要。
   grpc:
-    enabled: true
-    bind_address: "0.0.0.0:5060"
+    enabled: false
   grpc_output:
-    enabled: true
+    enabled: false
   json_output: true
   json_include_output_property: true
 
@@ -32,10 +33,7 @@ falcosidekick:
       annotations:
         kubernetes.io/ingress.class: traefik
       hosts:
-        - host: falco.homelab.local
-          paths:
-            - path: /
-              pathType: Prefix
+        - falco.homelab.local
     resources:
       requests:
         cpu: 20m
