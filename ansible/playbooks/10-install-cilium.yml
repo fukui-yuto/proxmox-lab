@@ -23,11 +23,6 @@
         -f ~/proxmox-lab/k8s/cilium/values.yaml
         --show-only templates/cilium-agent/daemonset.yaml
       register: ds_cilium
-      ignore_errors: true
-
-    - name: Show cilium DaemonSet template result
-      debug:
-        var: ds_cilium.stderr
 
     - name: Template cilium-envoy DaemonSet only
       command: >
@@ -37,26 +32,44 @@
         -f ~/proxmox-lab/k8s/cilium/values.yaml
         --show-only templates/cilium-envoy/daemonset.yaml
       register: ds_envoy
-      ignore_errors: true
 
     - name: Apply cilium DaemonSet
-      command: kubectl apply -f -
+      command: kubectl apply --server-side -f -
       args:
         stdin: "{{ ds_cilium.stdout }}"
-      when: ds_cilium.rc == 0 and ds_cilium.stdout != ""
       register: apply_cilium
 
-    - name: Show apply result
+    - name: Show apply cilium result
       debug:
-        var: apply_cilium
+        var: apply_cilium.stdout
 
     - name: Apply cilium-envoy DaemonSet
-      command: kubectl apply -f -
+      command: kubectl apply --server-side -f -
       args:
         stdin: "{{ ds_envoy.stdout }}"
-      when: ds_envoy.rc == 0 and ds_envoy.stdout != ""
       register: apply_envoy
 
     - name: Show apply envoy result
       debug:
-        var: apply_envoy
+        var: apply_envoy.stdout
+
+    - name: Wait for cilium pods to start
+      command: kubectl wait pods --all -n kube-system -l k8s-app=cilium --for=condition=Ready --timeout=120s
+      register: wait_result
+      ignore_errors: true
+
+    - name: Show cilium pods
+      command: kubectl get pods -n kube-system -l k8s-app=cilium
+      register: cilium_pods
+
+    - name: Show pods
+      debug:
+        var: cilium_pods.stdout
+
+    - name: Show nodes status
+      command: kubectl get nodes
+      register: nodes
+
+    - name: Show nodes
+      debug:
+        var: nodes.stdout
