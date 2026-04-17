@@ -1,7 +1,7 @@
 ---
 # k3s クラスターに cilium を Helm でインストールする
 # 実行前提: flannel が無効化され k3s が再起動済みであること
-- name: Install Cilium via Helm
+- name: Install Cilium DaemonSets directly
   hosts: rasberrypi5
   gather_facts: false
   tasks:
@@ -9,40 +9,54 @@
       command: helm repo add cilium https://helm.cilium.io/
       register: repo_add
       changed_when: "'already exists' not in repo_add.stdout"
+      ignore_errors: true
 
     - name: Update helm repos
       command: helm repo update cilium
-      register: repo_update
+      ignore_errors: true
 
-    - name: Show repo update result
-      debug:
-        var: repo_update.stdout
-
-    - name: Install/upgrade cilium
+    - name: Template cilium DaemonSets only
       command: >
-        helm upgrade --install cilium cilium/cilium
+        helm template cilium cilium/cilium
         --version 1.16.4
         --namespace kube-system
         -f ~/proxmox-lab/k8s/cilium/values.yaml
-      register: helm_result
-
-    - name: Show helm result
-      debug:
-        var: helm_result.stdout
-
-    - name: List helm releases in kube-system
-      command: helm list -n kube-system
-      register: helm_list
-
-    - name: Show helm list
-      debug:
-        var: helm_list.stdout
-
-    - name: Check cilium pods
-      command: kubectl get pods -n kube-system -l k8s-app=cilium
-      register: cilium_pods
+        --show-only templates/cilium-agent/daemonset.yaml
+      register: ds_cilium
       ignore_errors: true
 
-    - name: Show cilium pods
+    - name: Show cilium DaemonSet template result
       debug:
-        var: cilium_pods.stdout
+        var: ds_cilium.stderr
+
+    - name: Template cilium-envoy DaemonSet only
+      command: >
+        helm template cilium cilium/cilium
+        --version 1.16.4
+        --namespace kube-system
+        -f ~/proxmox-lab/k8s/cilium/values.yaml
+        --show-only templates/cilium-envoy/daemonset.yaml
+      register: ds_envoy
+      ignore_errors: true
+
+    - name: Apply cilium DaemonSet
+      command: kubectl apply -f -
+      args:
+        stdin: "{{ ds_cilium.stdout }}"
+      when: ds_cilium.rc == 0 and ds_cilium.stdout != ""
+      register: apply_cilium
+
+    - name: Show apply result
+      debug:
+        var: apply_cilium
+
+    - name: Apply cilium-envoy DaemonSet
+      command: kubectl apply -f -
+      args:
+        stdin: "{{ ds_envoy.stdout }}"
+      when: ds_envoy.rc == 0 and ds_envoy.stdout != ""
+      register: apply_envoy
+
+    - name: Show apply envoy result
+      debug:
+        var: apply_envoy
