@@ -37,6 +37,8 @@ portal:
         memory: 128Mi
 
 mongodb:
+  # chart 3.28.0: bitnamilegacy/mongodb:8.0.13-debian-12-r0 を使用
+  replicaCount: 1
   resources:
     requests:
       cpu: 50m
@@ -45,5 +47,8 @@ mongodb:
       cpu: 500m
       memory: 512Mi
   persistence:
+    enabled: true
     storageClass: longhorn
     size: 5Gi
+  volumePermissions:
+    enabled: true
