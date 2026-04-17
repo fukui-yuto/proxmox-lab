@@ -33,7 +33,10 @@ falcosidekick:
       annotations:
         kubernetes.io/ingress.class: traefik
       hosts:
-        - falco.homelab.local
+        - host: falco.homelab.local
+          paths:
+            - path: /
+              pathType: Prefix
     resources:
       requests:
         cpu: 20m
