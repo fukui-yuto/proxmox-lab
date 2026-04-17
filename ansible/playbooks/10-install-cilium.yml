@@ -1,0 +1,48 @@
+---
+# k3s クラスターに cilium を Helm でインストールする
+# 実行前提: flannel が無効化され k3s が再起動済みであること
+- name: Install Cilium via Helm
+  hosts: rasberrypi5
+  gather_facts: false
+  tasks:
+    - name: Add cilium helm repo
+      command: helm repo add cilium https://helm.cilium.io/
+      register: repo_add
+      changed_when: "'already exists' not in repo_add.stdout"
+
+    - name: Update helm repos
+      command: helm repo update cilium
+      register: repo_update
+
+    - name: Show repo update result
+      debug:
+        var: repo_update.stdout
+
+    - name: Install/upgrade cilium
+      command: >
+        helm upgrade --install cilium cilium/cilium
+        --version 1.16.4
+        --namespace kube-system
+        -f ~/proxmox-lab/k8s/cilium/values.yaml
+      register: helm_result
+
+    - name: Show helm result
+      debug:
+        var: helm_result.stdout
+
+    - name: List helm releases in kube-system
+      command: helm list -n kube-system
+      register: helm_list
+
+    - name: Show helm list
+      debug:
+        var: helm_list.stdout
+
+    - name: Check cilium pods
+      command: kubectl get pods -n kube-system -l k8s-app=cilium
+      register: cilium_pods
+      ignore_errors: true
+
+    - name: Show cilium pods
+      debug:
+        var: cilium_pods.stdout
