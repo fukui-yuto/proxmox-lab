@@ -571,6 +571,30 @@ resource "null_resource" "k3s_registry_config" {
 # Ubuntu 24.04 のデフォルト (4) では scap_init が失敗する。
 # sysctl_falco_version を上げると全ノードで再適用される。
 # -------------------------------------------------------------------
+# -------------------------------------------------------------------
+# k3s flannel 無効化 → Cilium CNI 移行
+# flannel_disable_version を上げると再実行される。
+# 実行後に k3s-master が再起動し、cilium が CNI を引き継ぐ。
+# -------------------------------------------------------------------
+resource "null_resource" "k3s_disable_flannel" {
+  triggers = {
+    flannel_disable_version = "1"
+  }
+
+  depends_on = [null_resource.k3s_master_install]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -e
+      echo "==> Disabling flannel on k3s-master (192.168.210.21)"
+      ssh -o StrictHostKeyChecking=no ubuntu@192.168.210.21 \
+        "sudo mkdir -p /etc/rancher/k3s/config.yaml.d && printf 'flannel-backend: none\ndisable-network-policy: true\n' | sudo tee /etc/rancher/k3s/config.yaml.d/00-cilium.yaml && sudo systemctl restart k3s && sleep 30 && sudo k3s kubectl get nodes"
+      echo "==> flannel disabled, k3s restarted"
+    EOT
+  }
+}
+
 resource "null_resource" "k3s_sysctl_falco" {
   triggers = {
     sysctl_falco_version = "2"
