@@ -63,7 +63,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 6144
   }
 
   network_device {
