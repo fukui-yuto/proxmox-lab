@@ -1,11 +1,12 @@
 ## Falco Helm values
 ## Chart: falcosecurity/falco
 
-# ebpf ドライバーを使用。
-# modern_ebpf は KVM VM 環境で perf_event_paranoid=4 の制約により scap_init が失敗するため
-# 事前コンパイル済みプローブをダウンロードして使用する ebpf ドライバーを選択する。
+# kmod ドライバーを使用。
+# modern_ebpf: KVM VM 環境で perf_event_paranoid=4 の制約により scap_init が失敗するため NG
+# ebpf: 事前ビルド済みプローブが kernel 6.8.0-107-generic 向けに存在せずダウンロード失敗するため NG
+# kmod: カーネルモジュールをソースからコンパイル。kernel-headers が /usr/src に存在するため動作可。
 driver:
-  kind: ebpf
+  kind: kmod
 
 # Falco ルールセット
 falco:
