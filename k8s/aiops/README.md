@@ -352,7 +352,15 @@ PrometheusRule
 | トリガー | 実行アクション |
 |---------|--------------|
 | Pod OOMKilled | Deployment のメモリリミットを 1.5 倍に自動増加 |
-| Pod CrashLoopBackOff (2分継続) | ログ収集 + エラーパターン分析 → Grafana に記録 |
+| Pod CrashLoopBackOff (2分継続) | ログ収集 + エラーパターン分析 �� Grafana に記録 |
+| Longhorn ボリューム faulted (2分継続) | stale VolumeAttachment 削除 + instance-manager 再起動 → ボリューム回復待機 |
+
+### 定期メンテナンス (CronWorkflow)
+
+| CronWorkflow | スケジュール | 処理内容 |
+|-------------|------------|---------|
+| `longhorn-maintenance` | 10分ごと | stale VolumeAttachment 削除、faulted ボリューム検出 → instance-manager 再起動 |
+| `cilium-longhorn-sync` | 5分ごと | Cilium リスタート検知 → 古い instance-manager Pod を再起動 (Pod ネットワーク不整合解消) |
 
 ### デプロイ手順
 
@@ -459,8 +467,12 @@ auto-remediation/
 │   ├── eventbus.yaml                   # NATS native EventBus
 │   ├── event-source.yaml               # AlertManager webhook 受信 (:12000)
 │   ├── sensor-oomkilled.yaml           # OOMKilled → Workflow 起動
-│   └── sensor-crashloop.yaml           # CrashLoop → Workflow 起動
+│   ├── sensor-crashloop.yaml           # CrashLoop → Workflow 起動
+│   └── sensor-longhorn-faulted.yaml    # Longhorn faulted → Workflow 起動
 └── argo-workflows/
-    ├── workflow-oomkilled.yaml          # OOMKilled 修復 WorkflowTemplate
-    └── workflow-crashloop.yaml          # CrashLoop 分析 WorkflowTemplate
+    ├── workflow-oomkilled.yaml                # OOMKilled 修復 WorkflowTemplate
+    ├── workflow-crashloop.yaml                # CrashLoop 分析 WorkflowTemplate
+    ├── workflow-longhorn-faulted.yaml         # Longhorn faulted 自動修復 WorkflowTemplate
+    ├── cronworkflow-longhorn-cleanup.yaml     # Longhorn 定期メンテナンス CronWorkflow
+    └── cronworkflow-cilium-longhorn-sync.yaml # Cilium リスタート後の自動同期 CronWorkflow
 ```
