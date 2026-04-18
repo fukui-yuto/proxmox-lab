@@ -80,12 +80,14 @@ resources:
 # L7 ポリシー (HTTP/gRPC レベルの制御)
 l7Proxy: true
 
-# Socket-based LB は無効化
-# bpf-lb-sock: true を有効にすると、cil_from_container の TC-level DNAT がスキップされるが
-# cgroup socketLB BPF プログラムのアタッチが失敗し、ClusterIP 全通信が断絶することが判明。
-# longhorn hairpin 問題は別途 localRedirectPolicy 等で対処する。
-# socketLB:
-#   enabled: true
+# Socket-based LB を有効化
+# kube-proxy-replacement: true + tunnel (VXLAN) モードでは、ClusterIP の DNAT は
+# socketLB (cgroup BPF) でしか処理できない。無効だと全 ClusterIP が non-routable になり
+# DNS 含む全サービス間通信が断絶する。
+# 以前の有効化時に cgroup BPF アタッチ失敗が起きたが、ログ確認の結果
+# BPF プログラム自体は正常にロードされており、一時的な問題だったと判断。
+socketLB:
+  enabled: true
 
 # BPF マスカレード
 bpf:
