@@ -111,6 +111,9 @@ repoServer:
       cpu: 500m
       memory: 1Gi
   livenessProbe:
+    httpGet:
+      path: /healthz
+      port: metrics
     initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 15
