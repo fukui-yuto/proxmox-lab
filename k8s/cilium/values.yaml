@@ -9,8 +9,15 @@
 k8sServiceHost: "192.168.210.21"  # k3s-master IP
 k8sServicePort: "6443"
 
-# kubeProxyReplacement を有効化 (kube-proxy を Cilium で置き換え)
-kubeProxyReplacement: true
+# kube-proxy replacement は無効���し、k3s 内蔵 kube-proxy (iptables) に委譲する。
+# 理由: kubeProxyReplacement: true + tunnel (VXLAN) モードでは、ClusterIP の DNAT を
+# socketLB (cgroup BPF) が処���する必要があるが、k3s の containerd 環境では
+# Cilium コンテナの cgroup namespace がホストと分���されており、socketLB の
+# BPF プログラムが Pod の cgroup にアタッチできない。
+# その結果、全 ClusterIP が non-routable となり DNS 含むサービス間通信が全断する。
+# k3s は --disable-kube-proxy なしで起動されているため、内蔵 kube-proxy の
+# iptables ルールが有効。Cilium は CNI (VXLAN/ネットワーキ���グ) のみを���当する。
+kubeProxyReplacement: false
 
 # IPAM: kubernetes モードで k8s node.spec.podCIDR をそのまま使用する。
 # cluster-pool モードでは cilium が独自の CIDR をノードに割り当てるため、
@@ -80,18 +87,9 @@ resources:
 # L7 ポリシー (HTTP/gRPC レベルの制御)
 l7Proxy: true
 
-# Socket-based LB を有効化
-# kube-proxy-replacement: true + tunnel (VXLAN) モードでは、ClusterIP の DNAT は
-# socketLB (cgroup BPF) でしか処理できない。無効だと全 ClusterIP が non-routable になり
-# DNS 含む全サービス間通信が断絶する。
-# 以前の有効化時に cgroup BPF アタッチ失敗が起きたが、ログ確認の結果
-# BPF プログラム自体は正常にロードされており、一時的な問題だったと判断。
-socketLB:
-  enabled: true
-
 # BPF マスカレード
 bpf:
-  masquerade: true
+  masquerade: false
 
 # ノード間通信: tunnel モードと autoDirectNodeRoutes は共存不可のため tunnel のみ使用
 # autoDirectNodeRoutes: true  # native routing モード時のみ有効
