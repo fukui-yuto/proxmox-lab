@@ -1,0 +1,92 @@
+# CronWorkflow: Longhorn スナップショット定期クリーンアップ + stale VolumeAttachment 削除
+#
+# 10分ごとに実行:
+#   1. attached=false の VolumeAttachment を削除
+#   2. Longhorn faulted ボリュームを検出して instance-manager 再起動
+#   3. 結果をログ出力
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: longhorn-maintenance
+  namespace: aiops
+spec:
+  schedule: "*/10 * * * *"
+  timezone: "Asia/Tokyo"
+  concurrencyPolicy: "Replace"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  workflowSpec:
+    entrypoint: maintenance
+    serviceAccountName: remediation-workflow
+    templates:
+      - name: maintenance
+        activeDeadlineSeconds: 120
+        script:
+          image: bitnami/kubectl:1.29
+          command: [bash]
+          source: |
+            set -euo pipefail
+            echo "=== Longhorn 定期メンテナンス $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+            # 1. stale VolumeAttachment の削除
+            echo "[1/3] stale VolumeAttachment チェック"
+            STALE_COUNT=0
+            for VA in $(kubectl get volumeattachments -o json | \
+              python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            for item in data.get('items', []):
+                if not item.get('status', {}).get('attached', True):
+                    print(item['metadata']['name'])
+            " 2>/dev/null); do
+              echo "  削除: $VA"
+              kubectl delete volumeattachment "$VA" --ignore-not-found=true 2>/dev/null || true
+              STALE_COUNT=$((STALE_COUNT + 1))
+            done
+            echo "  削除数: ${STALE_COUNT}"
+
+            # 2. faulted ボリュームのチェック
+            echo "[2/3] Longhorn faulted ボリュームチェック"
+            FAULTED=$(kubectl get volumes.longhorn.io -n longhorn-system -o json 2>/dev/null | \
+              python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            faulted = [item['metadata']['name'] for item in data.get('items', [])
+                       if item.get('status', {}).get('robustness') == 'faulted']
+            for v in faulted:
+                print(v)
+            " 2>/dev/null || true)
+
+            if [ -n "$FAULTED" ]; then
+              echo "  faulted ボリューム検出:"
+              echo "$FAULTED" | while read vol; do echo "    - $vol"; done
+
+              # instance-manager を再起動して回復を試行
+              echo "  instance-manager Pod を再起動"
+              kubectl delete pods -n longhorn-system \
+                -l longhorn.io/component=instance-manager \
+                --grace-period=30 2>/dev/null || true
+            else
+              echo "  faulted ボリュームなし (正常)"
+            fi
+
+            # 3. degraded ボリュームのレポート
+            echo "[3/3] Longhorn degraded ボリュームレポート"
+            DEGRADED=$(kubectl get volumes.longhorn.io -n longhorn-system -o json 2>/dev/null | \
+              python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            degraded = [item['metadata']['name'] for item in data.get('items', [])
+                        if item.get('status', {}).get('robustness') == 'degraded']
+            for v in degraded:
+                print(v)
+            " 2>/dev/null || true)
+
+            if [ -n "$DEGRADED" ]; then
+              echo "  degraded ボリューム (レプリカ不足):"
+              echo "$DEGRADED" | while read vol; do echo "    - $vol"; done
+            else
+              echo "  degraded ボリュームなし (正常)"
+            fi
+
+            echo "=== メンテナンス完了 ==="

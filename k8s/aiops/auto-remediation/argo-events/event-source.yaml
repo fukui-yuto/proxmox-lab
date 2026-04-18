@@ -3,8 +3,9 @@
 #
 # 生成される Service: alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000
 # エンドポイント:
-#   POST /oomkilled   → OOMKilled アラート
-#   POST /crashloop   → CrashLoopBackOff アラート
+#   POST /oomkilled        → OOMKilled アラート
+#   POST /crashloop        → CrashLoopBackOff アラート
+#   POST /longhorn-faulted → Longhorn faulted ボリュームアラート
 apiVersion: argoproj.io/v1alpha1
 kind: EventSource
 metadata:
@@ -23,4 +24,8 @@ spec:
     crashloop:
       port: "12000"
       endpoint: /crashloop
+      method: POST
+    longhorn-faulted:
+      port: "12000"
+      endpoint: /longhorn-faulted
       method: POST

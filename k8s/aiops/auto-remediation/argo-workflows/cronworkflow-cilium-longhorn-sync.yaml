@@ -1,0 +1,92 @@
+# CronWorkflow: Cilium リスタート後の Longhorn instance-manager 自動再起動
+#
+# 5分ごとに Cilium DaemonSet のローリングリスタートを監視。
+# Cilium Pod が直近 10 分以内に再起動された場合、
+# Longhorn instance-manager Pod も再起動して Pod ネットワーク不整合を解消する。
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: cilium-longhorn-sync
+  namespace: aiops
+spec:
+  schedule: "*/5 * * * *"
+  timezone: "Asia/Tokyo"
+  concurrencyPolicy: "Replace"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  workflowSpec:
+    entrypoint: check-and-sync
+    serviceAccountName: remediation-workflow
+    templates:
+      - name: check-and-sync
+        activeDeadlineSeconds: 90
+        script:
+          image: bitnami/kubectl:1.29
+          command: [bash]
+          source: |
+            set -euo pipefail
+            echo "=== Cilium-Longhorn 同期チェック $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+            # Cilium Pod で直近 10 分以内に起動されたものがあるか確認
+            THRESHOLD=$(($(date +%s) - 600))
+            RECENT_CILIUM=$(kubectl get pods -n kube-system -l k8s-app=cilium -o json | \
+              python3 -c "
+            import sys, json
+            from datetime import datetime, timezone
+            data = json.load(sys.stdin)
+            threshold = int(${THRESHOLD})
+            recent = []
+            for pod in data.get('items', []):
+                start_time = pod.get('status', {}).get('startTime', '')
+                if start_time:
+                    # Parse ISO 8601
+                    dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                    epoch = int(dt.timestamp())
+                    if epoch > threshold:
+                        recent.append(pod['metadata']['name'])
+            for p in recent:
+                print(p)
+            " 2>/dev/null || true)
+
+            if [ -z "$RECENT_CILIUM" ]; then
+              echo "直近 10 分以内に再起動された Cilium Pod なし。スキップ。"
+              exit 0
+            fi
+
+            echo "直近 10 分以内に再起動された Cilium Pod:"
+            echo "$RECENT_CILIUM" | while read p; do echo "  - $p"; done
+
+            # instance-manager Pod の起動時刻を確認
+            # Cilium より前に起動された instance-manager がいれば、ネットワークが古い
+            STALE_IM=$(kubectl get pods -n longhorn-system \
+              -l longhorn.io/component=instance-manager -o json | \
+              python3 -c "
+            import sys, json
+            from datetime import datetime, timezone
+            data = json.load(sys.stdin)
+            threshold = int(${THRESHOLD})
+            stale = []
+            for pod in data.get('items', []):
+                start_time = pod.get('status', {}).get('startTime', '')
+                if start_time:
+                    dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                    epoch = int(dt.timestamp())
+                    if epoch < threshold:
+                        stale.append(pod['metadata']['name'])
+            for p in stale:
+                print(p)
+            " 2>/dev/null || true)
+
+            if [ -z "$STALE_IM" ]; then
+              echo "instance-manager は全て Cilium リスタート後に起動済み。対応不要。"
+              exit 0
+            fi
+
+            echo "Cilium リスタート前から稼働中の instance-manager Pod を再起動:"
+            echo "$STALE_IM" | while read p; do echo "  - $p"; done
+
+            kubectl delete pods -n longhorn-system \
+              -l longhorn.io/component=instance-manager \
+              --grace-period=30 2>/dev/null || true
+
+            echo "instance-manager Pod の再起動を実行しました。"

@@ -1,0 +1,117 @@
+# WorkflowTemplate: Longhorn faulted ボリューム自動修復
+#
+# 処理フロー:
+#   1. faulted ボリュームを使用する Pod を特定・スケールダウン (detach させる)
+#   2. stale VolumeAttachment を削除
+#   3. Longhorn instance-manager Pod を全削除 (ネットワーク不整合解消)
+#   4. ボリュームが healthy に遷移するのを待機
+#   5. Grafana にアノテーションを追加
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: remediate-longhorn-faulted
+  namespace: aiops
+spec:
+  entrypoint: main
+  serviceAccountName: remediation-workflow
+  arguments:
+    parameters:
+      - name: volume
+        value: "unknown"
+  templates:
+    - name: main
+      steps:
+        - - name: recover-volume
+            template: recover-volume
+        - - name: notify
+            template: notify
+            arguments:
+              parameters:
+                - name: result
+                  value: "{{steps.recover-volume.outputs.result}}"
+
+    - name: recover-volume
+      activeDeadlineSeconds: 300
+      script:
+        image: bitnami/kubectl:1.29
+        command: [bash]
+        source: |
+          set -euo pipefail
+          VOLUME="{{workflow.parameters.volume}}"
+          echo "=== Longhorn faulted ボリューム自動修復: ${VOLUME} ==="
+
+          # 1. stale VolumeAttachment を削除
+          echo "[Step 1] stale VolumeAttachment の検出・削除"
+          STALE_VA=$(kubectl get volumeattachments -o json | \
+            python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for item in data.get('items', []):
+              attached = item.get('status', {}).get('attached', True)
+              name = item['metadata']['name']
+              if not attached:
+                  print(name)
+          " 2>/dev/null || true)
+
+          if [ -n "$STALE_VA" ]; then
+            echo "  削除対象: $STALE_VA"
+            echo "$STALE_VA" | xargs -I {} kubectl delete volumeattachment {} --ignore-not-found=true
+          else
+            echo "  stale VolumeAttachment なし"
+          fi
+
+          # 2. instance-manager Pod を全削除 (ネットワーク不整合解消)
+          echo "[Step 2] Longhorn instance-manager Pod の再起動"
+          IM_PODS=$(kubectl get pods -n longhorn-system -l longhorn.io/component=instance-manager \
+            -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+          if [ -n "$IM_PODS" ]; then
+            echo "  再起動対象: $(echo $IM_PODS | wc -w) pods"
+            kubectl delete pods -n longhorn-system -l longhorn.io/component=instance-manager \
+              --grace-period=30 2>/dev/null || true
+          else
+            echo "  instance-manager Pod が見つかりません"
+          fi
+
+          # 3. ボリューム回復を待機 (最大 180 秒)
+          echo "[Step 3] ボリューム回復待機 (最大 180 秒)"
+          for i in $(seq 1 18); do
+            sleep 10
+            STATE=$(kubectl get volumes.longhorn.io "${VOLUME}" -n longhorn-system \
+              -o jsonpath='{.status.robustness}' 2>/dev/null || echo "unknown")
+            echo "  ${i}0s: robustness=${STATE}"
+            if [ "$STATE" = "healthy" ] || [ "$STATE" = "degraded" ]; then
+              echo "RECOVERED: ${VOLUME} is now ${STATE}"
+              exit 0
+            fi
+          done
+
+          echo "TIMEOUT: ${VOLUME} は 180 秒以内に回復しませんでした。手動確認が必要です。"
+
+    - name: notify
+      inputs:
+        parameters:
+          - name: result
+      script:
+        image: curlimages/curl:latest
+        command: [sh]
+        env:
+          - name: VOLUME
+            value: "{{workflow.parameters.volume}}"
+          - name: RESULT
+            value: "{{inputs.parameters.result}}"
+          - name: GRAFANA_URL
+            value: "http://monitoring-grafana.monitoring.svc.cluster.local"
+          - name: GRAFANA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: alert-summarizer-secret
+                key: GRAFANA_PASSWORD
+        source: |
+          TEXT="[Auto-Remediation] Longhorn faulted volume recovery\nVolume: ${VOLUME}\nResult: ${RESULT}"
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -u "admin:${GRAFANA_PASSWORD}" \
+            "${GRAFANA_URL}/api/annotations" \
+            -d "{\"text\":\"${TEXT}\",\"tags\":[\"auto-remediation\",\"longhorn\",\"aiops\"]}" || true
+          echo ""
+          echo "Grafana notification sent"

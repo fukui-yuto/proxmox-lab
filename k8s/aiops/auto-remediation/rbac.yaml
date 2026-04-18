@@ -13,10 +13,22 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["pods", "pods/log", "events"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "delete"]
   - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets"]
-    verbs: ["get", "list", "patch"]
+    resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs: ["get", "list", "patch", "watch"]
+  # Longhorn CRD の操作 (ボリューム状態確認・修復)
+  - apiGroups: ["longhorn.io"]
+    resources: ["volumes", "replicas", "engines", "nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # VolumeAttachment のクリーンアップ (stale attach の削除)
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch", "delete"]
+  # Pod の削除 (instance-manager 再起動)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

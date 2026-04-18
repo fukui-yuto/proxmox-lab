@@ -124,6 +124,10 @@ alertmanager:
           receiver: "argo-events-crashloop"
           continue: true   # alert-summarizer にも転送
         - matchers:
+            - remediation = "longhorn-faulted"
+          receiver: "argo-events-longhorn-faulted"
+          continue: true   # alert-summarizer にも転送
+        - matchers:
             - severity = "critical"
           receiver: "alert-summarizer"
           continue: false
@@ -157,6 +161,10 @@ alertmanager:
       - name: "argo-events-crashloop"
         webhook_configs:
           - url: "http://alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000/crashloop"
+            send_resolved: false
+      - name: "argo-events-longhorn-faulted"
+        webhook_configs:
+          - url: "http://alertmanager-eventsource-svc.argo-events.svc.cluster.local:12000/longhorn-faulted"
             send_resolved: false
 
 # -------------------------------------------------------------------

@@ -1,0 +1,37 @@
+# Sensor: Longhorn faulted イベントを受信して remediate-longhorn-faulted Workflow を起動する
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: longhorn-faulted-sensor
+  namespace: argo-events
+spec:
+  template:
+    serviceAccountName: argo-events-sensor
+  dependencies:
+    - name: longhorn-faulted-dep
+      eventSourceName: alertmanager
+      eventName: longhorn-faulted
+  triggers:
+    - template:
+        name: trigger-longhorn-faulted-workflow
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: remediate-longhorn-faulted-
+                namespace: aiops
+              spec:
+                workflowTemplateRef:
+                  name: remediate-longhorn-faulted
+                arguments:
+                  parameters:
+                    - name: volume
+                      value: "unknown"
+          parameters:
+            - src:
+                dependencyName: longhorn-faulted-dep
+                dataKey: body.alerts.0.labels.volume
+              dest: spec.arguments.parameters.0.value

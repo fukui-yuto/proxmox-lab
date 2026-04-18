@@ -216,6 +216,7 @@ spec:
           labels:
             severity: critical
             category: storage
+            remediation: "longhorn-faulted"
           annotations:
             summary: "Longhorn ボリュームが faulted ({{ $labels.volume }})"
             description: |
