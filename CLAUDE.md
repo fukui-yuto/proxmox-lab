@@ -218,6 +218,28 @@ resource "null_resource" "expand_disk_node03" {
 | 割り込みコアレシング | rx-usecs/tx-usecs=50 | 割り込みストーム抑制 |
 | txqueuelen | 10000 | 送信キュー詰まり防止 |
 
+### Cilium kubeProxyReplacement と ClusterIP 全断
+
+**症状:** `kubeProxyReplacement: true` に設定すると DNS を含む全 ClusterIP が到達不能になり、ArgoCD・全サービス間通信が全断する
+
+**原因:** KPR=true + tunnel (VXLAN) モードでは socketLB (cgroup BPF) が ClusterIP DNAT を処理する必要があるが、k3s の containerd 環境では Cilium コンテナの cgroup namespace がホストと分離されており BPF プログラムが Pod の cgroup にアタッチ不能
+
+**対処:**
+- `k8s/cilium/values.yaml` で `kubeProxyReplacement: false` を維持 (**絶対に true にしない**)
+- `bpf.masquerade: false` (KPR=false では NodePort BPF が無効のため)
+- 詳細は `k8s/cilium/README.md` の「kube-proxy-replacement 設定」セクション参照
+
+### Cilium ローリングリスタート後の Longhorn ボリューム障害
+
+**症状:** Cilium DaemonSet の再起動後に Longhorn ボリュームが faulted/detaching でスタックし、Pod が I/O エラーでクラッシュする
+
+**原因:** Cilium 再起動で Pod ネットワークが更新されるが、既存の Longhorn instance-manager Pod が古いネットワーク情報のまま残り、manager 間の gRPC 通信が不能になる
+
+**対処:**
+1. Cilium ローリングリスタート完了を待つ
+2. Longhorn instance-manager Pod を全削除: `kubectl delete pods -n longhorn-system -l longhorn.io/component=instance-manager`
+3. ボリュームの状態を確認: `kubectl get volumes.longhorn.io -n longhorn-system`
+
 ---
 
 ## k8s アクセス情報

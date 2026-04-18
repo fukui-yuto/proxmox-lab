@@ -38,6 +38,44 @@ flannel → Cilium の CNI 移行が完了。全 9 ノードで cilium Pod が 1
 | 新 Pod が cilium エンドポイントとして登録されず ClusterIP に到達不能 (`dial tcp 10.43.0.1:443: i/o timeout`) | k3s **agent** の kubelet は `/var/lib/rancher/k3s/agent/etc/cni/net.d/` を CNI config dir として使用するが、cilium は `/etc/cni/net.d/` に conflist を書き込む。k3s agent に古い `10-flannel.conflist` が残っていたため kubelet が flannel CNI を引き続き使用し、新 Pod が cni0 ブリッジ接続となって cilium endpoint として登録されなかった | `ansible-playbook playbooks/11-fix-k3s-cni.yml` を実行。各ワーカーの k3s agent CNI dir に `05-cilium.conflist` をコピーし `10-flannel.conflist` を削除。k3s 内蔵 flannel の `net-conf.json` を `"Type": "none"` に更新 |
 | `Failed to create pod sandbox: failed to find plugin "cilium-cni" in path [/var/lib/rancher/k3s/data/cni]` | k3s agent の kubelet は CNI バイナリを `/var/lib/rancher/k3s/data/cni/` から検索するが、cilium は `/opt/cni/bin/` にインストールする (k3s server の master は `/opt/cni/bin/` を参照するため問題なし) | `ansible-playbook playbooks/11-fix-k3s-cni.yml` を実行。`/opt/cni/bin/cilium-cni` → `/var/lib/rancher/k3s/data/cni/cilium-cni` のシンボリックリンクを各ワーカーに作成 |
 
+## ⚠️ kube-proxy-replacement 設定 (重要)
+
+`kubeProxyReplacement: false` を使用する。**絶対に `true` に変更しないこと。**
+
+| 設定 | 値 | 理由 |
+|------|-----|------|
+| `kubeProxyReplacement` | `false` | k3s 内蔵 kube-proxy (iptables) に ClusterIP ルーティングを委譲 |
+| `bpf.masquerade` | `false` | KPR=false では NodePort BPF が無効のため BPF masquerade も使用不可 |
+| `socketLB` | (未設定) | KPR=false では不要 |
+
+**背景 (2026-04-18 障害):**
+
+`kubeProxyReplacement: true` + tunnel (VXLAN) モードでは、ClusterIP の DNAT を socketLB (cgroup BPF) が処理する必要がある。しかし k3s の containerd 環境では Cilium コンテナの cgroup namespace がホストと分離されており、socketLB の BPF プログラムが Pod の cgroup にアタッチできない。その結果:
+
+1. TC BPF が ClusterIP トラフィックを `non-routable` としてドロップ
+2. socketLB がアタッチ不能のため代替ルートなし
+3. DNS (10.43.0.10) を含む全 ClusterIP が到達不能
+4. ArgoCD / 全サービス間通信が全断
+
+k3s は `--disable-kube-proxy` なしで起動されているため、内蔵 kube-proxy の iptables ルールが有効。Cilium は CNI (VXLAN/ネットワーキング) のみを担当する構成が正しい。
+
+### Cilium 設定変更時の手順
+
+Cilium の設定変更はクラスター全体に波及するため、以下の手順で行う:
+
+1. `k8s/cilium/values.yaml` を編集・commit・push
+2. Raspberry Pi で `git pull`
+3. ArgoCD で cilium を sync (自動 sync の場合は自動)
+4. Cilium DaemonSet のローリングリスタートを待つ
+5. **Longhorn instance-manager Pod を全削除して再起動** (Cilium 再起動で Pod ネットワークが切れるため)
+   ```bash
+   kubectl delete pods -n longhorn-system -l longhorn.io/component=instance-manager
+   ```
+6. Longhorn ボリュームの状態を確認 (`volumes.longhorn.io` で faulted がないこと)
+7. 各アプリの Pod が正常に起動していることを確認
+
+---
+
 ## ⚠️ CNI 移行手順 (破壊的操作・メンテナンスウィンドウ必須)
 
 > **全 Pod が再起動される。事前にバックアップ (Velero) を取得すること。**

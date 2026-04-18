@@ -191,3 +191,43 @@ kubectl logs -n longhorn-system -l app=longhorn-iscsi-installation --previous
 # Longhorn ノードの状態確認
 kubectl get nodes.longhorn.io -n longhorn-system
 ```
+
+### ボリュームが Faulted (TooManySnapshots) になる
+
+スナップショット数が上限 (`snapshotMaxCount`) を超えるとボリュームが faulted になり、I/O エラーでアプリがクラッシュする。
+
+**原因:** DNS 障害や CNI 再起動で Longhorn manager 間通信が途絶した際、スナップショットの自動パージが動作せず蓄積する。
+
+**復旧手順:**
+```bash
+# 1. faulted ボリュームの確認
+kubectl get volumes.longhorn.io -n longhorn-system -o json | \
+  jq '.items[] | select(.status.robustness == "faulted") | {name: .metadata.name, state: .status.state}'
+
+# 2. faulted ボリュームを使用する Pod を停止 (ボリュームを detach させる)
+# 対象 StatefulSet/Deployment を replicas=0 にする
+
+# 3. instance-manager Pod を全削除 (ネットワーク不整合の解消)
+kubectl delete pods -n longhorn-system -l longhorn.io/component=instance-manager
+
+# 4. スタックした VolumeAttachment を削除
+kubectl get volumeattachments -o json | \
+  jq '.items[] | select(.status.attached == false) | .metadata.name' | \
+  xargs -I {} kubectl delete volumeattachment {}
+
+# 5. ボリュームが detached → attached (healthy) に遷移するのを確認
+kubectl get volumes.longhorn.io -n longhorn-system -w
+
+# 6. 停止した Pod を復元 (replicas を元に戻す / ArgoCD が自動復元)
+```
+
+**予防策:** `values-longhorn.yaml` で `snapshotMaxCount: 100` (デフォルト 250 → 100 に削減) と自動クリーンアップを有効化済み。
+
+### Cilium 再起動後に Longhorn が不安定になる
+
+Cilium DaemonSet のローリングリスタート後、既存の Longhorn instance-manager Pod のネットワークが壊れ、ボリュームの attach/detach がスタックする。
+
+**対処:** Cilium 再起動完了後に instance-manager を全削除する:
+```bash
+kubectl delete pods -n longhorn-system -l longhorn.io/component=instance-manager
+```

@@ -18,6 +18,13 @@ defaultSettings:
   # レプリカの自動再構築を有効化
   replicaAutoBalance: best-effort
 
+  # スナップショット自動クリーンアップ
+  # 上限に達すると volume が faulted になりデータアクセス不能になるため
+  # 自動パージを有効化し、上限を低めに設定して余裕を持たせる
+  autoCleanupSystemGeneratedSnapshot: true
+  autoCleanupRecurringJobBackupSnapshot: true
+  snapshotMaxCount: 100
+
 # -------------------------------------------------------------------
 # デフォルト StorageClass 設定
 # -------------------------------------------------------------------

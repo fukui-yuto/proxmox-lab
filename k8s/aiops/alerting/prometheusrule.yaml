@@ -204,6 +204,56 @@ spec:
               自動分析: ログ収集・エラーパターン検出を実行します。
 
     # ---------------------------------------------------------------
+    # Longhorn ボリューム異常検知
+    # ---------------------------------------------------------------
+    - name: aiops.longhorn.volume
+      interval: 1m
+      rules:
+        - alert: LonghornVolumeFaulted
+          expr: |
+            longhorn_volume_robustness == 3
+          for: 2m
+          labels:
+            severity: critical
+            category: storage
+          annotations:
+            summary: "Longhorn ボリュームが faulted ({{ $labels.volume }})"
+            description: |
+              Longhorn ボリューム {{ $labels.volume }} (ノード {{ $labels.node }}) が
+              faulted 状態です。Pod の I/O エラーが発生している可能性があります。
+              kubectl get volumes.longhorn.io -n longhorn-system で状態を確認し、
+              k8s/longhorn/README.md の復旧手順を参照してください。
+
+        - alert: LonghornVolumeDegraded
+          expr: |
+            longhorn_volume_robustness == 2
+          for: 15m
+          labels:
+            severity: warning
+            category: storage
+          annotations:
+            summary: "Longhorn ボリュームが degraded ({{ $labels.volume }})"
+            description: |
+              Longhorn ボリューム {{ $labels.volume }} のレプリカが不足しています。
+              15分以上 degraded が続いています。自動再構築が進行中か確認してください。
+
+        - alert: LonghornNodeStorageLow
+          expr: |
+            (
+              longhorn_node_storage_usage_bytes
+              / longhorn_node_storage_capacity_bytes
+            ) > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            category: storage
+          annotations:
+            summary: "Longhorn ノードストレージ使用率が80%超 ({{ $labels.node }})"
+            description: |
+              ノード {{ $labels.node }} の Longhorn ストレージ使用率が
+              {{ $value | humanizePercentage }} に達しています。
+
+    # ---------------------------------------------------------------
     # Prometheus PVC 使用率
     # ---------------------------------------------------------------
     - name: aiops.prometheus.storage
