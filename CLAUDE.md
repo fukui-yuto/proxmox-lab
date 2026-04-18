@@ -224,21 +224,23 @@ resource "null_resource" "expand_disk_node03" {
 
 ### Windows hosts ファイルへの追記
 
-> pve-node02 の worker IP (192.168.210.24) を使うことで node01 の NIC 負荷を分散できる。
+> pve-node02 の worker IP を使うことで node01 の NIC 負荷を分散できる。
+> **192.168.210.25 (worker04)** を使用する。192.168.210.24 (worker03) は Traefik Pod が稼働するため
+> Cilium ExternalIP のローカルバックエンド問題により外部からの接続が不安定になる場合がある。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  grafana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argocd.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  longhorn.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  keycloak.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  vault.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  argo-workflows.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  alert-summarizer.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio-api.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  grafana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  kibana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  elasticsearch.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  argocd.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  longhorn.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  harbor.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  keycloak.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  vault.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  argo-workflows.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  alert-summarizer.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio-api.homelab.local"
 ```
 
 ### URL 一覧

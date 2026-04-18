@@ -40,6 +40,24 @@
         mode: "0600"
       notify: apply netplan
 
+    - name: homelab.local ドメインを /etc/hosts に登録
+      blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED BLOCK homelab"
+        block: |
+          192.168.210.25 argocd.homelab.local
+          192.168.210.25 harbor.homelab.local
+          192.168.210.25 grafana.homelab.local
+          192.168.210.25 kibana.homelab.local
+          192.168.210.25 keycloak.homelab.local
+          192.168.210.25 vault.homelab.local
+          192.168.210.25 argo-workflows.homelab.local
+          192.168.210.25 alert-summarizer.homelab.local
+          192.168.210.25 minio.homelab.local
+          192.168.210.25 minio-api.homelab.local
+          192.168.210.25 longhorn.homelab.local
+          192.168.210.25 elasticsearch.homelab.local
+
   handlers:
     - name: apply netplan
       command: netplan apply
