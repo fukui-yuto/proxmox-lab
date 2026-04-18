@@ -80,13 +80,12 @@ resources:
 # L7 ポリシー (HTTP/gRPC レベルの制御)
 l7Proxy: true
 
-# Socket-based LB を有効化
-# kube-proxy replacement で ClusterIP へのアクセスを socket レベルで DNAT することで
-# hairpin (Pod が自分自身の ClusterIP にアクセスする) 問題を解消する。
-# これがないと longhorn-manager が conversion webhook (自分自身の ClusterIP) に
-# 到達できず CrashLoopBackOff になる。
-socketLB:
-  enabled: true
+# Socket-based LB は無効化
+# bpf-lb-sock: true を有効にすると、cil_from_container の TC-level DNAT がスキップされるが
+# cgroup socketLB BPF プログラムのアタッチが失敗し、ClusterIP 全通信が断絶することが判明。
+# longhorn hairpin 問題は別途 localRedirectPolicy 等で対処する。
+# socketLB:
+#   enabled: true
 
 # BPF マスカレード
 bpf:
