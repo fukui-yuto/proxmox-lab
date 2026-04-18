@@ -1,9 +1,12 @@
 ---
 # k3s ワーカーノードの CNI 設定を修正する
-# 問題: k3s agent の kubelet は /var/lib/rancher/k3s/agent/etc/cni/net.d/ を CNI config dir として使用するが、
-#       cilium は /etc/cni/net.d/ に conflist を書き込む。
-#       旧 flannel の 10-flannel.conflist が残っているため、kubelet が flannel CNI を使い続けていた。
+# 問題1: k3s agent の kubelet は /var/lib/rancher/k3s/agent/etc/cni/net.d/ を CNI config dir として使用するが、
+#        cilium は /etc/cni/net.d/ に conflist を書き込む。
+#        旧 flannel の 10-flannel.conflist が残っているため、kubelet が flannel CNI を使い続けていた。
+# 問題2: k3s agent の kubelet は CNI バイナリを /var/lib/rancher/k3s/data/cni/ から検索するが、
+#        cilium は /opt/cni/bin/ にインストールする。
 # 対処: cilium conflist を k3s agent CNI dir にコピーし、flannel conflist を削除する。
+#       cilium-cni バイナリを /var/lib/rancher/k3s/data/cni/ にシンボリックリンクする。
 #       net-conf.json を "none" に更新して k3s 内蔵 flannel を停止する。
 - name: Fix k3s agent CNI configuration for Cilium
   hosts: rasberrypi5
@@ -65,6 +68,19 @@
       debug:
         msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
       loop: "{{ update_netconf.results }}"
+
+    - name: Symlink cilium-cni binary to k3s CNI bin dir
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo ln -sf /opt/cni/bin/cilium-cni /var/lib/rancher/k3s/data/cni/cilium-cni && echo 'symlinked'"
+      loop: "{{ k3s_workers }}"
+      register: symlink_result
+      ignore_errors: true
+
+    - name: Show symlink results
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
+      loop: "{{ symlink_result.results }}"
 
     - name: Verify cilium conflist is in k3s agent CNI dir
       command: >

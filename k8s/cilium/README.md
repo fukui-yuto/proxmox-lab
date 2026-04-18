@@ -36,6 +36,7 @@ flannel → Cilium の CNI 移行が完了。全 9 ノードで cilium Pod が 1
 | `init:Error` (`Agent should not be running when cleaning up`) | force delete した Pod の `/var/run/cilium/cilium.pid` が残留 | 各ノードで `sudo rm -f /var/run/cilium/cilium.pid` を実行 |
 | ヘルスプローブ HTTP タイムアウト (kubelet → Pod IP) | cilium が `cluster-pool` IPAM で独自 CIDR を割り当てたため、旧 flannel の k8s podCIDR (cni0) と不一致。ローカル Pod へのルートが VXLAN 経由になり kubelet から到達不能 | `ipam.mode: kubernetes` に変更して k8s `node.spec.podCIDR` を使用。master 上の旧 cilium-CIDR Pod は自動的に再起動され新 CIDR IP を取得 |
 | 新 Pod が cilium エンドポイントとして登録されず ClusterIP に到達不能 (`dial tcp 10.43.0.1:443: i/o timeout`) | k3s **agent** の kubelet は `/var/lib/rancher/k3s/agent/etc/cni/net.d/` を CNI config dir として使用するが、cilium は `/etc/cni/net.d/` に conflist を書き込む。k3s agent に古い `10-flannel.conflist` が残っていたため kubelet が flannel CNI を引き続き使用し、新 Pod が cni0 ブリッジ接続となって cilium endpoint として登録されなかった | `ansible-playbook playbooks/11-fix-k3s-cni.yml` を実行。各ワーカーの k3s agent CNI dir に `05-cilium.conflist` をコピーし `10-flannel.conflist` を削除。k3s 内蔵 flannel の `net-conf.json` を `"Type": "none"` に更新 |
+| `Failed to create pod sandbox: failed to find plugin "cilium-cni" in path [/var/lib/rancher/k3s/data/cni]` | k3s agent の kubelet は CNI バイナリを `/var/lib/rancher/k3s/data/cni/` から検索するが、cilium は `/opt/cni/bin/` にインストールする (k3s server の master は `/opt/cni/bin/` を参照するため問題なし) | `ansible-playbook playbooks/11-fix-k3s-cni.yml` を実行。`/opt/cni/bin/cilium-cni` → `/var/lib/rancher/k3s/data/cni/cilium-cni` のシンボリックリンクを各ワーカーに作成 |
 
 ## ⚠️ CNI 移行手順 (破壊的操作・メンテナンスウィンドウ必須)
 
