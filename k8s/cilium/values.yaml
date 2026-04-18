@@ -12,12 +12,12 @@ k8sServicePort: "6443"
 # kubeProxyReplacement を有効化 (kube-proxy を Cilium で置き換え)
 kubeProxyReplacement: true
 
-# IPAM (k3s のデフォルト Pod CIDR に合わせる)
+# IPAM: kubernetes モードで k8s node.spec.podCIDR をそのまま使用する。
+# cluster-pool モードでは cilium が独自の CIDR をノードに割り当てるため、
+# 旧 flannel 時代の k8s podCIDR (cni0 ブリッジ) と不一致になり
+# ローカル Pod へのルートが VXLAN 経由になってヘルスプローブが失敗する。
 ipam:
-  mode: "cluster-pool"
-  operator:
-    clusterPoolIPv4PodCIDRList:
-      - "10.42.0.0/16"
+  mode: "kubernetes"
 
 # Hubble (可観測性)
 hubble:

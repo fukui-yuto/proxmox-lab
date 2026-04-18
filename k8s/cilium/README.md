@@ -34,6 +34,7 @@ flannel → Cilium の CNI 移行が完了。全 9 ノードで cilium Pod が 1
 | cilium pod CrashLoop (`auto-direct-node-routes cannot be used with tunneling`) | `values.yaml` に `autoDirectNodeRoutes: true` が残存 | `values.yaml` から削除し、`cilium-config` ConfigMap の `auto-direct-node-routes` を `false` に patch |
 | `cilium_vxlan: address already in use` | `flannel.1` インターフェースが各ノードに残留し UDP 8472 ポートを占有 | 全ノードで `ip link delete flannel.1` を実行 |
 | `init:Error` (`Agent should not be running when cleaning up`) | force delete した Pod の `/var/run/cilium/cilium.pid` が残留 | 各ノードで `sudo rm -f /var/run/cilium/cilium.pid` を実行 |
+| ヘルスプローブ HTTP タイムアウト (kubelet → Pod IP) | cilium が `cluster-pool` IPAM で独自 CIDR を割り当てたため、旧 flannel の k8s podCIDR (cni0) と不一致。ローカル Pod へのルートが VXLAN 経由になり kubelet から到達不能 | `ipam.mode: kubernetes` に変更して k8s `node.spec.podCIDR` を使用。master 上の旧 cilium-CIDR Pod は自動的に再起動され新 CIDR IP を取得 |
 
 ## ⚠️ CNI 移行手順 (破壊的操作・メンテナンスウィンドウ必須)
 
