@@ -1,0 +1,80 @@
+---
+# k3s ワーカーノードの CNI 設定を修正する
+# 問題: k3s agent の kubelet は /var/lib/rancher/k3s/agent/etc/cni/net.d/ を CNI config dir として使用するが、
+#       cilium は /etc/cni/net.d/ に conflist を書き込む。
+#       旧 flannel の 10-flannel.conflist が残っているため、kubelet が flannel CNI を使い続けていた。
+# 対処: cilium conflist を k3s agent CNI dir にコピーし、flannel conflist を削除する。
+#       net-conf.json を "none" に更新して k3s 内蔵 flannel を停止する。
+- name: Fix k3s agent CNI configuration for Cilium
+  hosts: rasberrypi5
+  gather_facts: false
+  vars:
+    k3s_workers:
+      - 192.168.210.22
+      - 192.168.210.24
+      - 192.168.210.25
+      - 192.168.210.26
+      - 192.168.210.27
+      - 192.168.210.28
+      - 192.168.210.29
+      - 192.168.210.30
+    k3s_agent_cni_dir: "/var/lib/rancher/k3s/agent/etc/cni/net.d"
+    cilium_conflist_src: "/etc/cni/net.d/05-cilium.conflist"
+    cilium_conflist_dst: "{{ k3s_agent_cni_dir }}/05-cilium.conflist"
+    flannel_conflist: "{{ k3s_agent_cni_dir }}/10-flannel.conflist"
+    flannel_net_conf: "/var/lib/rancher/k3s/agent/etc/flannel/net-conf.json"
+  tasks:
+    - name: Copy cilium conflist to k3s agent CNI dir on each worker
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo cp {{ cilium_conflist_src }} {{ cilium_conflist_dst }} && echo 'copied'"
+      loop: "{{ k3s_workers }}"
+      register: copy_result
+      ignore_errors: true
+
+    - name: Show copy results
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
+      loop: "{{ copy_result.results }}"
+
+    - name: Delete flannel conflist from k3s agent CNI dir on each worker
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo rm -f {{ flannel_conflist }} && echo 'deleted'"
+      loop: "{{ k3s_workers }}"
+      register: del_flannel_conf
+      ignore_errors: true
+
+    - name: Show flannel conflist deletion results
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
+      loop: "{{ del_flannel_conf.results }}"
+
+    - name: Disable k3s internal flannel (net-conf.json -> none)
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "sudo tee {{ flannel_net_conf }} > /dev/null << 'EOF'
+        {\"Network\": \"10.42.0.0/16\", \"EnableIPv6\": false, \"EnableIPv4\": true, \"IPv6Network\": \"::/0\", \"Backend\": {\"Type\": \"none\"}}
+        EOF
+        echo 'updated net-conf.json'"
+      loop: "{{ k3s_workers }}"
+      register: update_netconf
+      ignore_errors: true
+
+    - name: Show net-conf.json update results
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('skipped') }}"
+      loop: "{{ update_netconf.results }}"
+
+    - name: Verify cilium conflist is in k3s agent CNI dir
+      command: >
+        ssh -o StrictHostKeyChecking=no ubuntu@{{ item }}
+        "ls {{ k3s_agent_cni_dir }}/"
+      loop: "{{ k3s_workers }}"
+      register: cni_dir_listing
+      ignore_errors: true
+
+    - name: Show CNI dir contents
+      debug:
+        msg: "{{ item.item }}: {{ item.stdout | default('error') }}"
+      loop: "{{ cni_dir_listing.results }}"
