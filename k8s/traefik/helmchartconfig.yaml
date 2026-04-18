@@ -1,0 +1,25 @@
+# Traefik HelmChartConfig
+# k3s 組み込み Traefik の設定オーバーライド
+#
+# 目的: k3s servicelb (klipper-lb) 無効化後、Cilium が externalIPs を直接 BPF で処理できるようにする。
+# servicelb を無効化すると status.loadBalancer.ingress がクリアされるため、
+# spec.externalIPs で各ノード IP を明示的に指定する。
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        externalIPs:
+          - 192.168.210.21
+          - 192.168.210.22
+          - 192.168.210.24
+          - 192.168.210.25
+          - 192.168.210.26
+          - 192.168.210.27
+          - 192.168.210.28
+          - 192.168.210.29
+          - 192.168.210.30

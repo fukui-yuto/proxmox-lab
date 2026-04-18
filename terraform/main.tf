@@ -595,6 +595,38 @@ resource "null_resource" "k3s_disable_flannel" {
   }
 }
 
+# -------------------------------------------------------------------
+# k3s servicelb (klipper-lb) 無効化
+# Cilium kube-proxy replacement 使用時、klipper-lb の HostPort が
+# Cilium の LoadBalancer BPF エントリと競合して port 80 が閉塞するため無効化する。
+# 無効化後は Traefik の spec.externalIPs (HelmChartConfig で設定) を
+# Cilium が直接 BPF で処理する。
+# servicelb_disable_version を上げると再実行される。
+# -------------------------------------------------------------------
+resource "null_resource" "k3s_disable_servicelb" {
+  triggers = {
+    servicelb_disable_version = "1"
+  }
+
+  depends_on = [null_resource.k3s_disable_flannel]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -e
+      echo "==> Step 1: Applying Traefik HelmChartConfig (externalIPs) via kubectl"
+      kubectl apply -f ~/proxmox-lab/k8s/traefik/helmchartconfig.yaml
+      echo "==> Step 2: Disabling k3s servicelb on master"
+      ssh -o StrictHostKeyChecking=no ubuntu@192.168.210.21 \
+        "printf 'disable:\n  - servicelb\n' | sudo tee /etc/rancher/k3s/config.yaml.d/01-disable-servicelb.yaml && sudo systemctl restart k3s"
+      echo "==> Step 3: Waiting for k3s restart to complete"
+      sleep 40
+      ssh -o StrictHostKeyChecking=no ubuntu@192.168.210.21 "sudo k3s kubectl get nodes"
+      echo "==> servicelb disabled, k3s restarted successfully"
+    EOT
+  }
+}
+
 resource "null_resource" "k3s_sysctl_falco" {
   triggers = {
     sysctl_falco_version = "2"
