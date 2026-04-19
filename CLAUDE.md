@@ -20,7 +20,6 @@
 | 名前 | VM ID | IP | CPU | RAM | Proxmox ノード | 役割 |
 |------|-------|----|-----|-----|--------------|------|
 | k3s-master | 201 | 192.168.210.21 | 2 | 6GB | pve-node01 | k3s コントロールプレーン (NoSchedule taint) |
-| k3s-worker01 | 202 | 192.168.210.22 | 1 | 4GB | pve-node01 | k3s ワーカー |
 | k3s-worker03 | 204 | 192.168.210.24 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker04 | 205 | 192.168.210.25 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker05 | 206 | 192.168.210.26 | 1 | 4GB | pve-node02 | k3s ワーカー |
@@ -28,9 +27,10 @@
 | k3s-worker07 | 208 | 192.168.210.28 | 2 | 4GB | pve-node03 | k3s ワーカー |
 | k3s-worker08 | 209 | 192.168.210.29 | 2 | 4GB | pve-node03 | k3s ワーカー |
 | k3s-worker09 | 210 | 192.168.210.30 | 2 | 4GB | pve-node03 | k3s ワーカー |
+| k3s-worker10 | 211 | 192.168.210.31 | 2 | 4GB | pve-node03 | k3s ワーカー |
 | dns-ct | 101 | 192.168.210.53 | - | 512MB | pve-node01 | Pi-hole DNS (LXC) |
 
-> worker02 (VM 203) は削除済み。
+> worker01 (VM 202), worker02 (VM 203) は削除済み。
 
 ### ネットワーク
 

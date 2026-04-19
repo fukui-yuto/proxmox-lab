@@ -18,10 +18,10 @@ locals {
   master_ip                = "192.168.210.21"
   ssh_key                  = "~/.ssh/id_ed25519"
   worker_node03_disk_size  = 50  # worker06〜09 のディスクサイズ (GB)
-  # worker01〜09 の IP (インデックス順)
+  # worker03〜10 の IP (インデックス順)
+  # worker01 (node01) は削除済み — node01 の負荷軽減のため
+  # worker02 (node01) は削除済み
   worker_ips = [
-    "192.168.210.22", # worker01 (node01)
-    "192.168.210.23", # worker02 (node01) — VM 203 は削除済み。インデックスを維持するため残す
     "192.168.210.24", # worker03 (node02)
     "192.168.210.25", # worker04 (node02)
     "192.168.210.26", # worker05 (node02)
@@ -29,6 +29,7 @@ locals {
     "192.168.210.28", # worker07 (node03)
     "192.168.210.29", # worker08 (node03)
     "192.168.210.30", # worker09 (node03)
+    "192.168.210.31", # worker10 (node03)
   ]
 }
 
@@ -94,53 +95,9 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー × 1 (テンプレートとZFSがnode01のみのためnode01に配置)
+# k3s ワーカー on node01 — 削除済み (node01 負荷軽減のため)
+# worker01 (VM 202) は k3s drain → delete → terraform apply で削除。
 # -------------------------------------------------------------------
-resource "proxmox_virtual_environment_vm" "k3s_worker" {
-  count     = 1
-  name      = "k3s-worker0${count.index + 1}"
-  node_name = "pve-node01"
-  vm_id     = 202 + count.index
-
-  clone {
-    vm_id = var.ubuntu_template_id
-  }
-
-  cpu {
-    cores = 1
-    type  = "host"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  network_device {
-    bridge = "vmbr0"
-  }
-
-  disk {
-    datastore_id = "data-pve-node01"
-    size         = 20
-    interface    = "virtio0"
-  }
-
-  initialization {
-    dns {
-      servers = local.dns_servers
-    }
-    ip_config {
-      ipv4 {
-        address = "${local.worker_ips[count.index]}/24"
-        gateway = local.gateway
-      }
-    }
-    user_account {
-      username = "ubuntu"
-      keys     = [var.ssh_public_key]
-    }
-  }
-}
 
 # -------------------------------------------------------------------
 # node02 用テンプレート (node01 の 9000 を vzdump → restore で複製)
@@ -259,7 +216,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     }
     ip_config {
       ipv4 {
-        address = "${local.worker_ips[count.index + 2]}/24"
+        address = "${local.worker_ips[count.index]}/24"
         gateway = local.gateway
       }
     }
@@ -278,11 +235,11 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node03 × 4: worker06/07/08/09) ※ local (dir) ストレージを使用
+# k3s ワーカー (node03 × 5: worker06/07/08/09/10) ※ local (dir) ストレージを使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
-  count     = 4
-  name      = "k3s-worker0${count.index + 6}"
+  count     = 5
+  name      = "k3s-worker${format("%02d", count.index + 6)}"
   node_name = "pve-node03"
   vm_id     = 207 + count.index
 
@@ -320,7 +277,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
     }
     ip_config {
       ipv4 {
-        address = "${local.worker_ips[count.index + 5]}/24"
+        address = "${local.worker_ips[count.index + 3]}/24"
         gateway = local.gateway
       }
     }
@@ -340,7 +297,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
 # node03 ワーカーのディスク拡張 (サイズ変更時に自動実行)
 # -------------------------------------------------------------------
 resource "null_resource" "expand_disk_node03" {
-  count = 4
+  count = 5
 
   triggers = {
     disk_size = local.worker_node03_disk_size
@@ -357,7 +314,7 @@ resource "null_resource" "expand_disk_node03" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    host        = local.worker_ips[count.index + 5]
+    host        = local.worker_ips[count.index + 3]
     private_key = file(local.ssh_key)
     timeout     = "5m"
   }
@@ -411,21 +368,24 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker01,03〜09 インストール (全ワーカー共通、worker02 は削除済み)
-# worker01: k3s_worker[0]、worker03/04/05: k3s_worker_node02[0/1/2]、worker06〜09: k3s_worker_node03[0/1/2/3]
-# count インデックスと worker_ips のマッピング (index 1 = worker02 はスキップ):
-#   count 0 → worker_ips[0] (worker01)
-#   count 1 → worker_ips[2] (worker03)  ※ worker02(index 1) をスキップするため +1
-#   count 2 → worker_ips[3] (worker04)
-#   ...
+# k3s worker03〜10 インストール (全ワーカー共通)
+# worker01/02 は削除済み
+# count インデックスと worker_ips のマッピング:
+#   count 0 → worker_ips[0] (worker03, node02)
+#   count 1 → worker_ips[1] (worker04, node02)
+#   count 2 → worker_ips[2] (worker05, node02)
+#   count 3 → worker_ips[3] (worker06, node03)
+#   count 4 → worker_ips[4] (worker07, node03)
+#   count 5 → worker_ips[5] (worker08, node03)
+#   count 6 → worker_ips[6] (worker09, node03)
+#   count 7 → worker_ips[7] (worker10, node03)
 resource "null_resource" "k3s_workers_install" {
   count = 8
   triggers = {
-    vm_id = count.index < 1 ? proxmox_virtual_environment_vm.k3s_worker[count.index].id : count.index < 4 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 1].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 4].id
+    vm_id = count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 3].id
   }
   depends_on = [
     null_resource.k3s_master_install,
-    proxmox_virtual_environment_vm.k3s_worker,
     proxmox_virtual_environment_vm.k3s_worker_node02,
     proxmox_virtual_environment_vm.k3s_worker_node03,
   ]
@@ -433,7 +393,7 @@ resource "null_resource" "k3s_workers_install" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    host        = local.worker_ips[count.index > 0 ? count.index + 1 : 0]
+    host        = local.worker_ips[count.index]
     private_key = file(local.ssh_key)
     timeout     = "10m"
   }
@@ -556,7 +516,7 @@ resource "null_resource" "k3s_registry_config" {
       }
 
       apply_registry 192.168.210.21 k3s
-      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
         apply_registry "$ip" k3s-agent
       done
       echo "Registry config applied to all nodes."
@@ -647,7 +607,7 @@ resource "null_resource" "k3s_sysctl_falco" {
       }
 
       apply_sysctl 192.168.210.21
-      for ip in 192.168.210.22 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
         apply_sysctl "$ip"
       done
       echo "Falco sysctl applied to all k3s nodes."
