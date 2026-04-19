@@ -275,7 +275,7 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25
 | ArgoCD | http://argocd.homelab.local | `admin` | `Argocd12345` |
 | Harbor | http://harbor.homelab.local | `admin` | `Harbor12345` |
 | Keycloak | http://keycloak.homelab.local | `admin` | `Keycloak12345` |
-| Vault | http://vault.homelab.local | - | 初期化時の Root Token (要 unseal) |
+| Vault | http://vault.homelab.local | `admin` | `Vault12345` |
 | Argo Workflows | http://argo-workflows.homelab.local | - | 認証不要 |
 | alert-summarizer | http://alert-summarizer.homelab.local | - | - |
 | MinIO Console | http://minio.homelab.local | `admin` | `Minio12345` |
