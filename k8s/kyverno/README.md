@@ -95,6 +95,21 @@ kubectl apply -f policies/
 
 ---
 
+## ラボ向け安定性設定
+
+### forceFailurePolicyIgnore
+
+`values-kyverno.yaml` で `features.forceFailurePolicyIgnore.enabled: true` を設定。
+kyverno がダウンしても webhook の `failurePolicy=Ignore` により他の Pod 操作がブロックされない。
+
+### nodeAffinity (master ノード回避)
+
+全 kyverno コンポーネント（admission/background/cleanup/reports controller）に
+`node-role.kubernetes.io/control-plane: DoesNotExist` の nodeAffinity を設定。
+master ノード (6GB RAM) の API サーバー遅延によるリース更新失敗を防止。
+
+---
+
 ## トラブルシューティング
 
 ### cleanup Jobs / policyReportsCleanup のイメージについて
