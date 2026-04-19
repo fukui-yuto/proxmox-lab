@@ -23,6 +23,15 @@ defaultSettings:
   # レプリカの自動再構築を有効化
   replicaAutoBalance: best-effort
 
+  # ノードダウン時に StatefulSet/Deployment の Pod を自動削除して別ノードで再起動
+  # デフォルト (do-nothing) ではノードダウン後に Pod が Terminating のまま残り
+  # ArgoCD が Degraded になる
+  nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
+
+  # ボリュームが予期せず detach された場合に Pod を自動削除
+  # mount busy 等で stuck した Pod を自動復旧させる
+  autoDeletePodWhenVolumeDetachedUnexpectedly: true
+
   # スナップショット自動クリーンアップ
   # 上限に達すると volume が faulted になりデータアクセス不能になるため
   # 自動パージを有効化し、上限を低めに設定して余裕を持たせる
