@@ -111,7 +111,7 @@ Proxmox VE クラスターの構築から k3s クラスター上の AIOps まで
 | Grafana | `admin` | `changeme` |
 | Harbor | `admin` | `Harbor12345` |
 | Keycloak | `admin` | `Keycloak12345` |
-| Vault | - | 初期化時の Root Token |
+| Vault | `admin` | `Vault12345` |
 
 > Windows hosts ファイルへの追記は [k8s/README.md](k8s/README.md) を参照。
 
