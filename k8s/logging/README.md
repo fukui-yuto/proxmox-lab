@@ -62,9 +62,8 @@ helm upgrade --install fluent-bit \
 # Kibana デプロイ (Helm chart はセキュリティ前提のため plain Deployment を使用)
 kubectl apply -f kibana.yaml
 
-# Kibana 認証 (oauth2-proxy + Traefik forwardAuth)
+# Kibana 認証 (oauth2-proxy リバースプロキシ)
 kubectl apply -f oauth2-proxy.yaml
-kubectl apply -f kibana-auth-middleware.yaml
 
 # Ingress 適用
 kubectl apply -f elasticsearch-ingress.yaml
@@ -150,13 +149,13 @@ Kibana OSS には認証機能がないため、oauth2-proxy + Traefik forwardAut
 
 | 項目 | 値 |
 |------|-----|
-| 認証方式 | oauth2-proxy (Keycloak OIDC) |
+| 認証方式 | oauth2-proxy リバースプロキシ (Keycloak OIDC) |
 | ログイン | kibana.homelab.local にアクセスすると自動的に Keycloak にリダイレクト |
 | ユーザー | `admin` / `Keycloak12345` |
 
 構成:
 ```
-ブラウザ → Traefik → [forwardAuth: oauth2-proxy] → Kibana
+ブラウザ → Traefik → oauth2-proxy → Kibana
                          ↕
                     Keycloak (OIDC)
 ```
