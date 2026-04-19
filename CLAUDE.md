@@ -23,14 +23,12 @@
 | k3s-worker03 | 204 | 192.168.210.24 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker04 | 205 | 192.168.210.25 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker05 | 206 | 192.168.210.26 | 1 | 4GB | pve-node02 | k3s ワーカー |
-| k3s-worker06 | 207 | 192.168.210.27 | 2 | 4GB | pve-node03 | k3s ワーカー |
-| k3s-worker07 | 208 | 192.168.210.28 | 2 | 4GB | pve-node03 | k3s ワーカー |
-| k3s-worker08 | 209 | 192.168.210.29 | 2 | 4GB | pve-node03 | k3s ワーカー |
-| k3s-worker09 | 210 | 192.168.210.30 | 2 | 4GB | pve-node03 | k3s ワーカー |
-| k3s-worker10 | 211 | 192.168.210.31 | 2 | 4GB | pve-node03 | k3s ワーカー |
+| k3s-worker06 | 207 | 192.168.210.27 | 2 | 8GB | pve-node03 | k3s ワーカー |
+| k3s-worker07 | 208 | 192.168.210.28 | 2 | 8GB | pve-node03 | k3s ワーカー |
+| k3s-worker08 | 209 | 192.168.210.29 | 2 | 8GB | pve-node03 | k3s ワーカー |
 | dns-ct | 101 | 192.168.210.53 | - | 512MB | pve-node01 | Pi-hole DNS (LXC) |
 
-> worker01 (VM 202), worker02 (VM 203) は削除済み。
+> worker01 (VM 202), worker02 (VM 203), worker09 (VM 210), worker10 (VM 211) は削除済み。
 
 ### ネットワーク
 

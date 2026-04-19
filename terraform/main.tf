@@ -17,10 +17,10 @@ locals {
   dns_servers              = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
   master_ip                = "192.168.210.21"
   ssh_key                  = "~/.ssh/id_ed25519"
-  worker_node03_disk_size  = 50  # worker06〜09 のディスクサイズ (GB)
-  # worker03〜10 の IP (インデックス順)
-  # worker01 (node01) は削除済み — node01 の負荷軽減のため
-  # worker02 (node01) は削除済み
+  worker_node03_disk_size  = 50  # worker06〜08 のディスクサイズ (GB)
+  # worker03〜08 の IP (インデックス順)
+  # worker01/02 (node01) は削除済み — node01 の負荷軽減のため
+  # worker09/10 (node03) は削除済み — CPU overcommit 解消のため 5台→3台に統合
   worker_ips = [
     "192.168.210.24", # worker03 (node02)
     "192.168.210.25", # worker04 (node02)
@@ -28,8 +28,6 @@ locals {
     "192.168.210.27", # worker06 (node03)
     "192.168.210.28", # worker07 (node03)
     "192.168.210.29", # worker08 (node03)
-    "192.168.210.30", # worker09 (node03)
-    "192.168.210.31", # worker10 (node03)
   ]
 }
 
@@ -235,10 +233,10 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node03 × 5: worker06/07/08/09/10) ※ local (dir) ストレージを使用
+# k3s ワーカー (node03 × 3: worker06/07/08) ※ local (dir) ストレージを使用
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
-  count     = 5
+  count     = 3
   name      = "k3s-worker${format("%02d", count.index + 6)}"
   node_name = "pve-node03"
   vm_id     = 207 + count.index
@@ -256,7 +254,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 8192
   }
 
   network_device {
@@ -297,7 +295,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
 # node03 ワーカーのディスク拡張 (サイズ変更時に自動実行)
 # -------------------------------------------------------------------
 resource "null_resource" "expand_disk_node03" {
-  count = 5
+  count = 3
 
   triggers = {
     disk_size = local.worker_node03_disk_size
@@ -368,8 +366,8 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker03〜10 インストール (全ワーカー共通)
-# worker01/02 は削除済み
+# k3s worker03〜08 インストール (全ワーカー共通)
+# worker01/02 は削除済み、worker09/10 は統合により削除済み
 # count インデックスと worker_ips のマッピング:
 #   count 0 → worker_ips[0] (worker03, node02)
 #   count 1 → worker_ips[1] (worker04, node02)
@@ -377,10 +375,8 @@ resource "null_resource" "k3s_master_install" {
 #   count 3 → worker_ips[3] (worker06, node03)
 #   count 4 → worker_ips[4] (worker07, node03)
 #   count 5 → worker_ips[5] (worker08, node03)
-#   count 6 → worker_ips[6] (worker09, node03)
-#   count 7 → worker_ips[7] (worker10, node03)
 resource "null_resource" "k3s_workers_install" {
-  count = 8
+  count = 6
   triggers = {
     vm_id = count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 3].id
   }
@@ -516,7 +512,7 @@ resource "null_resource" "k3s_registry_config" {
       }
 
       apply_registry 192.168.210.21 k3s
-      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29; do
         apply_registry "$ip" k3s-agent
       done
       echo "Registry config applied to all nodes."
@@ -607,7 +603,7 @@ resource "null_resource" "k3s_sysctl_falco" {
       }
 
       apply_sysctl 192.168.210.21
-      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29; do
         apply_sysctl "$ip"
       done
       echo "Falco sysctl applied to all k3s nodes."
@@ -642,7 +638,7 @@ resource "null_resource" "k3s_multipath_blacklist" {
           "printf 'defaults {\n    user_friendly_names yes\n}\nblacklist {\n    devnode \"^sd[a-z]\"\n    device {\n        vendor \"IET\"\n        product \"VIRTUAL-DISK\"\n    }\n}\n' | sudo tee /etc/multipath.conf > /dev/null && sudo systemctl restart multipathd && sudo multipath -F 2>/dev/null; echo 'multipath blacklist done'"
       }
 
-      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29; do
         apply_multipath "$ip"
       done
       echo "Multipath blacklist applied to all k3s worker nodes."
