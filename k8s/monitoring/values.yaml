@@ -7,6 +7,14 @@
 prometheus:
   prometheusSpec:
     retention: 7d
+    # master ノードを避ける (メモリ 6GB で k3s server と共存するとOOM)
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
     resources:
       requests:
         cpu: 200m
