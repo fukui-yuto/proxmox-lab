@@ -149,7 +149,7 @@ kubectl exec -n harbor "${HARBOR_POD}" -- curl -s -X PUT \
     "oidc_scope":"openid,profile,email,groups",
     "oidc_verify_cert":false,
     "oidc_auto_onboard":true,
-    "oidc_user_claim":"preferred_username",
+    "oidc_user_claim":"sub",
     "oidc_groups_claim":"groups",
     "oidc_admin_group":"homelab-admins"
   }'
