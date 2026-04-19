@@ -199,13 +199,15 @@ kubectl port-forward svc/prometheus-pushgateway 9091:9091 -n monitoring
 
 ---
 
-## Step 3: LLM アラートサマリ (alert-summarizer)
+## Step 3: アラートサマリ (alert-summarizer)
 
 ### 概要
 
 AlertManager がアラートを発火すると webhook で `alert-summarizer` Pod に通知が届く。
-Pod は Elasticsearch から直近エラーログを取得し、**Claude API** でサマリを生成。
+Pod は Elasticsearch から直近エラーログを取得し、**ルールベースのテンプレート**でサマリを生成。
 結果を **Grafana アノテーション**として記録し、オプションで **Slack 通知**も送信する。
+
+> **注**: v2.0.0 で AI API (Claude) 依存を廃止し、アラート名に基づくテンプレートマッチングに変更。外部 API キー不要。
 
 ### アーキテクチャ
 
@@ -214,7 +216,7 @@ AlertManager
     ↓ webhook (HTTP POST /webhook)
 [alert-summarizer Pod (FastAPI)]
     ├─ Elasticsearch から直近 15 分のエラーログ取得
-    └─ Claude API (claude-haiku-4-5) でサマリ生成
+    └─ ルールベーステンプレートでサマリ生成 (ALERT_TEMPLATES 辞書)
          ↓
     Grafana Annotation API → Grafana 上にアノテーション表示
     Slack Webhook (オプション) → Slack 通知
@@ -222,12 +224,13 @@ AlertManager
 
 ### サマリ出力形式
 
-Claude API が以下の形式で回答を生成する:
+ルールベースで以下の形式のサマリを生成する:
 
 ```
-**[状況]** 何が起きているか (2〜3文)
-**[影響]** 影響範囲・サービス
-**[次のアクション]** 確認・対処すべき手順 (箇条書き 3項目以内)
+**[状況]** アラート名・severity・概要
+**[影響]** テンプレートに基づく影響範囲
+**[次のアクション]** テンプレートに基づく対処手順
+**[直近エラーログ]** ES から取得した直近ログサンプル
 ```
 
 ### デプロイ手順
@@ -254,13 +257,10 @@ kubectl logs -f job/build-alert-summarizer -n aiops
 
 ```bash
 kubectl create secret generic alert-summarizer-secret \
-  --from-literal=ANTHROPIC_API_KEY="" \
   --from-literal=GRAFANA_PASSWORD="changeme" \
   --from-literal=SLACK_WEBHOOK_URL="" \
   -n aiops
 ```
-
-> `ANTHROPIC_API_KEY` は省略可能。未設定の場合はアラートの生データを Grafana アノテーションに記録するフォールバック動作をする。
 
 #### 3. ArgoCD App を sync (Deployment をデプロイ)
 
@@ -302,13 +302,11 @@ kubectl exec -n aiops deploy/alert-summarizer -- \
 
 | 環境変数 | デフォルト | 説明 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | *(空)* | Claude API キー (省略可。未設定時は生アラートデータを Grafana に記録) |
 | `GRAFANA_PASSWORD` | *(Secret)* | Grafana admin パスワード |
 | `SLACK_WEBHOOK_URL` | *(Secret / 空)* | Slack Incoming Webhook URL (オプション) |
 | `ES_URL` | `http://elasticsearch-master.logging.svc.cluster.local:9200` | ES エンドポイント |
 | `GRAFANA_URL` | `http://monitoring-grafana.monitoring.svc.cluster.local` | Grafana エンドポイント |
 | `GRAFANA_USER` | `admin` | Grafana ユーザー名 |
-| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | 使用する Claude モデル |
 | `LOG_LOOKBACK_MINUTES` | `15` | ES から取得するログの遡り時間 |
 | `MAX_LOG_SAMPLES` | `20` | ES から取得するログサンプル数上限 |
 
