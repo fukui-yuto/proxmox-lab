@@ -35,6 +35,14 @@ kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} create realms \
   -s realm=homelab -s enabled=true -s displayName="Homelab"
 
+echo "=== STEP 3b: groups client scope 作成 ==="
+GROUPS_SCOPE_ID=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+  ${KCADM} create client-scopes -r homelab \
+  -s name=groups -s protocol=openid-connect \
+  -s 'attributes={"include.in.token.scope":"true","display.on.consent.screen":"false"}' \
+  -i)
+echo "  → groups scope ID: ${GROUPS_SCOPE_ID}"
+
 echo "=== STEP 4: OIDC クライアント作成 ==="
 kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} create clients -r homelab \
@@ -109,6 +117,10 @@ for CLIENT in argocd grafana harbor vault minio kibana; do
     -s 'config={\"full.path\":\"false\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"groups\",\"userinfo.token.claim\":\"true\"}'"
 
   echo "  → ${CLIENT} (${CLIENT_UUID}) mapper 追加完了"
+
+  # groups client scope をデフォルトスコープに割り当て
+  kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+    ${KCADM} update clients/${CLIENT_UUID}/default-client-scopes/${GROUPS_SCOPE_ID} -r homelab
 done
 
 echo "=== STEP 7: MinIO policy mapper 追加 ==="
