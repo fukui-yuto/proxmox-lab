@@ -116,6 +116,13 @@ for CLIENT in argocd grafana harbor vault minio kibana; do
     -s protocolMapper=oidc-group-membership-mapper \
     -s 'config={\"full.path\":\"false\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"claim.name\":\"groups\",\"userinfo.token.claim\":\"true\"}'"
 
+  # audience mapper 追加 (aud クレームに clientId を含める)
+  kubectl exec -n "${NAMESPACE}" "${POD}" -- /bin/sh -c \
+    "${KCADM} create clients/${CLIENT_UUID}/protocol-mappers/models -r homelab \
+    -s name=audience-mapper -s protocol=openid-connect \
+    -s protocolMapper=oidc-audience-mapper \
+    -s 'config={\"included.client.audience\":\"${CLIENT}\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\"}'"
+
   echo "  → ${CLIENT} (${CLIENT_UUID}) mapper 追加完了"
 
   # groups client scope をデフォルトスコープに割り当て
