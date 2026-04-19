@@ -23,7 +23,7 @@ spec:
             - --client-id=kibana
             - --client-secret=kibana-keycloak-secret-2026
             - --oidc-issuer-url=http://keycloak.homelab.local/realms/homelab
-            - --cookie-secret=aG9tZWxhYi1raWJhbmEtb2F1dGgy
+            - --cookie-secret=aG9tZWxhYi1raWJhbmEtb2F1dGgyLXNlY3JldGtleXM=
             - --cookie-secure=false
             - --http-address=0.0.0.0:4180
             - --upstream=static://202
