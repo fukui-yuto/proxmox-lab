@@ -32,6 +32,7 @@ spec:
             - --redirect-url=http://kibana.homelab.local/oauth2/callback
             - --skip-provider-button=true
             - --code-challenge-method=S256
+            - --insecure-oidc-allow-unverified-email=true
           ports:
             - containerPort: 4180
               name: http

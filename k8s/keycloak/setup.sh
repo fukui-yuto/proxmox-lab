@@ -98,7 +98,7 @@ kubectl exec -n "${NAMESPACE}" "${POD}" -- \
 
 kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} create users -r homelab \
-  -s username=admin -s enabled=true -s email=admin@homelab.local
+  -s username=admin -s enabled=true -s email=admin@homelab.local -s emailVerified=true
 
 kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} set-password -r homelab \
