@@ -17,6 +17,8 @@ configs:
     argocdServerAdminPassword: "$2a$10$1n/U6oGHF0IbhbQZoBeQtu1IwUB7QYgfMV7p/jmHHgznOWi0d3xP6"
 
   cm:
+    # OIDC redirect URL は http:// で生成する必要がある (TLS 未使用のため)
+    url: http://argocd.homelab.local
     # Keycloak OIDC SSO
     oidc.config: |
       name: Keycloak
