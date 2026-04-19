@@ -16,21 +16,34 @@ crds:
 # -------------------------------------------------------------------
 # Admission Controller (ポリシー評価の中核)
 # ラボ環境のためレプリカ数を 1 に設定
+# master ノードを避ける (6GB RAM で k3s server と共存すると API 遅延 → リース更新失敗)
 # -------------------------------------------------------------------
 admissionController:
   replicas: 1
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
   resources:
     requests:
       cpu: 100m
       memory: 128Mi
     limits:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 300m
+      memory: 384Mi
 
 # -------------------------------------------------------------------
 # Background Controller (既存リソースへのポリシー適用)
 # -------------------------------------------------------------------
 backgroundController:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
   resources:
     requests:
       cpu: 50m
@@ -43,6 +56,12 @@ backgroundController:
 # Cleanup Controller (TTL ベースのリソース削除)
 # -------------------------------------------------------------------
 cleanupController:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
   resources:
     requests:
       cpu: 50m
@@ -55,6 +74,12 @@ cleanupController:
 # Reports Controller (ポリシーレポート生成)
 # -------------------------------------------------------------------
 reportsController:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
   resources:
     requests:
       cpu: 50m
@@ -62,6 +87,14 @@ reportsController:
     limits:
       cpu: 100m
       memory: 128Mi
+
+# -------------------------------------------------------------------
+# Features — forceFailurePolicyIgnore を有効化
+# kyverno ダウン時に failurePolicy=Fail の webhook が全 Pod 操作をブロックする問題を防止
+# -------------------------------------------------------------------
+features:
+  forceFailurePolicyIgnore:
+    enabled: true
 
 # -------------------------------------------------------------------
 # Grafana ダッシュボード (monitoring と連携する場合)
