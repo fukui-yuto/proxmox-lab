@@ -25,6 +25,13 @@ spec:
       labels:
         app: alert-summarizer
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist
       containers:
         - name: alert-summarizer
           image: harbor.homelab.local/library/alert-summarizer:latest
