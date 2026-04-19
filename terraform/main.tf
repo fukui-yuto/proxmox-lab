@@ -294,7 +294,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
   }
 
   cpu {
-    cores = 1
+    cores = 2
     type  = "host"
   }
 
@@ -403,7 +403,7 @@ resource "null_resource" "k3s_master_install" {
       "cloud-init status --wait || true",
       "sudo hostnamectl set-hostname k3s-master",
       "sudo k3s-uninstall.sh 2>/dev/null || true",
-      "export K3S_TOKEN=$(sudo cat /run/k3s-token) && K3S_NODE_NAME=k3s-master curl -sfL https://get.k3s.io | sh -",
+      "export K3S_TOKEN=$(sudo cat /run/k3s-token) && K3S_NODE_NAME=k3s-master INSTALL_K3S_EXEC='server --node-taint node-role.kubernetes.io/control-plane:NoSchedule' curl -sfL https://get.k3s.io | sh -",
       "sudo rm -f /run/k3s-token",
       "sleep 60",
       "sudo k3s kubectl wait --for=condition=Ready node/k3s-master --timeout=120s"
