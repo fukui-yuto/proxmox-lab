@@ -476,7 +476,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
 resource "null_resource" "k3s_registry_config" {
   triggers = {
     # バージョンを上げると全ノードで再適用される
-    registry_config_version = "5"
+    registry_config_version = "6"
   }
 
   depends_on = [null_resource.k3s_workers_install]
@@ -589,7 +589,7 @@ resource "null_resource" "k3s_disable_servicelb" {
 
 resource "null_resource" "k3s_sysctl_falco" {
   triggers = {
-    sysctl_falco_version = "2"
+    sysctl_falco_version = "3"
   }
 
   depends_on = [null_resource.k3s_workers_install]
