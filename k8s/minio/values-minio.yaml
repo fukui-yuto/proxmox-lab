@@ -49,6 +49,20 @@ persistence:
   size: 20Gi
 
 # -------------------------------------------------------------------
+# OIDC 認証 (Keycloak SSO)
+# -------------------------------------------------------------------
+# Root 認証 (admin/Minio12345) は引き続き有効。
+# OIDC ユーザーには consoleAdmin ポリシーが Keycloak の hardcoded claim で付与される。
+environment:
+  MINIO_IDENTITY_OPENID_CONFIG_URL: "http://keycloak.homelab.local/realms/homelab/.well-known/openid-configuration"
+  MINIO_IDENTITY_OPENID_CLIENT_ID: "minio"
+  MINIO_IDENTITY_OPENID_CLIENT_SECRET: "minio-keycloak-secret-2026"
+  MINIO_IDENTITY_OPENID_DISPLAY_NAME: "Keycloak"
+  MINIO_IDENTITY_OPENID_SCOPES: "openid,profile,email,groups"
+  MINIO_IDENTITY_OPENID_CLAIM_NAME: "policy"
+  MINIO_IDENTITY_OPENID_REDIRECT_URI: "http://minio.homelab.local/oauth_callback"
+
+# -------------------------------------------------------------------
 # リソース制限
 # -------------------------------------------------------------------
 resources:

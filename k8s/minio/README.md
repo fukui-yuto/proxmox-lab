@@ -18,8 +18,10 @@ Wave       : 3 (vault と同タイミング)
 |------|-----|
 | コンソール URL | http://minio.homelab.local |
 | API エンドポイント | http://minio-api.homelab.local |
-| ユーザー | `admin` |
-| パスワード | `Minio12345` |
+| Root 認証 | `admin` / `Minio12345` |
+| OIDC 認証 | **Login with SSO** → Keycloak (`admin` / `Keycloak12345`) |
+
+> OIDC ユーザーには `consoleAdmin` ポリシーが自動付与される (Keycloak hardcoded claim)。
 
 Windows hosts ファイルへの追記:
 ```powershell

@@ -14,6 +14,8 @@ data:
             192.168.210.24 vault.homelab.local
             192.168.210.24 kibana.homelab.local
             192.168.210.24 argo-workflows.homelab.local
+            192.168.210.24 minio.homelab.local
+            192.168.210.24 minio-api.homelab.local
             fallthrough
         }
     }

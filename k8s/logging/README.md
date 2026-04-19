@@ -62,6 +62,10 @@ helm upgrade --install fluent-bit \
 # Kibana デプロイ (Helm chart はセキュリティ前提のため plain Deployment を使用)
 kubectl apply -f kibana.yaml
 
+# Kibana 認証 (oauth2-proxy + Traefik forwardAuth)
+kubectl apply -f oauth2-proxy.yaml
+kubectl apply -f kibana-auth-middleware.yaml
+
 # Ingress 適用
 kubectl apply -f elasticsearch-ingress.yaml
 kubectl apply -f kibana-ingress.yaml
@@ -133,12 +137,29 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24
 
 | サービス | URL | 内容 |
 |---|---|---|
-| Kibana | http://kibana.homelab.local | ログ分析 UI |
+| Kibana | http://kibana.homelab.local | ログ分析 UI (Keycloak SSO 認証) |
 | Elasticsearch | http://elasticsearch.homelab.local | クラスター情報 |
 | Elasticsearch | http://elasticsearch.homelab.local/_cat/indices?v | インデックス一覧 |
 | Elasticsearch | http://elasticsearch.homelab.local/_cluster/health | クラスター状態 |
 
 > **注意:** Kibana は起動に 3〜5 分かかる。
+
+### Kibana 認証 (Keycloak SSO)
+
+Kibana OSS には認証機能がないため、oauth2-proxy + Traefik forwardAuth で保護する。
+
+| 項目 | 値 |
+|------|-----|
+| 認証方式 | oauth2-proxy (Keycloak OIDC) |
+| ログイン | kibana.homelab.local にアクセスすると自動的に Keycloak にリダイレクト |
+| ユーザー | `admin` / `Keycloak12345` |
+
+構成:
+```
+ブラウザ → Traefik → [forwardAuth: oauth2-proxy] → Kibana
+                         ↕
+                    Keycloak (OIDC)
+```
 
 ---
 

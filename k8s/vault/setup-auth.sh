@@ -48,15 +48,41 @@ else
   exit 1
 fi
 
+echo "=== OIDC 認証メソッドを有効化 (Keycloak SSO) ==="
+kubectl exec -n "${NAMESPACE}" vault-0 -- sh -c "VAULT_TOKEN=${ROOT_TOKEN} vault auth enable oidc 2>&1" || echo "(既に有効化済み)"
+
+kubectl exec -n "${NAMESPACE}" vault-0 -- sh -c "VAULT_TOKEN=${ROOT_TOKEN} vault write auth/oidc/config \
+  oidc_discovery_url=\"http://keycloak.homelab.local/realms/homelab\" \
+  oidc_client_id=\"vault\" \
+  oidc_client_secret=\"vault-keycloak-secret-2026\" \
+  default_role=\"keycloak\""
+
+kubectl exec -n "${NAMESPACE}" vault-0 -- sh -c "VAULT_TOKEN=${ROOT_TOKEN} vault write auth/oidc/role/keycloak \
+  bound_audiences=\"vault\" \
+  allowed_redirect_uris=\"http://vault.homelab.local/ui/vault/auth/oidc/oidc/callback\" \
+  allowed_redirect_uris=\"http://vault.homelab.local/oidc/callback\" \
+  user_claim=\"preferred_username\" \
+  groups_claim=\"groups\" \
+  policies=\"admin-policy\" \
+  oidc_scopes=\"openid,profile,email,groups\""
+
+echo "  → OIDC 認証設定完了 (Keycloak homelab realm)"
+
 echo "=== Root Token を無効化 ==="
 kubectl exec -n "${NAMESPACE}" vault-0 -- sh -c "VAULT_TOKEN=${ROOT_TOKEN} vault token revoke ${ROOT_TOKEN}"
-echo "Root Token を無効化しました (今後は admin/${ADMIN_PASS} でログイン)"
+echo "Root Token を無効化しました (今後は admin/${ADMIN_PASS} または OIDC でログイン)"
 
 echo ""
 echo "=================================================================="
 echo "  セットアップ完了"
 echo "  URL:      http://vault.homelab.local"
+echo ""
+echo "  [userpass 認証]"
 echo "  Method:   Username"
 echo "  Username: ${ADMIN_USER}"
 echo "  Password: ${ADMIN_PASS}"
+echo ""
+echo "  [OIDC 認証 (Keycloak SSO)]"
+echo "  Method:   OIDC"
+echo "  → Sign In をクリックで Keycloak にリダイレクト"
 echo "=================================================================="

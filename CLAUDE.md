@@ -267,15 +267,17 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25
 
 ### URL 一覧
 
-| アプリ | URL | ユーザー | 初期パスワード |
-|--------|-----|---------|--------------|
-| Grafana | http://grafana.homelab.local | `admin` | `values.yaml` の `grafana.adminPassword` |
-| Kibana | http://kibana.homelab.local | - | - |
-| Elasticsearch | http://elasticsearch.homelab.local | - | - |
-| ArgoCD | http://argocd.homelab.local | `admin` | `Argocd12345` |
-| Harbor | http://harbor.homelab.local | `admin` | `Harbor12345` |
-| Keycloak | http://keycloak.homelab.local | `admin` | `Keycloak12345` |
-| Vault | http://vault.homelab.local | `admin` | `Vault12345` |
-| Argo Workflows | http://argo-workflows.homelab.local | - | 認証不要 |
-| alert-summarizer | http://alert-summarizer.homelab.local | - | - |
-| MinIO Console | http://minio.homelab.local | `admin` | `Minio12345` |
+| アプリ | URL | ローカル認証 | Keycloak SSO |
+|--------|-----|------------|-------------|
+| Grafana | http://grafana.homelab.local | `admin` / `values.yaml` | Sign in with Keycloak |
+| Kibana | http://kibana.homelab.local | — | 自動リダイレクト (oauth2-proxy) |
+| Elasticsearch | http://elasticsearch.homelab.local | — | — |
+| ArgoCD | http://argocd.homelab.local | `admin` / `Argocd12345` | Log in via Keycloak |
+| Harbor | http://harbor.homelab.local | `admin` / `Harbor12345` | Login via OIDC Provider |
+| Keycloak | http://keycloak.homelab.local | `admin` / `Keycloak12345` | — |
+| Vault | http://vault.homelab.local | userpass: `admin` / `Vault12345` | Method: OIDC → Sign In |
+| Argo Workflows | http://argo-workflows.homelab.local | — | — |
+| alert-summarizer | http://alert-summarizer.homelab.local | — | — |
+| MinIO Console | http://minio.homelab.local | `admin` / `Minio12345` | Login with SSO |
+
+> 全サービスで Keycloak SSO (`admin` / `Keycloak12345`) が利用可能。既存のローカル認証も引き続き有効。

@@ -60,6 +60,30 @@ kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   -s 'webOrigins=["http://harbor.homelab.local"]' \
   -s standardFlowEnabled=true
 
+kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+  ${KCADM} create clients -r homelab \
+  -s clientId=vault -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=vault-keycloak-secret-2026 \
+  -s 'redirectUris=["http://vault.homelab.local/ui/vault/auth/oidc/oidc/callback","http://vault.homelab.local/oidc/callback"]' \
+  -s 'webOrigins=["http://vault.homelab.local"]' \
+  -s standardFlowEnabled=true
+
+kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+  ${KCADM} create clients -r homelab \
+  -s clientId=minio -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=minio-keycloak-secret-2026 \
+  -s 'redirectUris=["http://minio.homelab.local/oauth_callback"]' \
+  -s 'webOrigins=["http://minio.homelab.local"]' \
+  -s standardFlowEnabled=true
+
+kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+  ${KCADM} create clients -r homelab \
+  -s clientId=kibana -s enabled=true -s protocol=openid-connect \
+  -s publicClient=false -s secret=kibana-keycloak-secret-2026 \
+  -s 'redirectUris=["http://kibana.homelab.local/oauth2/callback"]' \
+  -s 'webOrigins=["http://kibana.homelab.local"]' \
+  -s standardFlowEnabled=true
+
 echo "=== STEP 5: グループ・管理ユーザー作成 ==="
 kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} create groups -r homelab -s name=homelab-admins
@@ -72,8 +96,8 @@ kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   ${KCADM} set-password -r homelab \
   --username admin --new-password "${ADMIN_PASS}"
 
-echo "=== STEP 6: groups mapper 追加 (argocd / grafana / harbor) ==="
-for CLIENT in argocd grafana harbor; do
+echo "=== STEP 6: groups mapper 追加 (全クライアント) ==="
+for CLIENT in argocd grafana harbor vault minio kibana; do
   CLIENT_UUID=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- /bin/sh -c \
     "${KCADM} get clients -r homelab -q clientId=${CLIENT} --fields id \
     | grep '\"id\"' | sed 's/.*\"id\" : \"\([^\"]*\)\".*/\1/'")
@@ -87,7 +111,19 @@ for CLIENT in argocd grafana harbor; do
   echo "  → ${CLIENT} (${CLIENT_UUID}) mapper 追加完了"
 done
 
-echo "=== STEP 7: Harbor OIDC 設定 ==="
+echo "=== STEP 7: MinIO policy mapper 追加 ==="
+MINIO_UUID=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- /bin/sh -c \
+  "${KCADM} get clients -r homelab -q clientId=minio --fields id \
+  | grep '\"id\"' | sed 's/.*\"id\" : \"\([^\"]*\)\".*/\1/'")
+
+kubectl exec -n "${NAMESPACE}" "${POD}" -- /bin/sh -c \
+  "${KCADM} create clients/${MINIO_UUID}/protocol-mappers/models -r homelab \
+  -s name=minio-policy -s protocol=openid-connect \
+  -s protocolMapper=oidc-hardcoded-claim-mapper \
+  -s 'config={\"claim.name\":\"policy\",\"claim.value\":\"consoleAdmin\",\"jsonType.label\":\"String\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"userinfo.token.claim\":\"true\"}'"
+echo "  → MinIO policy mapper (consoleAdmin) 追加完了"
+
+echo "=== STEP 8: Harbor OIDC 設定 ==="
 HARBOR_POD=$(kubectl get pod -n harbor -l component=core -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n harbor "${HARBOR_POD}" -- curl -s -X PUT \
   -u "admin:${HARBOR_PASS}" http://localhost:8080/api/v2.0/configurations \
@@ -106,8 +142,49 @@ kubectl exec -n harbor "${HARBOR_POD}" -- curl -s -X PUT \
     "oidc_admin_group":"homelab-admins"
   }'
 
+echo "=== STEP 9: Vault OIDC 設定 ==="
+VAULT_NAMESPACE="vault"
+VAULT_SEALED=$(kubectl exec -n "${VAULT_NAMESPACE}" vault-0 -- vault status -format=json 2>/dev/null | grep -o '"sealed":[^,}]*' | grep -o 'true\|false')
+if [ "${VAULT_SEALED}" = "false" ]; then
+  # Vault が unsealed の場合のみ OIDC を設定
+  # admin userpass でログインしてトークンを取得
+  VAULT_TOKEN=$(kubectl exec -n "${VAULT_NAMESPACE}" vault-0 -- \
+    vault login -method=userpass -format=json username=admin password=Vault12345 2>/dev/null \
+    | grep -o '"client_token":"[^"]*"' | sed 's/"client_token":"//;s/"//')
+
+  if [ -n "${VAULT_TOKEN}" ]; then
+    kubectl exec -n "${VAULT_NAMESPACE}" vault-0 -- sh -c \
+      "VAULT_TOKEN=${VAULT_TOKEN} vault auth enable oidc 2>&1" || echo "  (既に有効化済み)"
+
+    kubectl exec -n "${VAULT_NAMESPACE}" vault-0 -- sh -c \
+      "VAULT_TOKEN=${VAULT_TOKEN} vault write auth/oidc/config \
+        oidc_discovery_url=\"http://keycloak.homelab.local/realms/homelab\" \
+        oidc_client_id=\"vault\" \
+        oidc_client_secret=\"vault-keycloak-secret-2026\" \
+        default_role=\"keycloak\""
+
+    kubectl exec -n "${VAULT_NAMESPACE}" vault-0 -- sh -c \
+      "VAULT_TOKEN=${VAULT_TOKEN} vault write auth/oidc/role/keycloak \
+        bound_audiences=\"vault\" \
+        allowed_redirect_uris=\"http://vault.homelab.local/ui/vault/auth/oidc/oidc/callback\" \
+        allowed_redirect_uris=\"http://vault.homelab.local/oidc/callback\" \
+        user_claim=\"preferred_username\" \
+        groups_claim=\"groups\" \
+        policies=\"admin-policy\" \
+        oidc_scopes=\"openid,profile,email,groups\""
+    echo "  → Vault OIDC 設定完了"
+  else
+    echo "  WARN: Vault ログインに失敗 — OIDC 設定をスキップ (setup-auth.sh 実行後に再試行してください)"
+  fi
+else
+  echo "  WARN: Vault is sealed — OIDC 設定をスキップ"
+fi
+
 echo ""
 echo "=== セットアップ完了 ==="
 echo "ArgoCD SSO:  http://argocd.homelab.local → Log in via Keycloak"
 echo "Grafana SSO: http://grafana.homelab.local → Sign in with Keycloak"
 echo "Harbor SSO:  http://harbor.homelab.local  → Login via OIDC Provider"
+echo "Vault SSO:   http://vault.homelab.local   → Method: OIDC → Sign In"
+echo "MinIO SSO:   http://minio.homelab.local   → Login with SSO"
+echo "Kibana SSO:  http://kibana.homelab.local   → 自動認証 (oauth2-proxy)"

@@ -84,7 +84,7 @@ spec:
     targetRevision: HEAD
     path: k8s/logging
     directory:
-      include: "{kibana.yaml,kibana-ingress.yaml}"
+      include: "{kibana.yaml,kibana-ingress.yaml,oauth2-proxy.yaml,kibana-auth-middleware.yaml}"
   destination:
     server: https://kubernetes.default.svc
     namespace: logging

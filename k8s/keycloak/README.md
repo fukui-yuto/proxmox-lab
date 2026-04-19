@@ -11,11 +11,14 @@ PostgreSQL        ← ユーザー・設定の永続化 (内蔵)
 
 ## SSO 連携状況
 
-| サービス | 状態 | 認証方式 |
-|---------|------|---------|
-| ArgoCD | 設定済み | OIDC (Keycloak homelab realm) |
-| Grafana | 設定済み | Generic OAuth (Keycloak homelab realm) |
-| Harbor | 設定済み | OIDC (Keycloak homelab realm) |
+| サービス | 状態 | 認証方式 | 既存ローカル認証 |
+|---------|------|---------|----------------|
+| ArgoCD | 設定済み | OIDC (Keycloak homelab realm) | admin / Argocd12345 |
+| Grafana | 設定済み | Generic OAuth (Keycloak homelab realm) | admin / values.yaml |
+| Harbor | 設定済み | OIDC (Keycloak homelab realm) | admin / Harbor12345 |
+| Vault | 設定済み | OIDC (Keycloak homelab realm) | userpass: admin / Vault12345 |
+| MinIO | 設定済み | OIDC (Keycloak homelab realm) | admin / Minio12345 |
+| Kibana | 設定済み | oauth2-proxy (Keycloak homelab realm) | — (認証なし時は直接アクセス) |
 
 ### Keycloak 設定内容
 
@@ -27,13 +30,16 @@ PostgreSQL        ← ユーザー・設定の永続化 (内蔵)
 
 ### OIDC クライアント一覧
 
-| クライアント ID | Redirect URI | Client Secret (Vault: `homelab/keycloak-oidc`) |
+| クライアント ID | Redirect URI | Client Secret |
 |--------------|-------------|------|
-| `argocd` | `http://argocd.homelab.local/auth/callback` | `argocd_client_secret` |
-| `grafana` | `http://grafana.homelab.local/login/generic_oauth` | `grafana_client_secret` |
-| `harbor` | `http://harbor.homelab.local/c/oidc/callback` | `harbor_client_secret` |
+| `argocd` | `http://argocd.homelab.local/auth/callback` | `argocd-keycloak-secret-2026` |
+| `grafana` | `http://grafana.homelab.local/login/generic_oauth` | `grafana-keycloak-secret-2026` |
+| `harbor` | `http://harbor.homelab.local/c/oidc/callback` | `harbor-keycloak-secret-2026` |
+| `vault` | `http://vault.homelab.local/ui/vault/auth/oidc/oidc/callback` | `vault-keycloak-secret-2026` |
+| `minio` | `http://minio.homelab.local/oauth_callback` | `minio-keycloak-secret-2026` |
+| `kibana` | `http://kibana.homelab.local/oauth2/callback` | `kibana-keycloak-secret-2026` |
 
-> クライアントシークレットは Vault の `homelab/keycloak-oidc` に保存済み。
+> MinIO クライアントには `consoleAdmin` ポリシーを返す hardcoded claim mapper が設定されている。
 
 ---
 
@@ -70,10 +76,12 @@ bash setup.sh
 | 2 | Keycloak Pod 起動待ち |
 | 3 | kcadm ログイン |
 | 4 | `homelab` realm 作成 |
-| 5 | OIDC クライアント作成 (argocd / grafana / harbor) |
+| 5 | OIDC クライアント作成 (argocd / grafana / harbor / vault / minio / kibana) |
 | 6 | `homelab-admins` グループ・管理ユーザー作成 |
-| 7 | groups mapper 追加 (argocd / grafana / harbor 全クライアント) |
-| 8 | Harbor OIDC 設定 |
+| 7 | groups mapper 追加 (全 6 クライアント) |
+| 8 | MinIO policy mapper 追加 (consoleAdmin hardcoded claim) |
+| 9 | Harbor OIDC 設定 (API 呼び出し) |
+| 10 | Vault OIDC 設定 (unsealed 時のみ) |
 
 ---
 
@@ -100,6 +108,31 @@ bash setup.sh
 3. `admin` / `Keycloak12345` でログイン
 
 > Harbor のローカル admin は引き続き使用可能 (auth_mode が oidc_auth でも admin は local 認証)。
+
+### Vault SSO
+
+1. `http://vault.homelab.local` を開く
+2. Method: **OIDC** を選択
+3. **Sign In** をクリック → Keycloak にリダイレクト
+4. `admin` / `Keycloak12345` でログイン
+
+> userpass 認証 (admin / Vault12345) も引き続き利用可能。
+
+### MinIO SSO
+
+1. `http://minio.homelab.local` を開く
+2. **Login with SSO** をクリック → Keycloak にリダイレクト
+3. `admin` / `Keycloak12345` でログイン
+
+> Root 認証 (admin / Minio12345) も引き続き利用可能。
+
+### Kibana SSO
+
+1. `http://kibana.homelab.local` を開く
+2. 自動的に Keycloak ログインページにリダイレクトされる
+3. `admin` / `Keycloak12345` でログイン
+
+> oauth2-proxy 経由で認証。Kibana 自体には認証機能がないため、Traefik の forwardAuth ミドルウェアで保護する。
 
 ---
 
