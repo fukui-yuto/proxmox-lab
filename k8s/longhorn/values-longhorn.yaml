@@ -6,14 +6,19 @@
 # デフォルト設定
 # -------------------------------------------------------------------
 defaultSettings:
-  # デフォルトレプリカ数 (2: 2ノードに分散して耐障害性を確保)
-  defaultReplicaCount: 2
+  # デフォルトレプリカ数 (1: ラボ環境ではストレージ容量と安定性を優先)
+  # 2 にすると storageScheduled が storageMaximum を超え unschedulable → faulted の連鎖が起きる
+  defaultReplicaCount: 1
 
   # ストレージデータパス
   defaultDataPath: /var/lib/longhorn
 
   # ノードのディスクの最小利用可能割合 (25% 以下になったら新規ボリューム割り当て停止)
   storageMinimalAvailablePercentage: 25
+
+  # ストレージ over-provisioning を制限 (500%→200%)
+  # 高すぎると storageScheduled が実容量を大幅に超え、ボリューム障害の連鎖を引き起こす
+  storageOverProvisioningPercentage: 200
 
   # レプリカの自動再構築を有効化
   replicaAutoBalance: best-effort
@@ -31,7 +36,7 @@ defaultSettings:
 persistence:
   # Longhorn をデフォルト StorageClass にする
   defaultClass: true
-  defaultClassReplicaCount: 2
+  defaultClassReplicaCount: 1
   defaultFsType: ext4
   reclaimPolicy: Retain
 

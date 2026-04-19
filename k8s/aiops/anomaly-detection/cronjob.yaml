@@ -17,7 +17,7 @@ spec:
           containers:
             - name: detector
               image: harbor.homelab.local/library/anomaly-detector:latest
-              imagePullPolicy: Always
+              imagePullPolicy: IfNotPresent
               env:
                 - name: ES_URL
                   value: "http://elasticsearch-master.logging.svc.cluster.local:9200"

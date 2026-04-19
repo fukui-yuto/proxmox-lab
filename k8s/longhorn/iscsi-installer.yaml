@@ -22,6 +22,7 @@ spec:
       initContainers:
         - name: install-iscsi
           image: harbor.homelab.local/proxy/library/ubuntu:22.04
+          imagePullPolicy: IfNotPresent
           command:
             - nsenter
             - --mount=/proc/1/ns/mnt

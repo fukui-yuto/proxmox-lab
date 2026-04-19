@@ -126,7 +126,9 @@ Kyverno の cleanup jobs と post-upgrade hook (`kyverno-clean-reports`) は `/b
 **解決策:** Harbor の Docker Hub プロキシキャッシュを経由して `bitnami/kubectl` を取得する。
 
 Harbor に Docker Hub プロキシを設定済み (Harbor UI → Registries → `docker-hub`、Projects → `dockerhub-proxy`)。
-`values-kyverno.yaml` で全 cleanup jobs のイメージを `harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:latest` に設定している。
+`values-kyverno.yaml` で全 cleanup jobs のイメージを `harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:1.31` に設定している。
+タグを `latest` ではなく固定バージョンにすることで、`imagePullPolicy` が `IfNotPresent` になり
+Harbor 障害時もキャッシュ済みイメージで動作する。
 
 ### ArgoCD Sync Failed — CRD annotations サイズ超過
 

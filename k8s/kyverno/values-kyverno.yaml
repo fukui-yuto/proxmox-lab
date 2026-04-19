@@ -111,7 +111,7 @@ policyReportsCleanup:
   image:
     registry: harbor.homelab.local
     repository: dockerhub-proxy/bitnami/kubectl
-    tag: 'latest'
+    tag: '1.31'
 
 # -------------------------------------------------------------------
 # Cleanup Jobs (Harbor プロキシ経由で bitnami/kubectl を使用)
@@ -123,24 +123,24 @@ cleanupJobs:
     image:
       registry: harbor.homelab.local
       repository: dockerhub-proxy/bitnami/kubectl
-      tag: 'latest'
+      tag: '1.31'
   clusterAdmissionReports:
     image:
       registry: harbor.homelab.local
       repository: dockerhub-proxy/bitnami/kubectl
-      tag: 'latest'
+      tag: '1.31'
   updateRequests:
     image:
       registry: harbor.homelab.local
       repository: dockerhub-proxy/bitnami/kubectl
-      tag: 'latest'
+      tag: '1.31'
   ephemeralReports:
     image:
       registry: harbor.homelab.local
       repository: dockerhub-proxy/bitnami/kubectl
-      tag: 'latest'
+      tag: '1.31'
   clusterEphemeralReports:
     image:
       registry: harbor.homelab.local
       repository: dockerhub-proxy/bitnami/kubectl
-      tag: 'latest'
+      tag: '1.31'

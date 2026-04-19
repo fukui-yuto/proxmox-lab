@@ -35,7 +35,7 @@ spec:
       containers:
         - name: alert-summarizer
           image: harbor.homelab.local/library/alert-summarizer:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           envFrom:
