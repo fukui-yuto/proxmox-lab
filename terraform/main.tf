@@ -614,3 +614,38 @@ resource "null_resource" "k3s_sysctl_falco" {
     EOT
   }
 }
+
+# -------------------------------------------------------------------
+# Longhorn multipath 競合回避
+# multipathd が Longhorn iSCSI デバイス (IET VIRTUAL-DISK) を
+# /dev/mapper/mpathX として奪い、kubelet の mount が
+# "already mounted or mount point busy" で失敗する問題の対策。
+# /etc/multipath.conf に blacklist を設定して multipathd を再起動する。
+# multipath_blacklist_version を上げると全ノードで再適用される。
+# -------------------------------------------------------------------
+resource "null_resource" "k3s_multipath_blacklist" {
+  triggers = {
+    multipath_blacklist_version = "1"
+  }
+
+  depends_on = [null_resource.k3s_workers_install]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -e
+
+      apply_multipath() {
+        local ip="$1"
+        echo "==> Applying multipath blacklist on $ip"
+        ssh -o StrictHostKeyChecking=no ubuntu@"$ip" \
+          "printf 'defaults {\n    user_friendly_names yes\n}\nblacklist {\n    devnode \"^sd[a-z]\"\n    device {\n        vendor \"IET\"\n        product \"VIRTUAL-DISK\"\n    }\n}\n' | sudo tee /etc/multipath.conf > /dev/null && sudo systemctl restart multipathd && sudo multipath -F 2>/dev/null; echo 'multipath blacklist done'"
+      }
+
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29 192.168.210.30 192.168.210.31; do
+        apply_multipath "$ip"
+      done
+      echo "Multipath blacklist applied to all k3s worker nodes."
+    EOT
+  }
+}

@@ -158,6 +158,15 @@ CPU request 飽和 (97%+) と pve-node01 過負荷 (load average 5.85, FS read-o
 
 クラスター合計 CPU: 3 (node02) + 10 (node03) = **13 vCPU** (旧: 8 vCPU)
 
+### Longhorn multipath 競合回避 (実施済み: 2026-04-19)
+
+Ubuntu 24.04 の `multipathd` が Longhorn iSCSI デバイス (`IET VIRTUAL-DISK`) を `/dev/mapper/mpathX` として奪い、kubelet の mount が `already mounted or mount point busy` で失敗する問題の対策。
+
+`main.tf` の変更内容:
+- `null_resource.k3s_multipath_blacklist` を追加
+- `/etc/multipath.conf` に `blacklist { devnode "^sd[a-z]"; device { vendor "IET"; product "VIRTUAL-DISK" } }` を設定
+- `multipath_blacklist_version` トリガーにより設定変更時に全ノードへ再適用される
+
 ### worker06〜09 のディスクサイズ拡張 (実施済み: 2026-04-15)
 
 worker08 で Longhorn レプリカ (8.6GB) + containerd イメージ (3.3GB) により 20GB ディスクが 95% に達し DiskPressure が繰り返し発生したため、pve-node03 上の全 worker (06〜09) を 20GB → 50GB に拡張。
