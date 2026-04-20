@@ -27,3 +27,13 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+  ignoreDifferences:
+    - kind: Secret
+      name: litmus-mongodb
+      jsonPointers:
+        - /data
+    - group: apps
+      kind: StatefulSet
+      name: litmus-mongodb
+      jsonPointers:
+        - /spec/volumeClaimTemplates

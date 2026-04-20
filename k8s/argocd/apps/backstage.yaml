@@ -27,3 +27,8 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+  ignoreDifferences:
+    - kind: Secret
+      name: backstage-postgresql
+      jsonPointers:
+        - /data

@@ -29,3 +29,11 @@ spec:
     syncOptions:
       - CreateNamespace=false
       - ServerSideApply=true
+  ignoreDifferences:
+    - kind: Secret
+      jsonPointers:
+        - /data
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+      jsonPointers:
+        - /spec
