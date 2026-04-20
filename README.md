@@ -162,7 +162,6 @@ proxmox-lab/
     ├── troubleshooting.md   # 既知の障害と復旧手順
     ├── disaster-recovery.md # 障害シナリオ別 DR ガイド
     ├── glossary.md          # 用語集 (初学者向け)
-    ├── roadmap.md           # 実装ロードマップ
     └── proxmox-sdn-guide.md # Proxmox SDN ガイド
 ```
 
