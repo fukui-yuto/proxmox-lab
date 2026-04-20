@@ -65,10 +65,34 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `04-network.yml` | Linux Bridge (vmbr0 / vmbr0.20) 設定 |
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 | `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
-| `08-nic-tuning.yml` | 全 Proxmox ノード NIC チューニング (pve-node01/02: e1000e TSO/GSO/GRO 無効化・リングバッファ 4096・コアレシング・txqueuelen 10000 / pve-node03: r8169 TSO/GSO/GRO 無効化・txqueuelen 10000) |
-| `09-flannel-cleanup.yml` | flannel 残存リソースのクリーンアップ (Cilium 移行用) |
-| `10-install-cilium.yml` | Cilium の Helm インストール |
-| `11-fix-k3s-cni.yml` | k3s エージェントの CNI 設定修正 (Cilium 用) |
+| `08-nic-tuning.yml` | 全 Proxmox ノード NIC チューニング |
+
+---
+
+## site.yml に含まれないプレイブック (個別実行)
+
+以下のプレイブックは `site.yml` による一括実行の対象外。特定の状況でのみ手動実行する。
+
+| Playbook | 実行タイミング | 実行コマンド |
+|---------|--------------|------------|
+| `00-bootstrap.yml` | **初回のみ** — Ansible 管理を始める前に1回だけ実行。Raspberry Pi の SSH 公開鍵を全ノードに配布する | `ansible-playbook -i inventory/hosts.yml playbooks/00-bootstrap.yml -k` |
+| `07-proxmox-sdn.yml` | **任意** — Proxmox SDN を API 経由で設定する場合のみ。通常は WebUI で設定するため実行不要 | `ansible-playbook -i inventory/hosts.yml playbooks/07-proxmox-sdn.yml` |
+| `09-flannel-cleanup.yml` | **CNI 移行時のみ (完了済み)** — flannel → Cilium 移行時に flannel の DaemonSet・ConfigMap・ネットワークインターフェースを削除する。k3s が `--flannel-backend=none` で再起動済みであること | `ansible-playbook -i inventory/hosts.yml playbooks/09-flannel-cleanup.yml` |
+| `10-install-cilium.yml` | **CNI 移行時のみ (完了済み)** — Cilium DaemonSet を Helm テンプレート経由で初回インストールする。現在は ArgoCD が管理しているため実行不要 | `ansible-playbook -i inventory/hosts.yml playbooks/10-install-cilium.yml` |
+| `11-fix-k3s-cni.yml` | **CNI 移行時のみ (完了済み)** — k3s agent の CNI ディレクトリに Cilium の conflist をコピーし flannel を無効化する。Cilium 初回導入時のワーカーノード修正用 | `ansible-playbook -i inventory/hosts.yml playbooks/11-fix-k3s-cni.yml` |
+
+### 実行タイミングの判断フロー
+
+```
+クラスターを初めて構築する？
+  → YES: 00-bootstrap.yml → site.yml の順に実行
+  → NO (既存クラスター):
+      NIC チューニングだけ再適用したい？ → 08-nic-tuning.yml を個別実行
+      SDN を設定したい？ → 07-proxmox-sdn.yml (または WebUI)
+      CNI を flannel から Cilium に移行する？ → 09 → 10 → 11 の順に実行 (※既に移行完了)
+```
+
+> **注意:** `09-flannel-cleanup.yml` / `10-install-cilium.yml` / `11-fix-k3s-cni.yml` は Cilium 移行が完了した現在、通常は再実行する必要はありません。新規ワーカー追加時も Terraform の remote-exec で Cilium が自動設定されます。
 
 ### クラスター確認
 
