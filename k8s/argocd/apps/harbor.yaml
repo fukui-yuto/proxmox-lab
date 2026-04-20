@@ -43,14 +43,12 @@ spec:
       namespace: harbor
       jsonPointers:
         - /data
-    # harbor-registry Deployment は Recreate 戦略で管理されるため
-    # spec.strategy フィールドの差分を無視する
+    # harbor Deployment は Helm テンプレートと実際の spec に差分が出るため無視
     - group: apps
       kind: Deployment
-      name: harbor-registry
       namespace: harbor
       jsonPointers:
-        - /spec/strategy
+        - /spec/template/metadata/annotations
   syncPolicy:
     automated:
       prune: true

@@ -33,4 +33,5 @@ spec:
       kind: CustomResourceDefinition
       jqPathExpressions:
         - .status
-        - .metadata.annotations
+        - .metadata
+        - .spec.versions
