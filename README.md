@@ -156,6 +156,10 @@ proxmox-lab/
 ├── tests/            # Playwright E2E / API テスト
 └── docs/             # 設計・運用ドキュメント
     ├── design.md            # ハードウェア・ネットワーク・HA・構築手順・運用
+    ├── network-map.md       # 全 IP・VLAN・サービスの一覧マップ
+    ├── troubleshooting.md   # 既知の障害と復旧手順
+    ├── disaster-recovery.md # 障害シナリオ別 DR ガイド
+    ├── glossary.md          # 用語集 (初学者向け)
     ├── roadmap.md           # 実装ロードマップ
     └── proxmox-sdn-guide.md # Proxmox SDN ガイド
 ```
