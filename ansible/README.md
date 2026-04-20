@@ -16,7 +16,10 @@ ansible/
     ├── 06-resilience.yml         # クラスター安定化 (corosync + watchdog)
     ├── 07-proxmox-sdn.yml        # Proxmox SDN 設定 (参考・WebUI 推奨)
     ├── 08-nic-tuning.yml         # 全 Proxmox ノード NIC チューニング (pve-node01/02: e1000e, pve-node03: r8169)
-    └── site.yml                  # 01〜08 を一括実行
+    ├── 09-flannel-cleanup.yml    # flannel 残存リソースのクリーンアップ (Cilium 移行用)
+    ├── 10-install-cilium.yml     # Cilium の Helm インストール
+    ├── 11-fix-k3s-cni.yml        # k3s エージェントの CNI 設定修正 (Cilium 用)
+    └── site.yml                  # 01〜06, 08 を一括実行
 ```
 
 > シャットダウン関連のプレイブックは `power/ansible/` に移動しました。
@@ -63,6 +66,9 @@ ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 | `05-raspi-network.yml` | Raspberry Pi の静的 IP 設定 |
 | `06-resilience.yml` | クラスター安定化 (corosync タイムアウト延長・watchdog) |
 | `08-nic-tuning.yml` | 全 Proxmox ノード NIC チューニング (pve-node01/02: e1000e TSO/GSO/GRO 無効化・リングバッファ 4096・コアレシング・txqueuelen 10000 / pve-node03: r8169 TSO/GSO/GRO 無効化・txqueuelen 10000) |
+| `09-flannel-cleanup.yml` | flannel 残存リソースのクリーンアップ (Cilium 移行用) |
+| `10-install-cilium.yml` | Cilium の Helm インストール |
+| `11-fix-k3s-cni.yml` | k3s エージェントの CNI 設定修正 (Cilium 用) |
 
 ### クラスター確認
 

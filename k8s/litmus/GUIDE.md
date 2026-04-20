@@ -112,3 +112,112 @@ kubectl get chaosresult -A
 # Chaos Operator のログ
 kubectl logs -n litmus -l app=chaos-operator -f
 ```
+
+---
+
+## ファイル構成と各ファイルのコード解説
+
+### ファイル構成一覧
+
+```
+k8s/litmus/
+├── values.yaml      # Helm values (LitmusChaos のカスタム設定)
+├── README.md        # セットアップ手順・トラブルシューティング
+└── GUIDE.md         # 本ファイル (概念説明・実験種別・連携シナリオ)
+
+k8s/argocd/apps/
+└── litmus.yaml      # ArgoCD Application (自動デプロイ定義)
+```
+
+---
+
+### values.yaml の詳細解説
+
+LitmusChaos Helm chart (`litmuschaos/litmus`) に渡すカスタム値を定義するファイル。
+chart のデフォルト値をこのファイルで上書きし、homelab 環境に合わせた設定にしている。
+
+#### portal.frontend セクション
+
+```yaml
+portal:
+  frontend:
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: traefik
+      host: litmus.homelab.local
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+```
+
+- **`service.type: ClusterIP`**: フロントエンドのサービスをクラスタ内部 IP のみで公開する。外部からのアクセスは Ingress 経由で行うため NodePort や LoadBalancer は不要。
+- **`ingress.enabled: true`**: Kubernetes Ingress リソースを自動作成する。これにより `litmus.homelab.local` というホスト名でブラウザからアクセスできるようになる。
+- **`annotations.kubernetes.io/ingress.class: traefik`**: homelab で使用している Traefik Ingress Controller にルーティングを任せる指定。
+- **`host: litmus.homelab.local`**: ブラウザからアクセスする際のホスト名。Windows の hosts ファイルに対応する IP を追記する必要がある。
+- **`resources`**: フロントエンドコンテナに割り当てる CPU / メモリのリソース制限。`requests` は Pod スケジューリング時の保証値、`limits` は上限値。homelab はリソースが限られるため小さめに設定している。
+
+#### portal.server セクション
+
+```yaml
+  server:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+```
+
+- **server**: Chaos Center のバックエンド API サーバー。フロントエンドからの API リクエストを処理し、MongoDB に実験データを永続化する。
+- メモリ上限が frontend (256Mi) より大きい (512Mi) のは、実験の実行管理やスケジューリングなどの処理が多いため。
+
+#### portal.authServer セクション
+
+```yaml
+  authServer:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+```
+
+- **authServer**: Chaos Center のログイン認証を担当するサーバー。ユーザー管理・トークン発行を行う。
+- 認証処理は軽量なため、他コンポーネントと比較してリソース割り当てが小さい。
+
+#### mongodb セクション
+
+```yaml
+mongodb:
+  # chart 3.28.0: bitnamilegacy/mongodb:8.0.13-debian-12-r0 を使用
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    size: 5Gi
+  volumePermissions:
+    enabled: true
+```
+
+- **`replicaCount: 1`**: MongoDB のレプリカ数を 1 に設定。chart 3.28.0 ではデフォルトが 3 に変更されたが、homelab ではリソース節約のためシングルインスタンスにしている。本番環境では 3 以上が推奨されるが、カオス実験のメタデータ保存用途であるため 1 で十分。
+- **`persistence.enabled: true`**: MongoDB のデータを永続ボリュームに保存する。Pod が再起動しても実験データが失われない。
+- **`persistence.storageClass: longhorn`**: homelab の分散ストレージ Longhorn を使用。ノード障害時にもデータが保護される。
+- **`persistence.size: 5Gi`**: MongoDB に 5GB のディスクを割り当てる。カオス実験のメタデータ保存には十分な容量。
+- **`volumePermissions.enabled: true`**: Init Container を使って永続ボリュームのパーミッション (所有者) を MongoDB コンテナが読み書きできるように修正する。Longhorn ボリュームは root 所有で作成されるため、MongoDB (非 root ユーザーで実行) がアクセスするにはこの設定が必要。

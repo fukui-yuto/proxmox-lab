@@ -128,8 +128,8 @@ kubectl exec -n logging elasticsearch-master-0 -- \
 管理者権限の PowerShell で実行:
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  elasticsearch.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  kibana.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  elasticsearch.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  kibana.homelab.local"
 ```
 
 ### URL 一覧

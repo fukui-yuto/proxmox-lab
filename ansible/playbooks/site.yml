@@ -1,5 +1,5 @@
 ---
-# Proxmox クラスター全体のセットアップ (01〜06 一括実行)
+# Proxmox クラスター全体のセットアップ (01〜06, 08 一括実行)
 # 実行: ansible-playbook -i inventory/hosts.yml playbooks/site.yml
 
 - import_playbook: 01-base.yml

@@ -67,7 +67,7 @@ helm upgrade --install harbor \
 管理者権限の PowerShell で以下を実行する。
 
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  harbor.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  harbor.homelab.local"
 ```
 
 ## 基本的な使い方
@@ -301,5 +301,5 @@ cat /etc/dnsmasq.d/homelab-local.conf
 systemctl restart dnsmasq
 ```
 
-homelab-local.conf のエントリが `192.168.210.24` (k3s-worker03) を向いているか確認する。
-pve-node01 の NIC 負荷軽減のため、Ingress アクセスは `192.168.210.24` 経由を推奨。
+homelab-local.conf のエントリが `192.168.210.25` (k3s-worker04) を向いているか確認する。
+pve-node01 の NIC 負荷軽減のため、Ingress アクセスは `192.168.210.25` 経由を推奨。

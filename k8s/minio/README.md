@@ -25,8 +25,8 @@ Wave       : 3 (vault と同タイミング)
 
 Windows hosts ファイルへの追記:
 ```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio.homelab.local"
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.24  minio-api.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio-api.homelab.local"
 ```
 
 ## 事前作成バケット
