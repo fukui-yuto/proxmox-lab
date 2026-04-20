@@ -16,7 +16,7 @@
 #    Raspberry Pi が中継役となり、両ホストへの SSH アクセスを利用する
 # ------------------------------------------------------------------
 - name: pve-node01 SSH 公開鍵を k3s-master ubuntu ユーザーに登録
-  hosts: rasberrypi5
+  hosts: raspberrypi5
   gather_facts: false
   tasks:
     - name: pve-node01 の RSA 公開鍵を取得

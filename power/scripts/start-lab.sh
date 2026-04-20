@@ -7,7 +7,7 @@
 #   1. Wake-on-LAN で Proxmox ノードを起動 (MAC 設定済みの場合)
 #   2. pve-node01 / pve-node02 / pve-node03 の SSH 接続可能まで待機
 #   3. pve-node01 NIC チューニング適用 (e1000e ハング対策・VM 起動前に必須)
-#   4. VM を順番に起動: dns-ct → k3s-master → worker01〜07
+#   4. VM を順番に起動: dns-ct → k3s-master → worker03〜08
 #   5. k8s 全ノードが Ready になるまで待機
 #   6. kubectl uncordon で全 worker ノードをスケジュール可能に復帰
 #
@@ -38,20 +38,19 @@ SSH_WAIT_TIMEOUT=300
 # VM/LXC IDs
 VMID_DNS_CT=101       # LXC (node01) — DNS を最初に起動
 VMID_K3S_MASTER=201   # node01
-VMID_WORKER01=202     # node01
-# VMID_WORKER02=203 は削除済み (VM 203 は存在しない)
 VMID_WORKER03=204     # node02
 VMID_WORKER04=205     # node02
 VMID_WORKER05=206     # node02
 VMID_WORKER06=207     # node03
 VMID_WORKER07=208     # node03
+VMID_WORKER08=209     # node03
 
 # k3s-master
 K3S_MASTER_IP="192.168.210.21"
 K3S_MASTER_USER="ubuntu"
 
 # kubectl uncordon 対象のワーカーノード名
-K8S_WORKERS=(k3s-worker01 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
+K8S_WORKERS=(k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07 k3s-worker08)
 
 # k8s 全ノード Ready 待機タイムアウト (秒)
 K8S_READY_TIMEOUT=300
@@ -214,13 +213,13 @@ main() {
   wait_for_ssh "k3s-master" "$K3S_MASTER_IP" "$K3S_MASTER_USER"
   sleep 15  # k3s API サーバーの起動を待つ
 
-  # worker (node01 / node02 を並行して起動)
-  start_vm "$NODE01_IP" "$VMID_WORKER01" "k3s-worker01"
+  # worker (node02 / node03 を並行して起動)
   start_vm "$NODE02_IP" "$VMID_WORKER03" "k3s-worker03"
   start_vm "$NODE02_IP" "$VMID_WORKER04" "k3s-worker04"
   start_vm "$NODE02_IP" "$VMID_WORKER05" "k3s-worker05"
   start_vm "$NODE03_IP" "$VMID_WORKER06" "k3s-worker06"
   start_vm "$NODE03_IP" "$VMID_WORKER07" "k3s-worker07"
+  start_vm "$NODE03_IP" "$VMID_WORKER08" "k3s-worker08"
 
   # 5. k8s 全ノード Ready 待機
   log "[5/6] k8s 全ノード Ready 待機..."

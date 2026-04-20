@@ -11,8 +11,8 @@
 #     - pve-node01 へのログインセッションが 0
 #
 # 停止順序:
-#   1. kubectl drain (k3s worker01〜07)
-#   2. worker VM 停止 (202/203 on node01, 204/205/206 on node02, 207/208 on node03)
+#   1. kubectl drain (k3s worker03〜08)
+#   2. worker VM 停止 (204/205/206 on node02, 207/208/209 on node03)
 #   3. k3s-master VM 停止 (201)
 #   4. dns-ct LXC 停止 (101)
 #   5. pve-node02 / pve-node03 poweroff (SSH 経由)
@@ -39,8 +39,6 @@ NODE03_IP="192.168.210.13"
 
 # VM/LXC IDs (pve-node01)
 VMID_K3S_MASTER=201
-VMID_WORKER01=202
-VMID_WORKER02=203
 VMID_DNS_CT=101       # LXC
 
 # VM IDs (pve-node02)
@@ -51,13 +49,14 @@ VMID_WORKER05=206
 # VM IDs (pve-node03)
 VMID_WORKER06=207
 VMID_WORKER07=208
+VMID_WORKER08=209
 
 # k3s-master へのアクセス
 K3S_MASTER_IP="192.168.210.21"
 K3S_MASTER_USER="ubuntu"
 
 # kubectl drain 対象のワーカーノード名
-K8S_WORKERS=(k3s-worker01 k3s-worker02 k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07)
+K8S_WORKERS=(k3s-worker03 k3s-worker04 k3s-worker05 k3s-worker06 k3s-worker07 k3s-worker08)
 
 # アイドル閾値
 CPU_IDLE_THRESHOLD=95    # CPU アイドル率 (%) この値以上でアイドルとみなす
@@ -285,17 +284,12 @@ perform_shutdown() {
 
   # 2. worker VM 停止 (shutdown 送信のみ、完了待ちは後で)
   log "worker VM 停止..."
-  shutdown_vm_node01 "$VMID_WORKER01" "k3s-worker01"
-  shutdown_vm_node01 "$VMID_WORKER02" "k3s-worker02"
   shutdown_vm_node02 "$VMID_WORKER03" "k3s-worker03"
   shutdown_vm_node02 "$VMID_WORKER04" "k3s-worker04"
   shutdown_vm_node02 "$VMID_WORKER05" "k3s-worker05"
   shutdown_vm_node03 "$VMID_WORKER06" "k3s-worker06"
   shutdown_vm_node03 "$VMID_WORKER07" "k3s-worker07"
-
-  # node01 の worker 停止完了を待機
-  wait_vm_stopped "$VMID_WORKER01" "k3s-worker01"
-  wait_vm_stopped "$VMID_WORKER02" "k3s-worker02"
+  shutdown_vm_node03 "$VMID_WORKER08" "k3s-worker08"
 
   # 3. k3s-master VM 停止
   log "k3s-master 停止..."

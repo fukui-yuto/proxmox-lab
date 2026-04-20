@@ -2,19 +2,17 @@
 # flannel から Cilium への CNI 移行時に flannel の残留リソースを削除する
 # 実行前提: k3s が --flannel-backend=none で再起動済みであること
 - name: Cleanup flannel resources for Cilium migration
-  hosts: rasberrypi5
+  hosts: raspberrypi5
   gather_facts: false
   vars:
     k3s_nodes:
       - 192.168.210.21
-      - 192.168.210.22
       - 192.168.210.24
       - 192.168.210.25
       - 192.168.210.26
       - 192.168.210.27
       - 192.168.210.28
       - 192.168.210.29
-      - 192.168.210.30
   tasks:
     - name: Delete kube-flannel DaemonSet (if exists)
       command: kubectl delete daemonset kube-flannel -n kube-system

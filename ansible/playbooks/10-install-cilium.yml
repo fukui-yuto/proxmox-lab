@@ -2,7 +2,7 @@
 # k3s クラスターに cilium を Helm でインストールする
 # 実行前提: flannel が無効化され k3s が再起動済みであること
 - name: Install Cilium DaemonSets directly
-  hosts: rasberrypi5
+  hosts: raspberrypi5
   gather_facts: false
   tasks:
     - name: Add cilium helm repo

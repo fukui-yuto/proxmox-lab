@@ -9,18 +9,16 @@
 #       cilium-cni バイナリを /var/lib/rancher/k3s/data/cni/ にシンボリックリンクする。
 #       net-conf.json を "none" に更新して k3s 内蔵 flannel を停止する。
 - name: Fix k3s agent CNI configuration for Cilium
-  hosts: rasberrypi5
+  hosts: raspberrypi5
   gather_facts: false
   vars:
     k3s_workers:
-      - 192.168.210.22
       - 192.168.210.24
       - 192.168.210.25
       - 192.168.210.26
       - 192.168.210.27
       - 192.168.210.28
       - 192.168.210.29
-      - 192.168.210.30
     k3s_agent_cni_dir: "/var/lib/rancher/k3s/agent/etc/cni/net.d"
     cilium_conflist_src: "/etc/cni/net.d/05-cilium.conflist"
     cilium_conflist_dst: "{{ k3s_agent_cni_dir }}/05-cilium.conflist"

@@ -10,6 +10,10 @@
         "chromium",
         "--headless"
       ]
+    },
+    "proxmox-lab": {
+      "type": "sse",
+      "url": "http://192.168.210.55:8000/sse"
     }
   }
 }

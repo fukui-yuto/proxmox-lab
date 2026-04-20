@@ -27,7 +27,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| ホスト名 | rasberrypi5 |
+| ホスト名 | raspberrypi5 |
 | IP | 192.168.210.55/24 |
 | MAC (eth0) | 2c:cf:67:b5:b2:be |
 | OS | Ubuntu Server |
