@@ -121,14 +121,16 @@ Proxmox VE クラスターの構築から k3s クラスター上の AIOps まで
 
 | 名前 | VM ID | 種別 | IP | Proxmox ノード | 用途 |
 |------|-------|------|----|--------------|------|
-| k3s-master | 201 | VM | 192.168.210.21 | pve-node01 | k3s マスター |
-| k3s-worker01 | 202 | VM | 192.168.210.22 | pve-node01 | k3s ワーカー |
+| k3s-master | 201 | VM | 192.168.210.21 | pve-node01 | k3s コントロールプレーン (NoSchedule) |
 | k3s-worker03 | 204 | VM | 192.168.210.24 | pve-node02 | k3s ワーカー |
 | k3s-worker04 | 205 | VM | 192.168.210.25 | pve-node02 | k3s ワーカー |
 | k3s-worker05 | 206 | VM | 192.168.210.26 | pve-node02 | k3s ワーカー |
 | k3s-worker06 | 207 | VM | 192.168.210.27 | pve-node03 | k3s ワーカー |
 | k3s-worker07 | 208 | VM | 192.168.210.28 | pve-node03 | k3s ワーカー |
+| k3s-worker08 | 209 | VM | 192.168.210.29 | pve-node03 | k3s ワーカー |
 | dns-ct | 101 | LXC | 192.168.210.53 | pve-node01 | Pi-hole (DNS) |
+
+> worker01 (202), worker02 (203), worker09 (210), worker10 (211) は削除済み。
 
 ---
 
