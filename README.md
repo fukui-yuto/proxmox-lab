@@ -155,12 +155,9 @@ proxmox-lab/
 ├── power/            # クラスター起動・シャットダウン管理
 ├── tests/            # Playwright E2E / API テスト
 └── docs/             # 設計・運用ドキュメント
-    ├── architecture.md
-    ├── design.md
-    ├── runbook.md
-    ├── roadmap.md
-    ├── resource-planning.md
-    └── proxmox-sdn-guide.md
+    ├── design.md            # ハードウェア・ネットワーク・HA・構築手順・運用
+    ├── roadmap.md           # 実装ロードマップ
+    └── proxmox-sdn-guide.md # Proxmox SDN ガイド
 ```
 
 ---
