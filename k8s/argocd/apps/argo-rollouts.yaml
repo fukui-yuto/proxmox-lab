@@ -34,4 +34,4 @@ spec:
       jqPathExpressions:
         - .status
         - .metadata
-        - .spec.versions
+        - .spec
