@@ -132,10 +132,17 @@ resource "null_resource" "expand_disk_node03" {
 |----------|------|
 | `ansible_run_playbook` | Ansible playbook の実行 |
 | `ansible_ping` | 疎通確認 |
-| `lab_ping` | IP への ping |
-| `kubectl_get`, `kubectl_logs` | k8s 操作・確認 |
-| `proxmox_get_vm_status`, `proxmox_list_nodes` | Proxmox 状態確認 |
+| `lab_ping`, `lab_check_port` | IP / ポート疎通確認 |
+| `lab_journal` | SSH 経由で journalctl ログ取得 |
+| `lab_start_cluster`, `lab_stop_cluster` | クラスター全体の起動・停止 |
+| `lab_cluster_health` | ラボ全体の健全性サマリー |
+| `kubectl_get`, `kubectl_logs`, `kubectl_drain` | k8s 操作・確認 |
+| `proxmox_get_vm_status`, `proxmox_list_nodes`, `proxmox_migrate_vm` | Proxmox 状態確認・操作 |
 | `terraform_plan`, `terraform_apply` | Terraform 操作 |
+| `argocd_list_apps`, `argocd_app_diff`, `argocd_sync` | ArgoCD 管理 |
+| `longhorn_volumes` | Longhorn ボリューム状態確認 |
+| `velero_backup_list`, `velero_create_backup` | Velero バックアップ管理 |
+| `cilium_status`, `vault_status` | CNI / シークレット管理の状態確認 |
 
 ---
 
