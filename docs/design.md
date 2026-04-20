@@ -1,25 +1,16 @@
-# 自宅ラボ設計書 — 2ノード Proxmox クラスター
+# 自宅ラボ設計書 — 3ノード Proxmox クラスター
 
 ## 1. ハードウェア概要
 
-### ノード仕様 (NUC5i3RYH × 2)
+### ノード仕様
 
-| 項目 | 仕様 |
-|------|------|
-| CPU | Intel Core i3-5010U (2C/4T, 2.1GHz, Broadwell) |
-| RAM | 最大 16GB DDR3L SO-DIMM (スロット×2) |
-| ストレージ | mSATA (OS用) + 2.5" SATA (データ用) |
-| NIC | Intel I218-V GbE × 1 (有線) + Intel AC-7265 (Wi-Fi, 非推奨) |
-| 映像出力 | HDMI + Mini DisplayPort |
-| USB | USB 3.0 × 4 |
-| 消費電力 | アイドル時 約5〜10W |
+| ホスト名 | 機種 | CPU | RAM | ストレージ | NIC |
+|---------|------|-----|-----|-----------|-----|
+| pve-node01 | NUC5i3RYH | Intel Core i3-5010U (2C/4T, 2.1GHz) | 16GB DDR3L | mSATA (OS) + 2.5" SATA (データ/ZFS) | Intel I218-V GbE × 1 |
+| pve-node02 | NUC5i3RYH | Intel Core i3-5010U (2C/4T, 2.1GHz) | 16GB DDR3L | mSATA (OS) + 2.5" SATA (データ) | Intel I218-V GbE × 1 |
+| pve-node03 | BOSGAME E2 | AMD Ryzen 5 3550H (4C/8T, 2.1GHz) | 32GB | SSD | GbE × 1 |
 
-### 推奨メモリ・ストレージ構成
-
-| ノード | mSATA (OS) | 2.5" SATA (データ) | RAM |
-|--------|-----------|-------------------|-----|
-| node01 | 32〜64GB SSD | 256GB〜1TB SSD | 16GB |
-| node02 | 32〜64GB SSD | 256GB〜1TB SSD | 16GB |
+> 合計物理リソース: CPU 8C/16T, RAM 64GB
 
 ---
 
@@ -38,7 +29,7 @@
 |---------|------|
 | dnsmasq | PXE 用 DHCP proxy + TFTP サーバー |
 | nginx | Proxmox ISO コンテンツ・answer.toml 配信 |
-| corosync-qnetd | 2ノードクラスターのクォーラムデバイス |
+| corosync-qnetd | クラスターのクォーラムデバイス |
 | Ansible | Proxmox インストール後の構成管理 |
 | Terraform + Packer | VM/CT プロビジョニング・テンプレートビルド |
 
@@ -54,11 +45,11 @@
    [ルーター/ONU]
       |
 [L2マネージドスイッチ] ←── VLAN 設定
-   |         |
-[node01]  [node02]
+   |         |         |
+[node01]  [node02]  [node03]
 ```
 
-> NUC5i3RYH は有線 NIC が 1 ポートのみのため、**マネージドスイッチによる VLAN タギング**で論理的にネットワークを分離する。
+> 有線 NIC が 1 ポートのみのため、**マネージドスイッチによる VLAN タギング**で論理的にネットワークを分離する。
 
 ### VLAN 設計
 
@@ -73,7 +64,7 @@
 |---------|----------------|----------------------|
 | pve-node01 | 192.168.210.11/24 | 192.168.212.11/24 |
 | pve-node02 | 192.168.210.12/24 | 192.168.212.12/24 |
-| Proxmox VIP (任意) | 192.168.210.10/24 | — |
+| pve-node03 | 192.168.210.13/24 | — (ストレージ VLAN なし) |
 | デフォルトゲートウェイ | 192.168.210.254 | — |
 
 > NIC 1本でも Linux Bridge + VLAN サブインターフェース (`vmbr0.20`) により分離可能。
@@ -103,14 +94,13 @@
 | VM レプリケーション | Proxmox Replication (ZFS スナップショット差分転送) | node01 ↔ node02 |
 | バックアップ | Proxmox Backup Server (PBS) | 別途 VM or 外付け HDD |
 
-> **Ceph は 3 ノード以上推奨のため採用しない。**
-> ZFS + Proxmox Replication で擬似的な HA ストレージを実現する。
+> Ceph は 3 ノードで導入可能だが、現時点では未実装。ZFS + Proxmox Replication で擬似的な HA ストレージを実現する。
 
 ---
 
 ## 4. クラスター クォーラム設計
 
-2 ノードクラスターは Split-Brain が発生しやすいため、**QDevice (Corosync Quorum Device)** を必須とする。
+3 ノードクラスターではノード過半数 (2/3) で自律的にクォーラムを維持できるが、1 ノード障害時に残り 2 ノードが均等分割される状況を防ぐため、引き続き **QDevice (Corosync Quorum Device)** を設置している。
 
 ### QDevice の設置先候補
 
@@ -138,7 +128,7 @@ pvecm qdevice setup <qdevice-ip>
 
 ```
 HA グループ: homelab-ha
-  メンバー: pve-node01 (priority=2), pve-node02 (priority=1)
+  メンバー: pve-node01 (priority=2), pve-node02 (priority=1), pve-node03 (priority=1)
   制約: nofailback=0 (フェイルバックあり)
 ```
 
@@ -155,19 +145,22 @@ HA グループ: homelab-ha
 
 ## 6. 仮想マシン / コンテナ 運用計画
 
-### ワークロード例
+### 現在の VM / CT 構成
 
-| 名前 | 種別 | vCPU | RAM | 用途 |
-|------|------|------|-----|------|
-| router-vm | VM (Alpine) | 1 | 512MB | ソフトウェアルーター (VyOS / pfSense 検討) |
-| dns-ct | LXC | 1 | 256MB | Pi-hole (広告ブロック / 内部 DNS) |
-| k3s-master | VM (Ubuntu) | 1 | 1GB | k3s マスターノード |
-| k3s-worker01 | VM (Ubuntu) | 1 | 1GB | k3s ワーカー |
-| k3s-worker02 | VM (Ubuntu) | 1 | 1GB | k3s ワーカー |
-| monitoring | LXC | 1 | 512MB | Prometheus + Grafana |
-| pbs | VM (Debian) | 1 | 1GB | Proxmox Backup Server |
+| 名前 | VM ID | 種別 | vCPU | RAM | ノード | 用途 |
+|------|-------|------|------|-----|--------|------|
+| dns-ct | 101 | LXC | 1 | 512MB | pve-node01 | Pi-hole (内部 DNS) |
+| k3s-master | 201 | VM | 2 | 6GB | pve-node01 | k3s コントロールプレーン |
+| k3s-worker03 | 204 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
+| k3s-worker04 | 205 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
+| k3s-worker05 | 206 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
+| k3s-worker06 | 207 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
+| k3s-worker07 | 208 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
+| k3s-worker08 | 209 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
 
-> リソース合計: vCPU 10 / RAM 約 9GB — 2ノード × 4スレッド・16GB の範囲内に収まる設計
+> worker01 (VM 202), worker02 (VM 203), worker09 (VM 210), worker10 (VM 211) は削除済み。
+>
+> リソース合計: vCPU 13 / RAM 約 46.5GB — 3ノード合計 64GB 物理メモリの範囲内
 
 ### テンプレート管理
 
@@ -224,13 +217,13 @@ HA グループ: homelab-ha
   └── BIOS: VT-x 有効化・Wake on LAN 有効化
 
 [Phase 2] Proxmox VE インストール
-  ├── node01, node02 それぞれに Proxmox VE 8.x インストール
+  ├── node01, node02, node03 それぞれに Proxmox VE 8.x インストール
   ├── 静的 IP 設定 / ホスト名設定
   └── VLAN サブインターフェース設定
 
 [Phase 3] クラスター構築
   ├── node01 でクラスター作成: pvecm create homelab
-  ├── node02 をクラスターに参加: pvecm add 192.168.10.11
+  ├── node02, node03 をクラスターに参加: pvecm add 192.168.210.11
   └── QDevice セットアップ
 
 [Phase 4] ストレージ設定
@@ -252,9 +245,9 @@ HA グループ: homelab-ha
 
 ## 11. 将来の拡張案
 
-- **ノード追加**: 3 台目の NUC 追加で Ceph 導入が可能になり、真の分散ストレージを実現
+- **Ceph 導入**: 3 ノード揃ったため導入可能。ただし NUC のディスク帯域・NIC 1 本がボトルネックになる点は要検討
 - **10GbE 化**: USB3.0→10GbE アダプター導入でストレージ転送速度向上
-- **GPU パススルー**: 非対応 (i3-5010U は VT-d なし / IOMMU グループ制限あり)
+- **GPU パススルー**: pve-node03 (Ryzen 5 3550H) は IOMMU 対応のため Vega 8 iGPU パススルーを検討可能
 - **SDN (Software Defined Network)**: Proxmox SDN でより複雑なネットワーク実験が可能
 
 ---
