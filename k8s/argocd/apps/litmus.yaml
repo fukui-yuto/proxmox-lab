@@ -27,6 +27,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
   ignoreDifferences:
     - kind: Secret
       name: litmus-mongodb
@@ -35,5 +36,6 @@ spec:
     - group: apps
       kind: StatefulSet
       name: litmus-mongodb
-      jsonPointers:
-        - /spec/volumeClaimTemplates
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates
+        - .spec.template.spec
