@@ -7,15 +7,15 @@ data:
   homelab.server: |
     homelab.local:53 {
         hosts {
-            192.168.210.24 keycloak.homelab.local
-            192.168.210.24 argocd.homelab.local
-            192.168.210.24 grafana.homelab.local
-            192.168.210.24 harbor.homelab.local
-            192.168.210.24 vault.homelab.local
-            192.168.210.24 kibana.homelab.local
-            192.168.210.24 argo-workflows.homelab.local
-            192.168.210.24 minio.homelab.local
-            192.168.210.24 minio-api.homelab.local
+            192.168.210.25 keycloak.homelab.local
+            192.168.210.25 argocd.homelab.local
+            192.168.210.25 grafana.homelab.local
+            192.168.210.25 harbor.homelab.local
+            192.168.210.25 vault.homelab.local
+            192.168.210.25 kibana.homelab.local
+            192.168.210.25 argo-workflows.homelab.local
+            192.168.210.25 minio.homelab.local
+            192.168.210.25 minio-api.homelab.local
             fallthrough
         }
     }
