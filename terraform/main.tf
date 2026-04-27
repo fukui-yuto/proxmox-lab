@@ -479,7 +479,13 @@ resource "null_resource" "kubeconfig_setup" {
 
 # -------------------------------------------------------------------
 # Pi-hole DNS (LXC コンテナ)
+# pve-node01 → pve-node03 に手動移行済み。state が refresh で消失するため import で復元。
 # -------------------------------------------------------------------
+import {
+  to = proxmox_virtual_environment_container.pihole
+  id = "pve-node03/lxc/101"
+}
+
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
   node_name   = "pve-node03"
