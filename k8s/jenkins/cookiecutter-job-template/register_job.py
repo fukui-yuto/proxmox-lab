@@ -25,12 +25,12 @@ new_entry = (
     "              }}\n"
 ).format(name=job_name, desc=description)
 
-with open(values_file, "r") as f:
+with open(values_file, "r", encoding="utf-8") as f:
     content = f.read()
 
 content = content.replace("\nagent:\n", "\n" + new_entry + "\nagent:\n")
 
-with open(values_file, "w") as f:
+with open(values_file, "w", encoding="utf-8") as f:
     f.write(content)
 
 print(f"Registered job '{job_name}' in {values_file}")

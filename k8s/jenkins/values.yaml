@@ -72,6 +72,24 @@ controller:
                 }
               }
 
+          - script: >
+              pipelineJob('go-sample') {
+                description('Go 動作確認ジョブ')
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote {
+                          url('https://github.com/fukui-yuto/proxmox-lab.git')
+                        }
+                        branches('*/main')
+                      }
+                    }
+                    scriptPath('k8s/jenkins/jobs/go-sample/Jenkinsfile')
+                  }
+                }
+              }
+
 agent:
   resources:
     requests:
