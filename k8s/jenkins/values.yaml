@@ -31,6 +31,29 @@ controller:
     - workflow-aggregator:latest
     - git:latest
     - configuration-as-code:latest
+    - job-dsl:latest
+
+  JCasC:
+    configScripts:
+      jobs: |
+        jobs:
+          - script: >
+              pipelineJob('hello-world') {
+                description('動作確認用テストジョブ')
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote {
+                          url('https://github.com/fukui-yuto/proxmox-lab.git')
+                        }
+                        branches('*/main')
+                      }
+                    }
+                    scriptPath('k8s/jenkins/jobs/hello-world/Jenkinsfile')
+                  }
+                }
+              }
 
 agent:
   resources:

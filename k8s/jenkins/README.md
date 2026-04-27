@@ -39,21 +39,40 @@ argocd app sync jenkins
 - workflow-aggregator (Pipeline)
 - git
 - configuration-as-code (JCasC)
+- job-dsl (JCasC からのジョブ自動生成)
 
-## ジョブ
+## ジョブ管理 (JCasC + Job DSL)
+
+ジョブは `values.yaml` の `controller.JCasC.configScripts.jobs` で宣言的に管理される。
+Jenkins UI での手動作成は不要。
+
+### 登録済みジョブ
 
 | ジョブ名 | Jenkinsfile パス | 内容 |
 |---------|-----------------|------|
 | hello-world | `k8s/jenkins/jobs/hello-world/Jenkinsfile` | 動作確認用テストジョブ |
 
-### ジョブ作成手順
+### ジョブ追加手順
 
-1. Jenkins UI → 「新規ジョブ作成」→ 「Pipeline」を選択
-2. Pipeline セクションで「Pipeline script from SCM」を選択
-3. SCM: Git / Repository URL: `https://github.com/fukui-yuto/proxmox-lab.git`
-4. Branch: `*/main`
-5. Script Path: `k8s/jenkins/jobs/<ジョブ名>/Jenkinsfile`
-6. 保存 →「ビルド実行」
+1. `k8s/jenkins/jobs/<ジョブ名>/Jenkinsfile` を作成
+2. `values.yaml` の `JCasC.configScripts.jobs` に Job DSL を追記:
+   ```yaml
+   - script: >
+       pipelineJob('<ジョブ名>') {
+         definition {
+           cpsScm {
+             scm {
+               git {
+                 remote { url('https://github.com/fukui-yuto/proxmox-lab.git') }
+                 branches('*/main')
+               }
+             }
+             scriptPath('k8s/jenkins/jobs/<ジョブ名>/Jenkinsfile')
+           }
+         }
+       }
+   ```
+3. `git commit && git push` → ArgoCD が自動 sync → ジョブが反映される
 
 ## Keycloak SSO 連携 (任意)
 
