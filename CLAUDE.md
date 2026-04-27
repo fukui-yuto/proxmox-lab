@@ -173,6 +173,7 @@ resource "null_resource" "expand_disk_node03" {
 | **常時起動** (automated sync) | backstage | 開発者ポータル / サービスカタログ |
 | **常時起動** (automated sync) | crossplane | k8s CRD によるインフラ宣言的管理 (Terraform 代替候補) |
 | **常時起動** (automated sync) | cilium | eBPF CNI + Hubble ネットワーク可観測性 (flannel 移行完了・全ノード稼働中) |
+| **常時起動** (automated sync) | jenkins | CI/CD サーバー |
 
 ### ArgoCD Sync Wave (起動順序)
 
@@ -186,7 +187,7 @@ resource "null_resource" "expand_disk_node03" {
 | 3 | vault / minio / cert-manager |
 | 4 | monitoring / argo-workflows / argo-events / cert-manager-issuers / velero / argo-rollouts / keda / falco |
 | 5 | harbor / trivy-operator |
-| 16 | litmus / backstage / crossplane |
+| 16 | litmus / backstage / crossplane / jenkins |
 | 0 | cilium (Wave 0、flannel 置き換え完了) |
 | 6 | keycloak |
 | 7 | logging-elasticsearch |
@@ -268,6 +269,7 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  alert-summarizer.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio.homelab.local"
 Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  minio-api.homelab.local"
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25  jenkins.homelab.local"
 ```
 
 ### URL 一覧
@@ -284,5 +286,6 @@ Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "192.168.210.25
 | Argo Workflows | http://argo-workflows.homelab.local | — | — |
 | alert-summarizer | http://alert-summarizer.homelab.local | — | — |
 | MinIO Console | http://minio.homelab.local | `admin` / `Minio12345` | Login with SSO |
+| Jenkins | http://jenkins.homelab.local | `admin` / `Jenkins12345` | — (OIDC プラグインで連携可) |
 
 > 全サービスで Keycloak SSO (`admin` / `Keycloak12345`) が利用可能。既存のローカル認証も引き続き有効。

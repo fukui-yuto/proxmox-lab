@@ -1,0 +1,41 @@
+## Jenkins Helm values
+## Chart: jenkins/jenkins
+
+controller:
+  image:
+    tag: lts
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+  adminPassword: "Jenkins12345"
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostName: jenkins.homelab.local
+
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    size: 10Gi
+
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+
+agent:
+  resources:
+    requests:
+      cpu: 256m
+      memory: 256Mi
+    limits:
+      cpu: 512m
+      memory: 512Mi
