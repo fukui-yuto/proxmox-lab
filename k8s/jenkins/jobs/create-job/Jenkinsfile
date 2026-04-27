@@ -1,0 +1,88 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: python
+    image: python:3.12-slim
+    command:
+    - sleep
+    args:
+    - "9999999"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 512m
+        memory: 512Mi
+'''
+        }
+    }
+    parameters {
+        string(name: 'JOB_NAME', description: 'ジョブ名 (英数字とハイフンのみ)')
+        string(name: 'DESCRIPTION', defaultValue: 'テストジョブ', description: 'ジョブの説明')
+        choice(name: 'LANGUAGE', choices: ['python', 'go', 'node', 'shell'], description: '言語')
+        string(name: 'PACKAGES', defaultValue: '', description: '追加パッケージ (スペース区切り)')
+    }
+    stages {
+        stage('Validate') {
+            steps {
+                script {
+                    if (!params.JOB_NAME.matches('[a-z0-9][a-z0-9-]*[a-z0-9]')) {
+                        error "JOB_NAME は英小文字・数字・ハイフンのみ使用可能です"
+                    }
+                }
+            }
+        }
+        stage('Generate from template') {
+            steps {
+                container('python') {
+                    sh 'pip install -q cookiecutter'
+                    sh """cookiecutter --no-input \
+                        -o k8s/jenkins/jobs/ \
+                        k8s/jenkins/cookiecutter-job-template/ \
+                        job_name='${params.JOB_NAME}' \
+                        description='${params.DESCRIPTION}' \
+                        language='${params.LANGUAGE}' \
+                        packages='${params.PACKAGES}'"""
+                    sh "ls -la k8s/jenkins/jobs/${params.JOB_NAME}/"
+                }
+            }
+        }
+        stage('Register job in values.yaml') {
+            steps {
+                container('python') {
+                    sh """python k8s/jenkins/cookiecutter-job-template/register_job.py \
+                        '${params.JOB_NAME}' '${params.DESCRIPTION}' k8s/jenkins/values.yaml"""
+                }
+            }
+        }
+        stage('Commit & Push') {
+            steps {
+                container('python') {
+                    withCredentials([string(credentialsId: 'github-pat', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            apt-get update -qq && apt-get install -y -qq git > /dev/null
+                            git config user.name "Jenkins"
+                            git config user.email "jenkins@homelab.local"
+                        '''
+                        sh """
+                            git add 'k8s/jenkins/jobs/${params.JOB_NAME}/' k8s/jenkins/values.yaml
+                            git commit -m "feat: add ${params.JOB_NAME} job via cookiecutter (${params.LANGUAGE})"
+                            git push https://x-access-token:\${GITHUB_TOKEN}@github.com/fukui-yuto/proxmox-lab.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            echo "ジョブ '${params.JOB_NAME}' を作成しました。ArgoCD sync 後に Jenkins に登録されます。"
+        }
+    }
+}
