@@ -54,6 +54,23 @@ controller:
                   }
                 }
               }
+          - script: >
+              pipelineJob('docker-python') {
+                description('Dockerfile で Python スクリプトを実行するテストジョブ')
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote {
+                          url('https://github.com/fukui-yuto/proxmox-lab.git')
+                        }
+                        branches('*/main')
+                      }
+                    }
+                    scriptPath('k8s/jenkins/jobs/docker-python/Jenkinsfile')
+                  }
+                }
+              }
 
 agent:
   resources:
