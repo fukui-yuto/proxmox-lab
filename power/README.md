@@ -30,10 +30,10 @@ power/
   │    └─ pve-node01 へのログインセッション = 0
   │
   └─ 12 回連続アイドル (= 60 分) で停止シーケンス実行
-       1. kubectl drain k3s-worker01〜07
-       2. worker VM 停止 (202/203 on node01, 204/205/206 on node02, 207/208 on node03)
-       3. k3s-master VM 停止 (201)
-       4. dns-ct LXC 停止 (101)
+       1. kubectl drain k3s-worker03〜11
+       2. worker VM 停止 (210/211/212 on node01, 204/205/206 on node02, 207/208 on node03)
+       3. k3s-master VM 停止 (201 on node03)
+       4. dns-ct LXC 停止 (101 on node03)
        5. pve-node02 / pve-node03 poweroff
        6. pve-node01 poweroff (60 秒待機後)
 ```
@@ -104,7 +104,7 @@ bash ~/proxmox-lab/power/scripts/start-lab.sh
 実行内容:
 1. Wake-on-LAN で Proxmox を起動 (MAC アドレス設定済みの場合)
 2. pve-node01 / pve-node02 / pve-node03 の SSH 接続可能まで待機
-3. dns-ct → k3s-master → worker01〜07 の順に VM を起動
+3. dns-ct → k3s-master → worker03〜11 の順に VM を起動
 4. 全 k8s ノードが Ready になるまで待機
 5. `kubectl uncordon` で全 worker を復帰
 

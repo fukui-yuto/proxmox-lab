@@ -48,11 +48,11 @@ terraform apply -target=null_resource.k3s_disable_servicelb
 | IP | ノード |
 |----|--------|
 | 192.168.210.21 | k3s-master |
-| 192.168.210.22 | k3s-worker01 |
 | 192.168.210.24 | k3s-worker03 |
 | 192.168.210.25 | k3s-worker04 |
 | 192.168.210.26 | k3s-worker05 |
 | 192.168.210.27 | k3s-worker06 |
 | 192.168.210.28 | k3s-worker07 |
-| 192.168.210.29 | k3s-worker08 |
 | 192.168.210.30 | k3s-worker09 |
+| 192.168.210.31 | k3s-worker10 |
+| 192.168.210.32 | k3s-worker11 |
