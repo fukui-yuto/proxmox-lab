@@ -17,18 +17,25 @@ locals {
   dns_servers              = ["192.168.210.53", "8.8.8.8"]  # Pi-hole (dns-ct) を優先 DNS に設定
   master_ip                = "192.168.210.21"
   ssh_key                  = "~/.ssh/id_ed25519"
-  worker_node03_disk_size  = 50  # worker06〜08 のディスクサイズ (GB)
-  # worker03〜08 の IP (インデックス順)
-  # worker01/02 (node01) は削除済み — node01 の負荷軽減のため
-  # worker09/10 (node03) は削除済み — CPU overcommit 解消のため 5台→3台に統合
-  worker_ips = [
+  worker_node03_disk_size  = 50  # worker06〜07 のディスクサイズ (GB)
+
+  # ノード別ワーカー IP
+  worker_node01_ips = [
+    "192.168.210.30", # worker09 (node01)
+    "192.168.210.31", # worker10 (node01)
+    "192.168.210.32", # worker11 (node01)
+  ]
+  worker_node02_ips = [
     "192.168.210.24", # worker03 (node02)
     "192.168.210.25", # worker04 (node02)
     "192.168.210.26", # worker05 (node02)
+  ]
+  worker_node03_ips = [
     "192.168.210.27", # worker06 (node03)
     "192.168.210.28", # worker07 (node03)
-    "192.168.210.29", # worker08 (node03)
   ]
+  # 全ワーカー IP (node01 → node02 → node03 の順)
+  all_worker_ips = concat(local.worker_node01_ips, local.worker_node02_ips, local.worker_node03_ips)
 }
 
 provider "proxmox" {
@@ -49,11 +56,12 @@ resource "random_password" "k3s_token" {
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_master" {
   name      = "k3s-master"
-  node_name = "pve-node01"
+  node_name = "pve-node03"
   vm_id     = 201
 
   clone {
-    vm_id = var.ubuntu_template_id
+    vm_id        = 9002
+    datastore_id = "local"
   }
 
   cpu {
@@ -63,6 +71,58 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 
   memory {
     dedicated = 6144
+  }
+
+  network_device {
+    bridge = "vmbr0"
+  }
+
+  disk {
+    datastore_id = "local"
+    size         = 20
+    interface    = "virtio0"
+    file_format  = "qcow2"
+  }
+
+  initialization {
+    datastore_id = "local"
+    dns {
+      servers = local.dns_servers
+    }
+    ip_config {
+      ipv4 {
+        address = "${local.master_ip}/24"
+        gateway = local.gateway
+      }
+    }
+    user_account {
+      username = "ubuntu"
+      keys     = [var.ssh_public_key]
+    }
+  }
+}
+
+# -------------------------------------------------------------------
+# k3s ワーカー (node01 × 3: worker09/10/11) ※ ZFS ストレージを使用
+# k3s-master を node03 に移行後、空いた node01 に worker を配置
+# -------------------------------------------------------------------
+resource "proxmox_virtual_environment_vm" "k3s_worker_node01" {
+  count     = 3
+  name      = "k3s-worker${format("%02d", count.index + 9)}"
+  node_name = "pve-node01"
+  vm_id     = 210 + count.index
+
+  clone {
+    vm_id = var.ubuntu_template_id
+  }
+
+  cpu {
+    cores = 1
+    type  = "host"
+  }
+
+  memory {
+    dedicated = 4096
   }
 
   network_device {
@@ -81,7 +141,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
     }
     ip_config {
       ipv4 {
-        address = "${local.master_ip}/24"
+        address = "${local.worker_node01_ips[count.index]}/24"
         gateway = local.gateway
       }
     }
@@ -90,12 +150,12 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
       keys     = [var.ssh_public_key]
     }
   }
-}
 
-# -------------------------------------------------------------------
-# k3s ワーカー on node01 — 削除済み (node01 負荷軽減のため)
-# worker01 (VM 202) は k3s drain → delete → terraform apply で削除。
-# -------------------------------------------------------------------
+  provisioner "local-exec" {
+    when    = destroy
+    command = "ssh -o StrictHostKeyChecking=no root@192.168.210.11 'qm stop ${self.vm_id} --skiplock 2>/dev/null; qm destroy ${self.vm_id} --skiplock --purge 2>/dev/null'; exit 0"
+  }
+}
 
 # -------------------------------------------------------------------
 # node02 用テンプレート (node01 の 9000 を vzdump → restore で複製)
@@ -214,7 +274,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     }
     ip_config {
       ipv4 {
-        address = "${local.worker_ips[count.index]}/24"
+        address = "${local.worker_node02_ips[count.index]}/24"
         gateway = local.gateway
       }
     }
@@ -224,8 +284,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
     }
   }
 
-  # destroy 時: pve-node02 が data-pve-node01 (ZFS) を参照してエラーになるため
-  # Proxmox API より先に qm destroy --purge で手動削除する
   provisioner "local-exec" {
     when    = destroy
     command = "ssh -o StrictHostKeyChecking=no root@192.168.210.12 'qm stop ${self.vm_id} --skiplock 2>/dev/null; qm destroy ${self.vm_id} --skiplock --purge 2>/dev/null'; exit 0"
@@ -233,10 +291,11 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node02" {
 }
 
 # -------------------------------------------------------------------
-# k3s ワーカー (node03 × 3: worker06/07/08) ※ local (dir) ストレージを使用
+# k3s ワーカー (node03 × 2: worker06/07) ※ local (dir) ストレージを使用
+# worker08 (VM 209) は node03 負荷軽減のため削除済み
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
-  count     = 3
+  count     = 2
   name      = "k3s-worker${format("%02d", count.index + 6)}"
   node_name = "pve-node03"
   vm_id     = 207 + count.index
@@ -275,7 +334,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
     }
     ip_config {
       ipv4 {
-        address = "${local.worker_ips[count.index + 3]}/24"
+        address = "${local.worker_node03_ips[count.index]}/24"
         gateway = local.gateway
       }
     }
@@ -295,7 +354,7 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
 # node03 ワーカーのディスク拡張 (サイズ変更時に自動実行)
 # -------------------------------------------------------------------
 resource "null_resource" "expand_disk_node03" {
-  count = 3
+  count = 2
 
   triggers = {
     disk_size = local.worker_node03_disk_size
@@ -312,7 +371,7 @@ resource "null_resource" "expand_disk_node03" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    host        = local.worker_ips[count.index + 3]
+    host        = local.worker_node03_ips[count.index]
     private_key = file(local.ssh_key)
     timeout     = "5m"
   }
@@ -366,22 +425,23 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s worker03〜08 インストール (全ワーカー共通)
-# worker01/02 は削除済み、worker09/10 は統合により削除済み
-# count インデックスと worker_ips のマッピング:
-#   count 0 → worker_ips[0] (worker03, node02)
-#   count 1 → worker_ips[1] (worker04, node02)
-#   count 2 → worker_ips[2] (worker05, node02)
-#   count 3 → worker_ips[3] (worker06, node03)
-#   count 4 → worker_ips[4] (worker07, node03)
-#   count 5 → worker_ips[5] (worker08, node03)
+# k3s 全ワーカーインストール (node01 → node02 → node03 の順)
+# count インデックスと all_worker_ips のマッピング:
+#   count 0-2 → worker09/10/11 (node01)
+#   count 3-5 → worker03/04/05 (node02)
+#   count 6-7 → worker06/07    (node03)
 resource "null_resource" "k3s_workers_install" {
-  count = 6
+  count = 8
   triggers = {
-    vm_id = count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id : proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 3].id
+    vm_id = (
+      count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node01[count.index].id :
+      count.index < 6 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 3].id :
+      proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 6].id
+    )
   }
   depends_on = [
     null_resource.k3s_master_install,
+    proxmox_virtual_environment_vm.k3s_worker_node01,
     proxmox_virtual_environment_vm.k3s_worker_node02,
     proxmox_virtual_environment_vm.k3s_worker_node03,
   ]
@@ -389,7 +449,7 @@ resource "null_resource" "k3s_workers_install" {
   connection {
     type        = "ssh"
     user        = "ubuntu"
-    host        = local.worker_ips[count.index]
+    host        = local.all_worker_ips[count.index]
     private_key = file(local.ssh_key)
     timeout     = "10m"
   }
@@ -423,7 +483,7 @@ resource "null_resource" "kubeconfig_setup" {
 # -------------------------------------------------------------------
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
-  node_name   = "pve-node01"
+  node_name   = "pve-node03"
   vm_id       = 101
 
   initialization {
@@ -449,7 +509,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
   }
 
   disk {
-    datastore_id = "data-pve-node01"
+    datastore_id = "local"
     size         = 8
   }
 
@@ -512,7 +572,7 @@ resource "null_resource" "k3s_registry_config" {
       }
 
       apply_registry 192.168.210.21 k3s
-      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.29; do
+      for ip in 192.168.210.30 192.168.210.31 192.168.210.32 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28; do
         apply_registry "$ip" k3s-agent
       done
       echo "Registry config applied to all nodes."
