@@ -323,7 +323,6 @@ resource "proxmox_virtual_environment_vm" "k3s_worker_node03" {
     datastore_id = "local"
     size         = local.worker_node03_disk_size
     interface    = "virtio0"
-    file_format  = "qcow2"
   }
 
   initialization {
@@ -478,14 +477,8 @@ resource "null_resource" "kubeconfig_setup" {
 }
 
 # -------------------------------------------------------------------
-# Pi-hole DNS (LXC コンテナ)
-# pve-node01 → pve-node03 に手動移行済み。state が refresh で消失するため import で復元。
+# Pi-hole DNS (LXC コンテナ) ※ pve-node01 → pve-node03 に移行済み
 # -------------------------------------------------------------------
-import {
-  to = proxmox_virtual_environment_container.pihole
-  id = "pve-node03/lxc/101"
-}
-
 resource "proxmox_virtual_environment_container" "pihole" {
   description = "Pi-hole DNS"
   node_name   = "pve-node03"
