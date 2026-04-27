@@ -1,6 +1,6 @@
 # Kyverno Helm values
-# cleanup jobs は Docker Hub への直接アクセス不可のため Harbor プロキシ経由で bitnami/kubectl を使用
-# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり → runAsNonRoot=true 対応
+# cleanup jobs は Harbor プロキシ経由で rancher/kubectl を使用 (bitnami は有料化のため廃止)
+# rancher/kubectl: /bin/bash あり → Kyverno chart 互換
 # cgr.dev/chainguard/kubectl は /bin/bash がないため使用不可 (Helm chart が /bin/bash -c をハードコード)
 # crds.install=false: Kyverno CRD は大きすぎて ArgoCD の annotations サイズ上限(262144 bytes)を超えるため
 #   Helm による CRD 管理を無効化し既存 CRD をそのまま使用する
@@ -104,43 +104,42 @@ grafana:
 
 # -------------------------------------------------------------------
 # policyReports Cleanup Hook Job
-# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり → runAsNonRoot=true 対応
-# Docker Hub は直接 pull 不可のため Harbor プロキシ経由で取得
+# rancher/kubectl: /bin/bash あり → Kyverno chart 互換
+# Harbor proxy 経由で取得
 # -------------------------------------------------------------------
 policyReportsCleanup:
   image:
     registry: harbor.homelab.local
-    repository: dockerhub-proxy/bitnami/kubectl
-    tag: '1.31'
+    repository: proxy/rancher/kubectl
+    tag: v1.31.0
 
 # -------------------------------------------------------------------
-# Cleanup Jobs (Harbor プロキシ経由で bitnami/kubectl を使用)
-# bitnami/kubectl: 非 root (UID 1001) かつ /bin/bash あり
-# cgr.dev/chainguard/kubectl は /bin/bash がないため使用不可
+# Cleanup Jobs (Harbor proxy 経由で rancher/kubectl を使用)
+# rancher/kubectl: /bin/bash あり → Kyverno chart 互換
 # -------------------------------------------------------------------
 cleanupJobs:
   admissionReports:
     image:
       registry: harbor.homelab.local
-      repository: dockerhub-proxy/bitnami/kubectl
-      tag: '1.31'
+      repository: proxy/rancher/kubectl
+      tag: v1.31.0
   clusterAdmissionReports:
     image:
       registry: harbor.homelab.local
-      repository: dockerhub-proxy/bitnami/kubectl
-      tag: '1.31'
+      repository: proxy/rancher/kubectl
+      tag: v1.31.0
   updateRequests:
     image:
       registry: harbor.homelab.local
-      repository: dockerhub-proxy/bitnami/kubectl
-      tag: '1.31'
+      repository: proxy/rancher/kubectl
+      tag: v1.31.0
   ephemeralReports:
     image:
       registry: harbor.homelab.local
-      repository: dockerhub-proxy/bitnami/kubectl
-      tag: '1.31'
+      repository: proxy/rancher/kubectl
+      tag: v1.31.0
   clusterEphemeralReports:
     image:
       registry: harbor.homelab.local
-      repository: dockerhub-proxy/bitnami/kubectl
-      tag: '1.31'
+      repository: proxy/rancher/kubectl
+      tag: v1.31.0
