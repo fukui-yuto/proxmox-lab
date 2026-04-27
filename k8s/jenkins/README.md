@@ -40,6 +40,21 @@ argocd app sync jenkins
 - git
 - configuration-as-code (JCasC)
 
+## ジョブ
+
+| ジョブ名 | Jenkinsfile パス | 内容 |
+|---------|-----------------|------|
+| hello-world | `k8s/jenkins/jobs/hello-world/Jenkinsfile` | 動作確認用テストジョブ |
+
+### ジョブ作成手順
+
+1. Jenkins UI → 「新規ジョブ作成」→ 「Pipeline」を選択
+2. Pipeline セクションで「Pipeline script from SCM」を選択
+3. SCM: Git / Repository URL: `https://github.com/fukui-yuto/proxmox-lab.git`
+4. Branch: `*/main`
+5. Script Path: `k8s/jenkins/jobs/<ジョブ名>/Jenkinsfile`
+6. 保存 →「ビルド実行」
+
 ## Keycloak SSO 連携 (任意)
 
 初期構築後に OIDC プラグインを追加して Keycloak と連携可能。

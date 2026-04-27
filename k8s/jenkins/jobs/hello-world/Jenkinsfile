@@ -1,0 +1,18 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello from Proxmox Homelab Jenkins!'
+            }
+        }
+
+        stage('Environment') {
+            steps {
+                sh 'uname -a'
+                sh 'date'
+            }
+        }
+    }
+}
