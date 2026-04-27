@@ -34,8 +34,8 @@ locals {
     "192.168.210.27", # worker06 (node03)
     "192.168.210.28", # worker07 (node03)
   ]
-  # 全ワーカー IP (node01 → node02 → node03 の順)
-  all_worker_ips = concat(local.worker_node01_ips, local.worker_node02_ips, local.worker_node03_ips)
+  # 全ワーカー IP (node02 → node03 → node01 の順: 既存 state のインデックスを維持)
+  all_worker_ips = concat(local.worker_node02_ips, local.worker_node03_ips, local.worker_node01_ips)
 }
 
 provider "proxmox" {
@@ -60,8 +60,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   vm_id     = 201
 
   clone {
-    vm_id        = 9002
-    datastore_id = "local"
+    vm_id = 9000
   }
 
   cpu {
@@ -425,18 +424,18 @@ resource "null_resource" "k3s_master_install" {
   }
 }
 
-# k3s 全ワーカーインストール (node01 → node02 → node03 の順)
+# k3s 全ワーカーインストール (node02 → node03 → node01 の順)
 # count インデックスと all_worker_ips のマッピング:
-#   count 0-2 → worker09/10/11 (node01)
-#   count 3-5 → worker03/04/05 (node02)
-#   count 6-7 → worker06/07    (node03)
+#   count 0-2 → worker03/04/05 (node02)
+#   count 3-4 → worker06/07    (node03)
+#   count 5-7 → worker09/10/11 (node01)
 resource "null_resource" "k3s_workers_install" {
   count = 8
   triggers = {
     vm_id = (
-      count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node01[count.index].id :
-      count.index < 6 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index - 3].id :
-      proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 6].id
+      count.index < 3 ? proxmox_virtual_environment_vm.k3s_worker_node02[count.index].id :
+      count.index < 5 ? proxmox_virtual_environment_vm.k3s_worker_node03[count.index - 3].id :
+      proxmox_virtual_environment_vm.k3s_worker_node01[count.index - 5].id
     )
   }
   depends_on = [
@@ -572,7 +571,7 @@ resource "null_resource" "k3s_registry_config" {
       }
 
       apply_registry 192.168.210.21 k3s
-      for ip in 192.168.210.30 192.168.210.31 192.168.210.32 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28; do
+      for ip in 192.168.210.24 192.168.210.25 192.168.210.26 192.168.210.27 192.168.210.28 192.168.210.30 192.168.210.31 192.168.210.32; do
         apply_registry "$ip" k3s-agent
       done
       echo "Registry config applied to all nodes."
