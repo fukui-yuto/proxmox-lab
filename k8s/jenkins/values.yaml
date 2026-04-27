@@ -58,8 +58,8 @@ controller:
 agent:
   resources:
     requests:
-      cpu: 256m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
       cpu: 512m
       memory: 512Mi
