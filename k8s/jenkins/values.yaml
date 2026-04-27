@@ -35,9 +35,16 @@ controller:
 
   JCasC:
     configScripts:
+      security: |
+        unclassified:
+          globalJobDslSecurityConfiguration:
+            useScriptSecurity: false
       jobs: |
         jobs:
           - script: >
+              def managedJobs = []
+
+              managedJobs << 'hello-world'
               pipelineJob('hello-world') {
                 description('動作確認用テストジョブ')
                 definition {
@@ -54,7 +61,8 @@ controller:
                   }
                 }
               }
-          - script: >
+
+              managedJobs << 'docker-python'
               pipelineJob('docker-python') {
                 description('Dockerfile で Python スクリプトを実行するテストジョブ')
                 definition {
@@ -72,7 +80,9 @@ controller:
                 }
               }
 
-          - script: >
+
+
+              managedJobs << 'go-sample'
               pipelineJob('go-sample') {
                 description('Go 動作確認ジョブ')
                 definition {
@@ -89,6 +99,7 @@ controller:
                   }
                 }
               }
+              Jenkins.instance.items.findAll { !(it.name in managedJobs) }.each { it.delete(); println "Deleted: ${it.name}" }
 
 agent:
   resources:
