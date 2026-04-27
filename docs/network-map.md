@@ -81,16 +81,18 @@ Proxmox ホームラボの全体ネットワーク構成図。
 
 | 名前 | VM ID | IP | CPU | RAM | Proxmox ノード | 役割 |
 |------|-------|----|-----|-----|--------------|------|
-| k3s-master | 201 | 192.168.210.21 | 2 | 6GB | pve-node01 | k3s コントロールプレーン (NoSchedule taint) |
+| k3s-master | 201 | 192.168.210.21 | 2 | 6GB | pve-node03 | k3s コントロールプレーン (NoSchedule taint) |
 | k3s-worker03 | 204 | 192.168.210.24 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker04 | 205 | 192.168.210.25 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker05 | 206 | 192.168.210.26 | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker06 | 207 | 192.168.210.27 | 2 | 8GB | pve-node03 | k3s ワーカー |
 | k3s-worker07 | 208 | 192.168.210.28 | 2 | 8GB | pve-node03 | k3s ワーカー |
-| k3s-worker08 | 209 | 192.168.210.29 | 2 | 8GB | pve-node03 | k3s ワーカー |
-| dns-ct | 101 | 192.168.210.53 | - | 512MB | pve-node01 | Pi-hole DNS (LXC) |
+| k3s-worker09 | 210 | 192.168.210.30 | 1 | 4GB | pve-node01 | k3s ワーカー |
+| k3s-worker10 | 211 | 192.168.210.31 | 1 | 4GB | pve-node01 | k3s ワーカー |
+| k3s-worker11 | 212 | 192.168.210.32 | 1 | 4GB | pve-node01 | k3s ワーカー |
+| dns-ct | 101 | 192.168.210.53 | - | 512MB | pve-node03 | Pi-hole DNS (LXC) |
 
-> **削除済みワーカー:** worker01 (VM 202 / .22), worker02 (VM 203 / .23), worker09 (VM 210 / .30), worker10 (VM 211 / .31) は削除済み。これらの VM ID・IP は現在使用されていない。
+> **削除済みワーカー:** worker01 (VM 202 / .22), worker02 (VM 203 / .23), worker08 (VM 209 / .29) は削除済み。これらの VM ID・IP は現在使用されていない。
 
 ---
 

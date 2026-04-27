@@ -149,16 +149,18 @@ HA グループ: homelab-ha
 
 | 名前 | VM ID | 種別 | vCPU | RAM | ノード | 用途 |
 |------|-------|------|------|-----|--------|------|
-| dns-ct | 101 | LXC | 1 | 512MB | pve-node01 | Pi-hole (内部 DNS) |
-| k3s-master | 201 | VM | 2 | 6GB | pve-node01 | k3s コントロールプレーン |
+| dns-ct | 101 | LXC | 1 | 512MB | pve-node03 | Pi-hole (内部 DNS) |
+| k3s-master | 201 | VM | 2 | 6GB | pve-node03 | k3s コントロールプレーン |
 | k3s-worker03 | 204 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker04 | 205 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker05 | 206 | VM | 1 | 4GB | pve-node02 | k3s ワーカー |
 | k3s-worker06 | 207 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
 | k3s-worker07 | 208 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
-| k3s-worker08 | 209 | VM | 2 | 8GB | pve-node03 | k3s ワーカー |
+| k3s-worker09 | 210 | VM | 1 | 4GB | pve-node01 | k3s ワーカー |
+| k3s-worker10 | 211 | VM | 1 | 4GB | pve-node01 | k3s ワーカー |
+| k3s-worker11 | 212 | VM | 1 | 4GB | pve-node01 | k3s ワーカー |
 
-> worker01 (VM 202), worker02 (VM 203), worker09 (VM 210), worker10 (VM 211) は削除済み。
+> worker01 (VM 202), worker02 (VM 203), worker08 (VM 209) は削除済み。
 >
 > リソース合計: vCPU 13 / RAM 約 46.5GB — 3ノード合計 64GB 物理メモリの範囲内
 

@@ -58,7 +58,7 @@ Fluent Bit は各ログに自動的に以下のフィールドを付加する:
     "labels": {
       "app": "nginx"
     },
-    "host": "k3s-worker01"
+    "host": "k3s-worker03"
   }
 }
 ```
