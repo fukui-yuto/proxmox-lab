@@ -157,7 +157,7 @@ spec:
         parameters:
           - name: report
       script:
-        image: python:3.12-slim
+        image: harbor.homelab.local/dockerhub-proxy/library/python:3.12-slim
         command: [python3]
         env:
           - name: NAMESPACE

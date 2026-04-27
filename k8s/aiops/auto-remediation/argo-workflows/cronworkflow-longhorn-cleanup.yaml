@@ -22,7 +22,7 @@ spec:
       - name: maintenance
         activeDeadlineSeconds: 120
         script:
-          image: bitnami/kubectl:1.29
+          image: harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:1.29
           command: [bash]
           source: |
             set -euo pipefail
