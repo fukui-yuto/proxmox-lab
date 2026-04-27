@@ -71,23 +71,6 @@ controller:
                   }
                 }
               }
-          - script: >
-              pipelineJob('create-job') {
-                description('Cookiecutter でジョブを自動生成する')
-                definition {
-                  cpsScm {
-                    scm {
-                      git {
-                        remote {
-                          url('https://github.com/fukui-yuto/proxmox-lab.git')
-                        }
-                        branches('*/main')
-                      }
-                    }
-                    scriptPath('k8s/jenkins/jobs/create-job/Jenkinsfile')
-                  }
-                }
-              }
 
 agent:
   resources:
