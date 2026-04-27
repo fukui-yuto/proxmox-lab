@@ -33,6 +33,7 @@ spec:
           - "--destination={{inputs.parameters.destination}}"
           - "--insecure"
           - "--skip-tls-verify"
+          - "--push-retry=3"
         volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker
