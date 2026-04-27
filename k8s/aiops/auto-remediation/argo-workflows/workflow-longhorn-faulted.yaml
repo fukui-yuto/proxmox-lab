@@ -33,7 +33,7 @@ spec:
     - name: recover-volume
       activeDeadlineSeconds: 300
       script:
-        image: harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:1.29
+        image: harbor.homelab.local/proxy/alpine/k8s:1.31.3
         command: [bash]
         source: |
           set -euo pipefail
@@ -92,7 +92,7 @@ spec:
         parameters:
           - name: result
       script:
-        image: harbor.homelab.local/dockerhub-proxy/curlimages/curl:latest
+        image: harbor.homelab.local/proxy/curlimages/curl:latest
         command: [sh]
         env:
           - name: VOLUME

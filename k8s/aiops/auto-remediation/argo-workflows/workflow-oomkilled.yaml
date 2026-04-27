@@ -163,7 +163,7 @@ spec:
         parameters:
           - name: result
       script:
-        image: harbor.homelab.local/dockerhub-proxy/curlimages/curl:latest
+        image: harbor.homelab.local/proxy/curlimages/curl:latest
         command: [sh]
         env:
           - name: NAMESPACE

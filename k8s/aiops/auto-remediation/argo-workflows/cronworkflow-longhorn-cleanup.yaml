@@ -22,7 +22,7 @@ spec:
       - name: maintenance
         activeDeadlineSeconds: 120
         script:
-          image: harbor.homelab.local/dockerhub-proxy/bitnami/kubectl:1.29
+          image: harbor.homelab.local/proxy/alpine/k8s:1.31.3
           command: [bash]
           source: |
             set -euo pipefail
